@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { createGame, serve, step, point } from './game.ts';
+const g = createGame();
+serve(g); assert.equal(g.status, 'playing');
+for (let i=0;i<132;i++) step(g,1/120,0,false,'Club');
+assert.ok(g.ball.x>500, 'Serve must clear the net');
+g.ball={x:100,y:439,vx:0,vy:50};step(g,1/120,0,false,'Club');
+assert.deepEqual(g.score,[0,1]);assert.equal(g.server,1);
+g.score=[10,10];point(g,0);assert.equal(g.status,'ready');point(g,0);assert.equal(g.status,'over');
+const p=createGame();serve(p);p.status='paused';const old=p.ball.x;step(p,1,1,true,'Pro');assert.equal(p.ball.x,old);
+const n=createGame();serve(n);n.ball={x:480,y:340,vx:240,vy:0};step(n,1/30,0,false,'Club');assert.ok(n.ball.vx<0,'Net must bounce the ball');
+console.log('Game checks passed: serve, scoring, win by two, pause, net.');
