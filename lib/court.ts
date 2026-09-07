@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { step, setAim, FLOOR, type Game, type Player } from './game';
+import { step, setAim, guidance, landingX, landingZ, FLOOR, type Game, type Player } from './game';
 
 export function project(x: number, z: number, y = FLOOR) {
   return { x: 95 + x * .77 + z * .20, y: 245 + z * .66 - x * .035 - (FLOOR - y) * .68 };
@@ -26,6 +26,10 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
     arrow!: Phaser.GameObjects.Triangle;
     impact!: Phaser.GameObjects.Arc;
     target!: Phaser.GameObjects.Container;
+    landing!: Phaser.GameObjects.Ellipse;
+    receive!: Phaser.GameObjects.Ellipse;
+    hint!: Phaser.GameObjects.Text;
+    guideLine!: Phaser.GameObjects.Graphics;
     accumulator = 0;
     previous!: Game;
     lastView = '';
@@ -73,6 +77,10 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         const x=(sx*.66-sy*.2)/det,z=(sy*.77+sx*.035)/det;
         if(x>=535&&x<=965&&z>=25&&z<=425){setAim(getGame(),x,z);changed();}
       });
+      this.landing=this.add.ellipse(0,0,28,14).setStrokeStyle(2,0xffffff).setDepth(3);
+      this.receive=this.add.ellipse(0,0,64,25,0x49ded2,.18).setStrokeStyle(3,0x49ded2).setDepth(4);
+      this.hint=this.add.text(0,0,'',{fontFamily:'sans-serif',fontSize:'13px',color:'#ffffff',backgroundColor:'#193e46',padding:{x:7,y:5}}).setOrigin(.5).setDepth(950);
+      this.guideLine=this.add.graphics().setDepth(3);
       this.previous=this.snapshot();ready();
     }
     snapshot():Game {const g=getGame();return {...g,ball:{...g.ball},players:g.players.map(p=>({...p}))};}
@@ -103,6 +111,16 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         if(i===g.active){this.ring.setPosition(ground.x,ground.y);this.arrow.setPosition(pos.x,pos.y-110);}
       };
       g.players.forEach(render);
+      const guide=guidance(g),show=g.status==='playing'&&guide.team===0;
+      this.landing.setVisible(g.status==='playing');this.receive.setVisible(show);this.hint.setVisible(show);this.guideLine.clear();
+      const fall=project(landingX(g,437),landingZ(g,437));this.landing.setPosition(fall.x,fall.y);
+      if(show){
+        const spot=project(guide.x,guide.z),p=g.players[g.active],pos=project(p.x,p.z);
+        const close=Math.hypot(p.x-guide.x,p.z-guide.z)<50;
+        this.receive.setPosition(spot.x,spot.y).setStrokeStyle(3,close?0xa4ef7a:0x49ded2);
+        this.guideLine.lineStyle(2,0x49ded2,.7).lineBetween(pos.x,pos.y,spot.x,spot.y);
+        this.hint.setPosition(spot.x,spot.y+38).setText(guide.attack?(close&&guide.time<.5?'PULE AGORA · ESPAÇO':'ATAQUE · VÁ AO CÍRCULO'):close?'BEM POSICIONADO':'VÁ AO CÍRCULO');
+      }
       const target=project(g.aim.x,g.aim.z);this.target.setPosition(target.x,target.y);
       const old=this.previous.ball,b=g.ball;
       const x=g.status==='playing'?lerp(old.x,b.x):b.x,z=g.status==='playing'?lerp(old.z,b.z):b.z,y=g.status==='playing'?lerp(old.y,b.y):b.y;
@@ -110,7 +128,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       this.ball.setPosition(bp.x,bp.y).setDepth(z+30);if(g.status==='playing')this.ball.rotation+=delta*(g.shot==='FLOAT SERVE'?.0002:.004);
       this.ballShadow.setPosition(shadow.x,shadow.y).setAlpha(Math.max(.08,.3-(FLOOR-y)*.0005));
       this.impact.setPosition(bp.x,bp.y).setVisible(g.hitFlash>0).setAlpha(g.hitFlash/.16).setScale(1+(1-g.hitFlash/.16));
-      const view=`${g.status}:${g.rally}:${g.active}:${g.score}:${g.shot}`;if(view!==this.lastView){this.lastView=view;changed();}
+      const view=`${g.status}:${g.rally}:${g.active}:${g.score}:${g.shot}:${g.feedbackTime>0}`;if(view!==this.lastView){this.lastView=view;changed();}
     }
   }
   return new Phaser.Game({type:Phaser.AUTO,parent,width:1000,height:620,pixelArt:true,roundPixels:true,backgroundColor:'#dfbd85',scene:Court,

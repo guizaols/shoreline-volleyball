@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createGame, serve, step, point, switchPlayer, landingX, landingZ, contactPoint, launch, setAim, setServeStyle, FLOOR } from './game.ts';
+import { createGame, serve as releaseServe, prepareServe, contactQuality, guidance, step, point, switchPlayer, landingX, landingZ, contactPoint, launch, setAim, setServeStyle, FLOOR } from './game.ts';
 const atlas=readFileSync(new URL('../public/art/athlete-clean.png',import.meta.url));
 assert.equal(atlas.readUInt32BE(16),1254,'Sprite frame coordinates require the original atlas width');
 assert.equal(atlas[25],6,'Athlete atlas must have true alpha transparency');
 const tick = 1 / 120;
+function serve(g:ReturnType<typeof createGame>){prepareServe(g);releaseServe(g);}
 const g = createGame();
 assert.equal(g.players.length, 4);
 assert.deepEqual(g.players.map(p => p.team), [0, 0, 1, 1]);
@@ -16,7 +17,7 @@ assert.deepEqual(g.score, [0, 1]); assert.equal(g.server, 1);
 g.score = [10, 10]; point(g, 0); assert.equal(g.status, 'ready'); point(g, 0); assert.equal(g.status, 'over');
 const p = createGame(); serve(p); p.status = 'paused'; const old = JSON.stringify(p); step(p, tick, 1, true, 'Pro'); assert.equal(JSON.stringify(p), old);
 const n = createGame(); serve(n); n.ball = { x: 480, z: 200, y: 340, vx: 240, vz: 0, vy: 0 }; step(n, 1 / 30, 0, false, 'Club'); assert.ok(n.ball.vx < 0, 'Net bounces the ball');
-const m = createGame(); serve(m); step(m, tick, 1, false, 'Club');
+const m = createGame(); m.assist=false;serve(m); step(m, tick, 1, false, 'Club');
 assert.ok(m.players[0].vx > 0 && m.players[0].vx < 100, 'Movement accelerates rather than snapping');
 const speed = m.players[0].vx; step(m, tick, 0, false, 'Club');
 assert.ok(m.players[0].vx > 0 && m.players[0].vx < speed, 'Release brakes smoothly');
@@ -102,3 +103,18 @@ const styles=new Set<number>();for(const style of ['underhand','float','jump']){
 assert.equal(styles.size,3,'Serve styles have different trajectories');
 const gentle=createGame(),strong=createGame();gentle.power=.7;strong.power=1.25;serve(gentle);serve(strong);assert.ok(strong.ball.vx>gentle.ball.vx,'Power changes ball speed');
 console.log(`Passed: ${arcs} net-clearance and aiming cases, automatic selection, three serves, power, and existing match checks.`);
+
+const waiting=createGame();releaseServe(waiting);assert.equal(waiting.status,'ready');prepareServe(waiting);
+const stationary={...waiting.ball};for(let i=0;i<300;i++)step(waiting,tick,1,true,'Club');
+assert.equal(waiting.status,'serving');assert.deepEqual(waiting.ball,stationary);releaseServe(waiting);assert.equal(waiting.status,'playing');
+assert.equal(contactQuality(10),'BOM');assert.equal(contactQuality(40),'RUIM');
+const guide=guidance(waiting);assert.ok(Number.isFinite(guide.x)&&Number.isFinite(guide.time));
+assert.match(reception.feedback,/RECEPÇÃO BOM/);assert.match(set.feedback,/PASSE BOM/);assert.match(attack.feedback,/ATAQUE BOM/);
+const stretched=createGame();serve(stretched);stretched.autoSwitch=false;stretched.active=0;stretched.cooldown=0;stretched.lastTeam=1;stretched.lastHit=3;
+stretched.players[0].action='bump';stretched.players[0].actionTime=.28;
+stretched.ball={...contactPoint(stretched.players[0]),vx:0,vz:0,vy:0};stretched.ball.z+=39;
+step(stretched,tick,0,false,'Club');assert.match(stretched.feedback,/RECEPÇÃO RUIM/,'Assisted edge contact is playable and honestly graded');
+const assistance=createGame();serve(assistance);assistance.autoSwitch=false;assistance.lastTeam=1;assistance.lastHit=3;
+assistance.ball={x:assistance.players[0].x+70,z:assistance.players[0].z,y:180,vx:0,vz:0,vy:0};
+const initialDistance=Math.abs(assistance.players[0].x-guidance(assistance).x);step(assistance,tick,0,false,'Club');
+assert.ok(Math.abs(assistance.players[0].x-guidance(assistance).x)<initialDistance,'Assistance moves toward the displayed guide');
