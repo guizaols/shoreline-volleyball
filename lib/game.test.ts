@@ -144,3 +144,29 @@ step(recovery,tick,1,true,'Club');assert.equal(recovery.players[0].vy,0);assert.
 const cpuSave=createGame();serve(cpuSave);cpuSave.active=-1;cpuSave.cooldown=0;cpuSave.lastTeam=0;cpuSave.lastHit=0;
 Object.assign(cpuSave.players[2],{x:620,z:145});cpuSave.ball={x:720,z:145,y:390,vx:0,vz:0,vy:160};
 step(cpuSave,tick,0,false,'Pro');assert.equal(cpuSave.players[2].action,'dive','CPU dives for a reachable low ball beyond standing range');
+
+
+// The assisted drill must complete all three contacts and restart without scoring.
+const { startPractice, strokeQuality } = await import('./game.ts');
+const drill=createGame();startPractice(drill);
+const drillShots:string[]=[];
+for(let i=0;i<700&&drill.status==='playing';i++){
+  const rally=drill.rally;
+  step(drill,1/120,0,false,'Club',true);
+  if(drill.rally!==rally)drillShots.push(drill.shot);
+}
+assert.deepEqual(drillShots,['RECEPTION','SET','ATTACK']);
+assert.equal(drill.status,'practice-wait');
+assert.equal(drill.repetitions,1);
+assert.deepEqual(drill.score,[0,0]);
+assert.equal(drill.wind,0);
+for(let i=0;i<150;i++)step(drill,1/120,0,false,'Club');
+assert.equal(drill.status,'playing');
+assert.equal(drill.rally,0);
+const targetBefore=drill.aim.x;
+step(drill,1/120,1,false,'Club',true);
+assert.ok(drill.aim.x>targetBefore);
+assert.ok(drill.players[drill.active].preparation>0);
+assert.ok(strokeQuality(10,.7,0)>strokeQuality(55,0,320));
+assert.ok(strokeQuality(55,0,320)>0);
+console.log('Passed: practice sequence, automatic restart, preparation, aiming and graduated quality.');

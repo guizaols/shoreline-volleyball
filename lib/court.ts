@@ -119,7 +119,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         const close=Math.hypot(p.x-guide.x,p.z-guide.z)<50;
         this.receive.setPosition(spot.x,spot.y).setStrokeStyle(3,close?0xa4ef7a:0x49ded2);
         this.guideLine.lineStyle(2,0x49ded2,.7).lineBetween(pos.x,pos.y,spot.x,spot.y);
-        this.hint.setPosition(spot.x,spot.y+38).setText(guide.attack?(close&&guide.time<.5?'PULE AGORA · ESPAÇO':'ATAQUE · VÁ AO CÍRCULO'):close?'BEM POSICIONADO':'VÁ AO CÍRCULO');
+        this.hint.setPosition(spot.x,spot.y+38).setText(g.practice?(close?'SEGURE J · DIREÇÃO MIRA':'VÁ AO CÍRCULO'):guide.attack?(close&&guide.time<.5?'PULE AGORA · ESPAÇO':'ATAQUE · VÁ AO CÍRCULO'):close?'BEM POSICIONADO':'VÁ AO CÍRCULO');
       }
       const target=project(g.aim.x,g.aim.z);this.target.setPosition(target.x,target.y);
       const old=this.previous.ball,b=g.ball;
@@ -128,7 +128,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       this.ball.setPosition(bp.x,bp.y).setDepth(z+30);if(g.status==='playing')this.ball.rotation+=delta*(g.shot==='FLOAT SERVE'?.0002:.004);
       this.ballShadow.setPosition(shadow.x,shadow.y).setAlpha(Math.max(.08,.3-(FLOOR-y)*.0005));
       this.impact.setPosition(bp.x,bp.y).setVisible(g.hitFlash>0).setAlpha(g.hitFlash/.16).setScale(1+(1-g.hitFlash/.16));
-      const view=`${g.status}:${g.rally}:${g.active}:${g.score}:${g.shot}:${g.feedbackTime>0}:${Math.floor(g.tossTime*20)}:${Math.round(g.wind)}`;if(view!==this.lastView){this.lastView=view;changed();}
+      const view=`${g.status}:${g.rally}:${g.active}:${g.score}:${g.shot}:${g.feedbackTime>0}:${Math.floor(g.tossTime*20)}:${Math.round(g.wind)}:${Math.floor((g.players[g.active]?.preparation||0)*20)}`;if(view!==this.lastView){this.lastView=view;changed();}
     }
   }
   return new Phaser.Game({type:Phaser.AUTO,parent,width:1000,height:620,pixelArt:true,roundPixels:true,backgroundColor:'#dfbd85',scene:Court,
