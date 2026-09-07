@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { step, setAim, guidance, landingX, landingZ, FLOOR, type Game, type Player } from './game';
+import { step, DIVE_DURATION, setAim, guidance, landingX, landingZ, FLOOR, type Game, type Player } from './game';
 
 export function project(x: number, z: number, y = FLOOR) {
   return { x: 95 + x * .77 + z * .20, y: 245 + z * .66 - x * .035 - (FLOOR - y) * .68 };
@@ -93,7 +93,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         const old=this.previous.players[i];
         const x=g.status==='playing'?lerp(old.x,p.x):p.x,z=g.status==='playing'?lerp(old.z,p.z):p.z,y=g.status==='playing'?lerp(old.y,p.y):p.y;
         const ground=project(x,z),pos=project(x,z,y),sprite=this.athletes[i];
-        sprite.setPosition(pos.x,pos.y).setScale(.56).setFlipX(p.team===1).setDepth(z+20);
+        sprite.setPosition(pos.x,pos.y).setScale(.56).setFlipX(p.action==='dive'?p.diveX<0:p.team===1).setDepth(z+20);
         // A subtle warm tint and labels distinguish the opposing team.
         sprite.setTint(i<2?0xffffff:0xffdbd1);
         const moving=Math.hypot(p.vx,p.vz)>25;
@@ -102,7 +102,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         }else if(p.action==='idle'){
           sprite.play(moving?'run':'idle',true);sprite.anims.timeScale=moving?Math.max(.4,Math.hypot(p.vx,p.vz)/220):1;
         }else{
-          sprite.stop();const duration=p.action==='dive'?.6:.55;
+          sprite.stop();const duration=p.action==='dive'?DIVE_DURATION:.55;
           sprite.setFrame(`${p.action}-${Math.min(5,Math.floor((1-p.actionTime/duration)*6))}`);
         }
         if(g.status==='paused')sprite.anims.pause();else sprite.anims.resume();

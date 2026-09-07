@@ -67,7 +67,7 @@ for(let i=0;i<1200;i++){
   step(combo,tick,0,false,'Pro');
   if(combo.rally>previous){actions.push(combo.shot);participants.add(combo.lastHit);previous=combo.rally;}
 }
-assert.deepEqual(actions.slice(0,6),['RECEPTION','SET','ATTACK','RECEPTION','SET','ATTACK']);
+assert.deepEqual(actions.slice(0,6).map(action=>action==='DIVING SAVE'?'RECEPTION':action),['RECEPTION','SET','ATTACK','RECEPTION','SET','ATTACK']);
 assert.equal(participants.size,4,'All four athletes participate across the net');
 assert.equal(combo.status,'playing','Complete combinations must clear the net and remain in bounds');
 // Regression: a low contact far from the net used to hit the tape with a fixed .82s arc.
@@ -131,3 +131,16 @@ Object.assign(blocking.players[0],{x:450,z:225,y:350});blocking.ball={x:460,z:22
 step(blocking,tick,0,false,'Club',false,false,0,true);assert.equal(blocking.shot,'BLOQUEIO');assert.ok(blocking.ball.vx>0);assert.equal(blocking.touches,0);
 const windy=createGame();serve(windy);windy.windEnabled=true;windy.clock=3;windy.ball={x:750,z:225,y:0,vx:0,vz:0,vy:0};step(windy,tick,0,false,'Club');assert.notEqual(windy.ball.vz,0);
 const firstWind=windy.wind;windy.clock=12;step(windy,tick,0,false,'Club');assert.notEqual(windy.wind,firstWind);windy.windEnabled=false;step(windy,tick,0,false,'Club');assert.equal(windy.wind,0);
+const diagonal=createGame();serve(diagonal);diagonal.autoSwitch=false;diagonal.players[0].x=220;
+step(diagonal,tick,-1,false,'Club',false,true,1);
+assert.equal(diagonal.players[0].action,'dive');assert.ok(diagonal.players[0].vx<0&&diagonal.players[0].vz>0);
+const hands=contactPoint(diagonal.players[0]);assert.ok(hands.x<diagonal.players[0].x&&hands.z>diagonal.players[0].z);
+const save=createGame();serve(save);save.autoSwitch=false;save.lastTeam=1;save.lastHit=3;save.cooldown=0;
+Object.assign(save.players[0],{x:220,z:225,action:'dive',actionTime:.55,diveX:-1,diveZ:0,vx:0,vz:0});
+save.ball={...contactPoint(save.players[0]),vx:0,vz:0,vy:30};step(save,tick,0,false,'Club');
+assert.equal(save.shot,'DIVING SAVE');assert.ok(save.ball.vy<0);assert.match(save.feedback,/DEFESA NO CHÃO/);
+const recovery=createGame();serve(recovery);recovery.autoSwitch=false;recovery.players[0].action='dive';recovery.players[0].actionTime=.2;recovery.ball={x:900,z:400,y:0,vx:0,vz:0,vy:0};
+step(recovery,tick,1,true,'Club');assert.equal(recovery.players[0].vy,0);assert.equal(recovery.players[0].vx,0,'Recovery cannot run or jump');
+const cpuSave=createGame();serve(cpuSave);cpuSave.active=-1;cpuSave.cooldown=0;cpuSave.lastTeam=0;cpuSave.lastHit=0;
+Object.assign(cpuSave.players[2],{x:620,z:145});cpuSave.ball={x:720,z:145,y:390,vx:0,vz:0,vy:160};
+step(cpuSave,tick,0,false,'Pro');assert.equal(cpuSave.players[2].action,'dive','CPU dives for a reachable low ball beyond standing range');

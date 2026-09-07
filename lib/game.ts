@@ -3,15 +3,16 @@ const GRAVITY = 620;
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 export type AttackStyle = 'power' | 'roll' | 'tip';
 export type ServeStyle = 'underhand' | 'float' | 'jump';
+export const DIVE_DURATION=.85;
 export type Action = 'idle' | 'bump' | 'set' | 'spike' | 'dive';
 export type Player = {
   x: number; z: number; y: number; vx: number; vz: number; vy: number; team: number;
   action: Action; actionTime: number; stride: number; landing: number;
-  windup: number; jumpBuffer: number; jumpHeld: boolean; diveHeld: boolean;
+  windup: number; jumpBuffer: number; jumpHeld: boolean; diveHeld: boolean; diveX: number; diveZ: number;
 };
 function players(): Player[] {
   return [200, 380, 620, 800].map((x, i) => ({ x, z: i % 2 ? 310 : 145, y: FLOOR, vx: 0, vz: 0, vy: 0, team: i < 2 ? 0 : 1,
-    action: 'idle', actionTime: 0, stride: 0, landing: 0, windup: 0, jumpBuffer: 0, jumpHeld: false, diveHeld: false }));
+    action: 'idle', actionTime: 0, stride: 0, landing: 0, windup: 0, jumpBuffer: 0, jumpHeld: false, diveHeld: false, diveX: i<2?1:-1, diveZ: 0 }));
 }
 export function createGame() {
   return { players: players(), active: 0, autoSwitch: true, aim: {x:810,z:225}, power: 1, serveStyle: 'float' as ServeStyle, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
@@ -101,7 +102,8 @@ export function landingX(g: Game, height = 375) { return g.ball.x + g.ball.vx * 
 export function landingZ(g: Game, height = 375) { return g.ball.z + g.ball.vz * flightTime(g,height) + .5*g.wind*flightTime(g,height)**2; }
 export function contactPoint(p: Player) {
   const height=p.action==='dive'?28:p.action==='spike'?140:p.action==='set'?116:66;
-  return {x:p.x+(p.team?-1:1)*(p.action==='bump'?27:p.action==='dive'?49:12),z:p.z,y:p.y-height};
+  if(p.action==='dive')return {x:p.x+p.diveX*55,z:p.z+p.diveZ*55,y:p.y-height};
+  return {x:p.x+(p.team?-1:1)*(p.action==='bump'?27:12),z:p.z,y:p.y-height};
 }
 function hit(g: Game, i: number, attack: boolean, distance: number) {
   const p = g.players[i], b = g.ball, sameTeam = g.lastTeam === p.team;
@@ -128,7 +130,7 @@ function hit(g: Game, i: number, attack: boolean, distance: number) {
     b.vz=(partner.z-b.z)/flight;
   }
   const quality=contactQuality(distance);
-  g.feedback=`${p.team?'COAST':'VOCÊ'} · ${sendOver?(p.team===0&&g.attackStyle==='tip'?'LARGADINHA':p.team===0&&g.attackStyle==='roll'?'ATAQUE COLOCADO':'ATAQUE'):g.touches===1?'RECEPÇÃO':'PASSE'} ${quality}`;g.feedbackTime=1.8;
+  g.feedback=`${p.team?'COAST':'VOCÊ'} · ${diving?'DEFESA NO CHÃO':sendOver?(p.team===0&&g.attackStyle==='tip'?'LARGADINHA':p.team===0&&g.attackStyle==='roll'?'ATAQUE COLOCADO':'ATAQUE'):g.touches===1?'RECEPÇÃO':'PASSE'} ${quality}`;g.feedbackTime=1.8;
   g.shot = diving ? 'DIVING SAVE' : action === 'bump' ? 'RECEPTION' : action === 'set' ? 'SET' : 'ATTACK';
 }
 export function step(g: Game, dt: number, move: number, jump: boolean, difficulty: string, attack = false, dive = false, depth = 0, block = false) {
@@ -156,7 +158,7 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
     const next=receivers[0], current=g.players[g.active];
     const distance=(p:Player)=>Math.hypot(p.x-predicted,p.z-predictedZ);
     // Hysteresis prevents control from flickering between two equally close players.
-    if(next!==g.active && (g.lastTeam===0&&g.lastHit===g.active || distance(current)>distance(g.players[next])+65)) {
+    if(current.action!=='dive' && next!==g.active && (g.lastTeam===0&&g.lastHit===g.active || distance(current)>distance(g.players[next])+65)) {
       g.active=next;g.players[next].jumpHeld=jump;g.players[next].diveHeld=dive;
     }
   }
@@ -186,15 +188,20 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
     p.jumpBuffer = Math.max(0, p.jumpBuffer - dt);
     if (p.jumpBuffer > 0 && p.y === FLOOR && p.windup === 0 && p.action !== 'dive') { p.windup = .065; p.jumpBuffer = 0; if(g.lastTeam===p.team&&g.touches>=2){p.action='spike';p.actionTime=.55;} }
     if (p.windup > 0) { p.windup = Math.max(0, p.windup - dt); if (!p.windup) p.vy = -510; }
-    const wantsDive = human && dive;
+    const lowX=landingX(g,422),lowZ=landingZ(g,422),timeLeft=flightTime(g,422);
+    const distanceToLow=Math.hypot(lowX-p.x,lowZ-p.z);
+    const cpuDive=!human&&receivers[p.team]===i&&receivingTeam===p.team&&b.vy>0&&timeLeft<.4&&distanceToLow>55&&distanceToLow<190&&distanceToLow>timeLeft*230;
+    const wantsDive = human ? dive : cpuDive;
     if (wantsDive && !p.diveHeld && p.y === FLOOR && !p.windup && p.action !== 'dive') {
-      p.action = 'dive'; p.actionTime = .6; p.vz=depthDirection*300; p.vx = (direction || (b.x >= p.x ? 1 : -1)) * 490;
+      let dx=human?move:0,dz=human?depth:0;
+      if(!dx&&!dz){dx=lowX-p.x;dz=lowZ-p.z;}
+      const length=Math.hypot(dx,dz)||1;p.diveX=dx/length;p.diveZ=dz/length;
+      p.action='dive';p.actionTime=DIVE_DURATION;p.vx=p.diveX*540;p.vz=p.diveZ*540;p.jumpBuffer=0;
     }
     p.diveHeld = wantsDive;
     const speed = human ? 320 : p.team === 0 ? 295 : difficulty === 'Chill' ? 205 : difficulty === 'Pro' ? 310 : 265;
-    if (p.action === 'dive') p.vx *= Math.exp(-2.8 * dt);
-    else p.vx += (direction * speed - p.vx) * (1 - Math.exp(-(p.y < FLOOR ? 8 : 16) * dt));
-    p.vz += (depthDirection * speed - p.vz) * (1 - Math.exp(-14 * dt));
+    if(p.action==='dive'){const friction=p.actionTime>.3?3:14;p.vx*=Math.exp(-friction*dt);p.vz*=Math.exp(-friction*dt);}
+    else {p.vx+=(direction*speed-p.vx)*(1-Math.exp(-(p.y<FLOOR?8:16)*dt));p.vz+=(depthDirection*speed-p.vz)*(1-Math.exp(-14*dt));}
     p.x += p.vx * dt; p.z=clamp(p.z+p.vz*dt,30,420);
     const bounded = clamp(p.x, p.team ? 537 : 40, p.team ? 960 : 463);
     if (bounded !== p.x) p.vx = 0;
@@ -240,6 +247,7 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
       return {i,distance:Math.hypot((b.x-hand.x)/1.1,b.z-hand.z,(b.y-hand.y)/1.2)};
     }).filter(c=>{
       const p=g.players[c.i];
+      if(p.action==='dive')return c.distance<38&&p.actionTime<=DIVE_DURATION-.06&&p.actionTime>=.3;
       return c.distance<(c.i===g.active&&g.assist?48:30) && p.action!=='idle' && p.actionTime<=.39 && p.actionTime>=.08;
     }).sort((a,c)=>a.distance-c.distance);
     if(contacts.length) hit(g,contacts[0].i,contacts[0].i===g.active?attack:false,contacts[0].distance);
