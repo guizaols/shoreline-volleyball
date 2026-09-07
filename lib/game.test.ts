@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createGame, serve, step, point, switchPlayer, landingX, landingZ, contactPoint, FLOOR } from './game.ts';
+import { createGame, serve, step, point, switchPlayer, landingX, landingZ, contactPoint, launch, setAim, setServeStyle, FLOOR } from './game.ts';
 const atlas=readFileSync(new URL('../public/art/athlete-clean.png',import.meta.url));
 assert.equal(atlas.readUInt32BE(16),1254,'Sprite frame coordinates require the original atlas width');
 assert.equal(atlas[25],6,'Athlete atlas must have true alpha transparency');
@@ -9,7 +9,7 @@ const g = createGame();
 assert.equal(g.players.length, 4);
 assert.deepEqual(g.players.map(p => p.team), [0, 0, 1, 1]);
 serve(g); assert.equal(g.status, 'playing');
-for (let i = 0; i < 150; i++) step(g, tick, 0, false, 'Club');
+for (let i = 0; i < 360 && g.ball.x < 519; i++) step(g, tick, 0, false, 'Club');
 assert.ok(g.ball.x > 500 && g.ball.y < 274, 'Serve clears the net');
 g.ball = { x: 80, z: 40, y: 439, vx: 0, vz: 0, vy: 50 }; step(g, tick, 0, false, 'Club');
 assert.deepEqual(g.score, [0, 1]); assert.equal(g.server, 1);
@@ -69,4 +69,36 @@ for(let i=0;i<1200;i++){
 assert.deepEqual(actions.slice(0,6),['RECEPTION','SET','ATTACK','RECEPTION','SET','ATTACK']);
 assert.equal(participants.size,4,'All four athletes participate across the net');
 assert.equal(combo.status,'playing','Complete combinations must clear the net and remain in bounds');
-console.log('Passed: doubles, smooth movement, jump edge, switching, three-touch combinations, faults, dive, CPU teamwork, serve, net, pause and scoring.');
+// Regression: a low contact far from the net used to hit the tape with a fixed .82s arc.
+const low=createGame();serve(low);low.cooldown=0;low.lastTeam=0;low.lastHit=1;low.touches=2;
+Object.assign(low.players[0],{x:200,y:385,action:'spike',actionTime:.28});
+low.ball={...contactPoint(low.players[0]),vx:0,vz:0,vy:50};setAim(low,900,350);
+step(low,tick,0,false,'Club',true);
+assert.ok(Math.abs(landingX(low,437)-900)<.001 && Math.abs(landingZ(low,437)-350)<.001,'Attack follows the chosen aim');
+const lowBall=low.ball,netTime=(500-lowBall.x)/lowBall.vx;
+assert.ok(lowBall.y+lowBall.vy*netTime+310*netTime*netTime<250,'Low attack must clear the tape');
+let arcs=0;
+for(const team of [0,1])for(const startX of [55,210,440,475])for(const height of [145,245,310,384])for(const targetX of [570,790,935])for(const targetZ of [55,225,395]){
+  const shot=createGame();shot.status='playing';shot.active=-1;shot.lastTeam=team;shot.cooldown=99;
+  shot.ball={x:team?1000-startX:startX,z:225,y:height,vx:0,vz:0,vy:0};
+  const target={x:team?1000-targetX:targetX,z:targetZ};launch(shot,target,.65);
+  const direction=team?-1:1;let last={...shot.ball};
+  for(let i=0;i<900&&shot.status==='playing';i++){
+    last={...shot.ball};step(shot,tick,0,false,'Pro');
+    if(shot.status==='playing')assert.ok(shot.ball.vx*direction>0,'Trajectory must not bounce from the net');
+  }
+  assert.equal(shot.status,'ready');assert.equal(shot.score[team],1,'Aimed ball must land inside the opponent court');
+  assert.ok(Math.abs(last.x-target.x)<12 && Math.abs(last.z-target.z)<12,'Landing follows the selected target');arcs++;
+}
+const automatic=contact(0,3,1);step(automatic,tick,0,false,'Club');assert.equal(automatic.active,1,'Control follows the pass to the partner');
+for(let i=0;i<20;i++){step(automatic,tick,0,false,'Club');assert.equal(automatic.active,1,'Receiver remains stable during the pass');}
+const incoming=createGame();incoming.status='playing';incoming.players[0].x=50;incoming.players[0].z=40;
+incoming.ball={x:380,z:310,y:100,vx:0,vz:0,vy:0};step(incoming,tick,0,false,'Club');assert.equal(incoming.active,1);
+incoming.autoSwitch=false;incoming.active=0;step(incoming,tick,0,false,'Club');assert.equal(incoming.active,0,'Manual mode stays selected');
+const aiming=createGame();setAim(aiming,600,75);serve(aiming);assert.ok(Math.abs(landingX(aiming,437)-600)<.001 && Math.abs(landingZ(aiming,437)-75)<.001);
+const other=createGame();setAim(other,925,390);serve(other);assert.ok(Math.abs(landingX(other,437)-925)<.001 && Math.abs(landingZ(other,437)-390)<.001);
+setAim(other,NaN,200);assert.deepEqual(other.aim,{x:925,z:390});setAim(other,10000,-100);assert.deepEqual(other.aim,{x:935,z:55});
+const styles=new Set<number>();for(const style of ['underhand','float','jump']){const s=createGame();setServeStyle(s,style);serve(s);styles.add(s.ball.vx);assert.ok(Math.abs(landingX(s,437)-s.aim.x)<.001);}
+assert.equal(styles.size,3,'Serve styles have different trajectories');
+const gentle=createGame(),strong=createGame();gentle.power=.7;strong.power=1.25;serve(gentle);serve(strong);assert.ok(strong.ball.vx>gentle.ball.vx,'Power changes ball speed');
+console.log(`Passed: ${arcs} net-clearance and aiming cases, automatic selection, three serves, power, and existing match checks.`);

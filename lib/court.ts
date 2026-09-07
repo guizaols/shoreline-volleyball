@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { step, FLOOR, type Game, type Player } from './game';
+import { step, setAim, FLOOR, type Game, type Player } from './game';
 
 export function project(x: number, z: number, y = FLOOR) {
   return { x: 95 + x * .77 + z * .20, y: 245 + z * .66 - x * .035 - (FLOOR - y) * .68 };
@@ -25,6 +25,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
     ring!: Phaser.GameObjects.Ellipse;
     arrow!: Phaser.GameObjects.Triangle;
     impact!: Phaser.GameObjects.Arc;
+    target!: Phaser.GameObjects.Container;
     accumulator = 0;
     previous!: Game;
     lastView = '';
@@ -64,6 +65,14 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       this.ballShadow=this.add.ellipse(0,0,16,6,0x563b26,.3).setDepth(2);
       this.ball=this.add.container(0,0,[this.add.circle(0,0,8,0xfff9df).setStrokeStyle(1,0x624f3f),this.add.arc(0,0,6,-60,110,false,0x3a93b5),this.add.arc(0,0,5,140,280,false,0xe4b841)]).setDepth(900);
       this.impact=this.add.circle(0,0,12).setStrokeStyle(2,0xffffd3).setDepth(901);
+      const circle=this.add.ellipse(0,0,34,17).setStrokeStyle(2,0xffee75);
+      const cross=this.add.graphics().lineStyle(2,0xffee75);cross.lineBetween(-10,0,10,0);cross.lineBetween(0,-8,0,8);
+      this.target=this.add.container(0,0,[circle,cross]).setDepth(3);
+      this.input.on('pointerdown',(pointer:Phaser.Input.Pointer)=>{
+        const sx=pointer.x-95,sy=pointer.y-245,det=.77*.66+.2*.035;
+        const x=(sx*.66-sy*.2)/det,z=(sy*.77+sx*.035)/det;
+        if(x>=535&&x<=965&&z>=25&&z<=425){setAim(getGame(),x,z);changed();}
+      });
       this.previous=this.snapshot();ready();
     }
     snapshot():Game {const g=getGame();return {...g,ball:{...g.ball},players:g.players.map(p=>({...p}))};}
@@ -94,10 +103,11 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         if(i===g.active){this.ring.setPosition(ground.x,ground.y);this.arrow.setPosition(pos.x,pos.y-110);}
       };
       g.players.forEach(render);
+      const target=project(g.aim.x,g.aim.z);this.target.setPosition(target.x,target.y);
       const old=this.previous.ball,b=g.ball;
       const x=g.status==='playing'?lerp(old.x,b.x):b.x,z=g.status==='playing'?lerp(old.z,b.z):b.z,y=g.status==='playing'?lerp(old.y,b.y):b.y;
       const bp=project(x,z,y),shadow=project(x,z);
-      this.ball.setPosition(bp.x,bp.y).setDepth(z+30);if(g.status==='playing')this.ball.rotation+=delta*.004;
+      this.ball.setPosition(bp.x,bp.y).setDepth(z+30);if(g.status==='playing')this.ball.rotation+=delta*(g.shot==='FLOAT SERVE'?.0002:.004);
       this.ballShadow.setPosition(shadow.x,shadow.y).setAlpha(Math.max(.08,.3-(FLOOR-y)*.0005));
       this.impact.setPosition(bp.x,bp.y).setVisible(g.hitFlash>0).setAlpha(g.hitFlash/.16).setScale(1+(1-g.hitFlash/.16));
       const view=`${g.status}:${g.rally}:${g.active}:${g.score}:${g.shot}`;if(view!==this.lastView){this.lastView=view;changed();}

@@ -1,6 +1,7 @@
 export const FLOOR = 450;
 const GRAVITY = 620;
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+export type ServeStyle = 'underhand' | 'float' | 'jump';
 export type Action = 'idle' | 'bump' | 'set' | 'spike' | 'dive';
 export type Player = {
   x: number; z: number; y: number; vx: number; vz: number; vy: number; team: number;
@@ -12,7 +13,7 @@ function players(): Player[] {
     action: 'idle', actionTime: 0, stride: 0, landing: 0, windup: 0, jumpBuffer: 0, jumpHeld: false, diveHeld: false }));
 }
 export function createGame() {
-  return { players: players(), active: 0, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
+  return { players: players(), active: 0, autoSwitch: true, aim: {x:810,z:225}, power: 1, serveStyle: 'float' as ServeStyle, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
     server: 0, status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
     lastHit: -1, lastTeam: -1, touches: 0, rally: 0, shot: '', hitFlash: 0 };
 }
@@ -20,12 +21,43 @@ export type Game = ReturnType<typeof createGame>;
 export function switchPlayer(g: Game) {
   if (g.status === 'playing' || g.status === 'ready') g.active = 1 - g.active;
 }
+export function setAim(g: Game, x: number, z: number) {
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+  g.aim={x:clamp(x,570,935),z:clamp(z,55,395)};
+}
+export function setServeStyle(g: Game, style: string) {
+  if(style==='underhand'||style==='float'||style==='jump')g.serveStyle=style;
+}
+// Solve the landing arc and raise it only as much as the whole net band requires.
+export function launch(g: Game, target: {x:number;z:number}, preferredFlight: number) {
+  const b=g.ball,landingY=FLOOR-13;
+  let flight=Math.max(.55,preferredFlight);
+  for(const netX of [482,500,518]) {
+    const u=(netX-b.x)/(target.x-b.x);
+    if(u>0 && u<1) {
+      const linearY=b.y+(landingY-b.y)*u;
+      const needed=2*(linearY-248)/(GRAVITY*u*(1-u));
+      flight=Math.max(flight,Math.sqrt(Math.max(0,needed)));
+    }
+  }
+  b.vx=(target.x-b.x)/flight;b.vz=(target.z-b.z)/flight;
+  b.vy=(landingY-b.y-.5*GRAVITY*flight*flight)/flight;
+}
+function opponentTarget(g: Game) {
+  const candidates=[100,260,420].flatMap(x=>[70,225,380].map(z=>({x,z})));
+  const space=(t:{x:number;z:number})=>Math.min(...g.players.slice(0,2).map(p=>Math.hypot(t.x-p.x-p.vx*.25,t.z-p.z-p.vz*.25)));
+  return candidates.reduce((best,t)=>space(t)>space(best)?t:best);
+}
 export function serve(g: Game) {
   if (g.status !== 'ready') return;
-  g.status = 'playing'; g.message = '';
-  g.ball = { x: g.server ? 788 : 212, z: g.server ? 310 : 145, y: 310, vx: g.server ? -255 : 255, vz: g.server ? -35 : 35, vy: -450 };
-  g.lastHit = g.server ? 3 : 0; g.lastTeam = g.server; g.touches = 1; g.cooldown = .3;
-  g.players[g.lastHit].action = 'spike'; g.players[g.lastHit].actionTime = .26; g.shot = 'SERVE';
+  const style=g.server?(['float','underhand','jump'] as ServeStyle[])[(g.score[0]+g.score[1])%3]:g.serveStyle;
+  const i=g.server?3:0,p=g.players[i];
+  p.x=g.server?960:40;p.z=225;p.y=style==='jump'?365:FLOOR;p.vy=style==='jump'?-130:0;
+  p.action=style==='underhand'?'bump':'spike';p.actionTime=.26;
+  g.ball={...contactPoint(p),vx:0,vz:0,vy:0};
+  launch(g,g.server?opponentTarget(g):g.aim,(style==='underhand'?1.9:style==='float'?1.45:1.05)/(g.server?1:g.power));
+  g.status='playing';g.message='';g.lastHit=i;g.lastTeam=g.server;g.touches=1;g.cooldown=.3;
+  g.shot=style==='underhand'?'UNDERHAND SERVE':style==='float'?'FLOAT SERVE':'JUMP SERVE';
 }
 export function point(g: Game, winner: number, reason = '') {
   g.score[winner]++; g.server = winner;
@@ -33,7 +65,7 @@ export function point(g: Game, winner: number, reason = '') {
   g.message = g.status === 'over' ? (winner === 0 ? 'Your team owns the beach!' : 'The beach wants a rematch.')
     : `${winner === 0 ? 'Your point!' : 'Point, Coast.'}${reason ? ` ${reason}` : ' Next ball.'}`;
   g.players = players(); g.ball = { x: winner ? 800 : 200, z: winner ? 310 : 145, y: 325, vx: 0, vz: 0, vy: 0 };
-  g.rally = 0; g.touches = 0; g.lastHit = -1; g.lastTeam = -1; g.shot = ''; g.hitFlash = 0;
+  g.active=0; g.rally = 0; g.touches = 0; g.lastHit = -1; g.lastTeam = -1; g.shot = ''; g.hitFlash = 0;
 }
 // Predict the descending crossing of a contact height, using the same gravity as the ball.
 export function flightTime(g: Game, height = 375) {
@@ -60,23 +92,14 @@ function hit(g: Game, i: number, attack: boolean) {
   if (!diving) { p.action = action; p.actionTime = .26; }
   const hand=contactPoint(p);
   b.x=hand.x; b.y=hand.y; b.z=hand.z;
-  const target = sendOver ? (p.team ? 190 : 810) : clamp(partner.x, p.team ? 575 : 85, p.team ? 915 : 425);
-  const targetZ=sendOver ? (b.z>225?135:315) : partner.z;
   if (sendOver) {
-    // A high contact can drive down; lower contacts use a safe arc over the net.
-    if (b.y < 255) {
-      const flight = .82;
-      b.vx = (target - b.x) / flight; b.vz=(targetZ-b.z)/flight;
-      b.vy = (FLOOR - 13 - b.y - .5 * GRAVITY * flight * flight) / flight;
-    } else {
-      b.vy = -460;
-      const flight = (-b.vy + Math.sqrt(b.vy * b.vy + 2 * GRAVITY * (375 - b.y))) / GRAVITY;
-      b.vx = (target - b.x) / flight; b.vz=(targetZ-b.z)/flight;
-    }
+    const target=p.team?opponentTarget(g):g.aim;
+    launch(g,target,(b.y<255?.82:1.3)/(p.team?1:g.power));
   } else {
     b.vy = g.touches === 1 ? -385 : -455;
     const flight = (-b.vy + Math.sqrt(b.vy * b.vy + 2 * GRAVITY * (365 - b.y))) / GRAVITY;
-    b.vx = (target - b.x) / flight; b.vz=(targetZ-b.z)/flight;
+    b.vx=(clamp(partner.x,p.team?575:85,p.team?915:425)-b.x)/flight;
+    b.vz=(partner.z-b.z)/flight;
   }
   g.shot = diving ? 'DIVING SAVE' : action === 'bump' ? 'RECEPTION' : action === 'set' ? 'SET' : 'ATTACK';
 }
@@ -92,6 +115,14 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
       const cost = (id: number) => Math.hypot(g.players[id].x - predicted, g.players[id].z - predictedZ) + (g.lastTeam === team && g.lastHit === id ? 1000 : 0);
       return cost(a) <= cost(c) ? a : c;
     });
+  }
+  if(g.autoSwitch && g.active>=0 && receivingTeam===0) {
+    const next=receivers[0], current=g.players[g.active];
+    const distance=(p:Player)=>Math.hypot(p.x-predicted,p.z-predictedZ);
+    // Hysteresis prevents control from flickering between two equally close players.
+    if(next!==g.active && (g.lastTeam===0&&g.lastHit===g.active || distance(current)>distance(g.players[next])+65)) {
+      g.active=next;g.players[next].jumpHeld=jump;g.players[next].diveHeld=dive;
+    }
   }
   for (let i = 0; i < 4; i++) {
     const p = g.players[i], human = i === g.active;
