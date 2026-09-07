@@ -87,7 +87,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
     update(_time:number,delta:number) {
       if(!this.ball)return;
       this.accumulator+=Math.min(delta/1000,.1);
-      while(this.accumulator>=1/120){this.previous=this.snapshot();step(getGame(),1/120,(keys.has('right')?1:0)-(keys.has('left')?1:0),keys.has('jump'),getLevel(),keys.has('attack'),keys.has('dive'),(keys.has('down')?1:0)-(keys.has('up')?1:0));this.accumulator-=1/120;}
+      while(this.accumulator>=1/120){this.previous=this.snapshot();step(getGame(),1/120,(keys.has('right')?1:0)-(keys.has('left')?1:0),keys.has('jump'),getLevel(),keys.has('attack'),keys.has('dive'),(keys.has('down')?1:0)-(keys.has('up')?1:0),keys.has('block'));this.accumulator-=1/120;}
       const g=getGame(),alpha=this.accumulator*120, lerp=(a:number,b:number)=>a+(b-a)*alpha;
       const render=(p:Player,i:number)=>{
         const old=this.previous.players[i];
@@ -128,7 +128,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       this.ball.setPosition(bp.x,bp.y).setDepth(z+30);if(g.status==='playing')this.ball.rotation+=delta*(g.shot==='FLOAT SERVE'?.0002:.004);
       this.ballShadow.setPosition(shadow.x,shadow.y).setAlpha(Math.max(.08,.3-(FLOOR-y)*.0005));
       this.impact.setPosition(bp.x,bp.y).setVisible(g.hitFlash>0).setAlpha(g.hitFlash/.16).setScale(1+(1-g.hitFlash/.16));
-      const view=`${g.status}:${g.rally}:${g.active}:${g.score}:${g.shot}:${g.feedbackTime>0}`;if(view!==this.lastView){this.lastView=view;changed();}
+      const view=`${g.status}:${g.rally}:${g.active}:${g.score}:${g.shot}:${g.feedbackTime>0}:${Math.floor(g.tossTime*20)}:${Math.round(g.wind)}`;if(view!==this.lastView){this.lastView=view;changed();}
     }
   }
   return new Phaser.Game({type:Phaser.AUTO,parent,width:1000,height:620,pixelArt:true,roundPixels:true,backgroundColor:'#dfbd85',scene:Court,

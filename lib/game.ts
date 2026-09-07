@@ -1,6 +1,7 @@
 export const FLOOR = 450;
 const GRAVITY = 620;
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+export type AttackStyle = 'power' | 'roll' | 'tip';
 export type ServeStyle = 'underhand' | 'float' | 'jump';
 export type Action = 'idle' | 'bump' | 'set' | 'spike' | 'dive';
 export type Player = {
@@ -14,7 +15,7 @@ function players(): Player[] {
 }
 export function createGame() {
   return { players: players(), active: 0, autoSwitch: true, aim: {x:810,z:225}, power: 1, serveStyle: 'float' as ServeStyle, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
-    assist: true, feedback: '', feedbackTime: 0, server: 0, status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
+    attackStyle: 'power' as AttackStyle, tossTime: 0, tossQuality: '', windEnabled: true, wind: 0, clock: 0, resumeStatus: 'playing', assist: true, feedback: '', feedbackTime: 0, server: 0, status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
     lastHit: -1, lastTeam: -1, touches: 0, rally: 0, shot: '', hitFlash: 0 };
 }
 export type Game = ReturnType<typeof createGame>;
@@ -60,15 +61,26 @@ export function guidance(g:Game) {
   const height=g.lastTeam===team?(g.touches>=2?235:334):384;
   return {team,height,x:clamp(landingX(g,height)+(team?1:-1)*(height===384?27:12),team?537:40,team?960:463),z:clamp(landingZ(g,height),30,420),time:flightTime(g,height),attack:g.lastTeam===team&&g.touches>=2};
 }
+export function toss(g:Game) {
+  if(g.status!=='serving')return;
+  g.status='tossing';g.tossTime=0;g.tossQuality='';
+  g.ball.vy=-310;
+}
+export function setAttackStyle(g:Game,style:string) {
+  if(style==='power'||style==='roll'||style==='tip')g.attackStyle=style;
+}
 export function serve(g: Game) {
-  if (g.status !== 'serving') return;
+  if (g.status !== 'tossing') return;
+  if(g.tossTime<.25||g.tossTime>1.05){g.tossQuality='Espere a bola subir';return;}
+  g.tossQuality=g.tossTime>=.4&&g.tossTime<=.72?'BOM':'RUIM';
   const style=g.server?(['float','underhand','jump'] as ServeStyle[])[(g.score[0]+g.score[1])%3]:g.serveStyle;
   const i=g.server?3:0,p=g.players[i];
   p.x=g.server?960:40;p.z=225;p.y=style==='jump'?365:FLOOR;p.vy=style==='jump'?-130:0;
   p.action=style==='underhand'?'bump':'spike';p.actionTime=.26;
   g.ball={...contactPoint(p),vx:0,vz:0,vy:0};
-  launch(g,g.server?opponentTarget(g):g.aim,(style==='underhand'?1.9:style==='float'?1.45:1.05)/(g.server?1:g.power));
+  launch(g,g.server?opponentTarget(g):g.aim,(style==='underhand'?1.9:style==='float'?1.45:1.05)/(g.server?1:g.power*(g.tossQuality==='BOM'?1:.8)));
   g.status='playing';g.message='';g.lastHit=i;g.lastTeam=g.server;g.touches=1;g.cooldown=.3;
+  g.feedback=`SAQUE ${g.tossQuality}`;g.feedbackTime=1.8;
   g.shot=style==='underhand'?'UNDERHAND SERVE':style==='float'?'FLOAT SERVE':'JUMP SERVE';
 }
 export function point(g: Game, winner: number, reason = '') {
@@ -86,27 +98,29 @@ export function flightTime(g: Game, height = 375) {
   return t;
 }
 export function landingX(g: Game, height = 375) { return g.ball.x + g.ball.vx * flightTime(g,height); }
-export function landingZ(g: Game, height = 375) { return g.ball.z + g.ball.vz * flightTime(g,height); }
+export function landingZ(g: Game, height = 375) { return g.ball.z + g.ball.vz * flightTime(g,height) + .5*g.wind*flightTime(g,height)**2; }
 export function contactPoint(p: Player) {
   const height=p.action==='dive'?28:p.action==='spike'?140:p.action==='set'?116:66;
   return {x:p.x+(p.team?-1:1)*(p.action==='bump'?27:p.action==='dive'?49:12),z:p.z,y:p.y-height};
 }
 function hit(g: Game, i: number, attack: boolean, distance: number) {
   const p = g.players[i], b = g.ball, sameTeam = g.lastTeam === p.team;
-  if (sameTeam && g.lastHit === i) { point(g, 1 - p.team, 'Double touch.'); return; }
+  if (sameTeam && g.lastHit === i && g.touches>0) { point(g, 1 - p.team, 'Double touch.'); return; }
   g.touches = sameTeam ? g.touches + 1 : 1;
   if (g.touches > 3) { point(g, 1 - p.team, 'Four touches.'); return; }
   g.lastTeam = p.team; g.lastHit = i; g.rally++; g.cooldown = .2; g.hitFlash = .16;
   const partner = g.players[i ^ 1];
-  const sendOver = g.touches === 3 || (attack && p.y < FLOOR - 45);
+  const sendOver = g.touches === 3 || attack;
   const action = sendOver ? 'spike' : g.touches === 1 ? 'bump' : 'set';
   const diving = p.action === 'dive';
   if (!diving) { p.action = action; p.actionTime = .26; }
   const hand=contactPoint(p);
   b.x=hand.x; b.y=hand.y; b.z=hand.z;
   if (sendOver) {
-    const target=p.team?opponentTarget(g):g.aim;
-    launch(g,target,(b.y<255?.82:1.3)/(p.team?1:g.power));
+    const style=p.team?'power':g.attackStyle;
+    const target=p.team?opponentTarget(g):{...g.aim,x:style==='tip'?Math.min(g.aim.x,650):g.aim.x};
+    const flight=style==='tip'?1.55:style==='roll'?1.65:b.y<255?.82:1.3;
+    launch(g,target,flight/(p.team?1:g.power));
   } else {
     b.vy = g.touches === 1 ? -385 : -455;
     const flight = (-b.vy + Math.sqrt(b.vy * b.vy + 2 * GRAVITY * (365 - b.y))) / GRAVITY;
@@ -114,11 +128,18 @@ function hit(g: Game, i: number, attack: boolean, distance: number) {
     b.vz=(partner.z-b.z)/flight;
   }
   const quality=contactQuality(distance);
-  g.feedback=`${p.team?'COAST':'VOCÊ'} · ${sendOver?'ATAQUE':g.touches===1?'RECEPÇÃO':'PASSE'} ${quality}`;g.feedbackTime=1.8;
+  g.feedback=`${p.team?'COAST':'VOCÊ'} · ${sendOver?(p.team===0&&g.attackStyle==='tip'?'LARGADINHA':p.team===0&&g.attackStyle==='roll'?'ATAQUE COLOCADO':'ATAQUE'):g.touches===1?'RECEPÇÃO':'PASSE'} ${quality}`;g.feedbackTime=1.8;
   g.shot = diving ? 'DIVING SAVE' : action === 'bump' ? 'RECEPTION' : action === 'set' ? 'SET' : 'ATTACK';
 }
-export function step(g: Game, dt: number, move: number, jump: boolean, difficulty: string, attack = false, dive = false, depth = 0) {
+export function step(g: Game, dt: number, move: number, jump: boolean, difficulty: string, attack = false, dive = false, depth = 0, block = false) {
+  if(g.status==='tossing'){
+    g.tossTime+=dt;g.ball.vy+=GRAVITY*dt;g.ball.y+=g.ball.vy*dt;
+    if(g.server&&g.tossTime>=.55){serve(g);return;}
+    if(g.tossTime>1.15){g.status='ready';prepareServe(g);g.tossQuality='Tente novamente: espaço lança, espaço bate';}
+    return;
+  }
   if (g.status !== 'playing') return;
+  g.clock+=dt;g.wind=g.windEnabled?18*Math.sin(g.clock*.37)+9*Math.sin(g.clock*.81):0;
   g.feedbackTime=Math.max(0,g.feedbackTime-dt);
   const b = g.ball, receivingTeam = landingX(g) < 500 ? 0 : 1;
   const contactHeight=g.lastTeam===receivingTeam?(g.touches>=2?235:334):384;
@@ -143,7 +164,7 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
     const p = g.players[i], human = i === g.active;
     p.actionTime = Math.max(0, p.actionTime - dt); p.landing = Math.max(0, p.landing - dt);
     if (!p.actionTime) p.action = 'idle';
-    let direction = move, depthDirection=depth, wantsJump = jump;
+    let direction = move, depthDirection=depth, wantsJump = jump || (human && block);
     if (!human) {
       const onBall = receivingTeam === p.team && receivers[p.team] === i;
       const home = i % 2 === 0 ? (p.team ? 620 : 200) : (p.team ? 800 : 380);
@@ -157,6 +178,7 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
       const guide=guidance(g),dx=guide.x-p.x,dz=guide.z-p.z;
       if(Math.hypot(dx,dz)<115 && !move && !depth){direction=clamp(dx/45,-1,1)*.7;depthDirection=clamp(dz/45,-1,1)*.7;}
     }
+    if(!human&&g.lastTeam!==p.team&&Math.abs(p.x-500)<90&&Math.abs(b.x-500)<130&&Math.abs(b.z-p.z)<65&&b.y<280)wantsJump=true;
     const magnitude=Math.hypot(direction,depthDirection);
     if(magnitude>1){direction/=magnitude;depthDirection/=magnitude;}
     if (wantsJump && !p.jumpHeld) p.jumpBuffer = .15;
@@ -190,17 +212,25 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
     }
   }
   const oldX = b.x, oldY = b.y;
+  b.vz+=g.wind*dt;
   b.vy += GRAVITY * dt; b.x += b.vx * dt; b.z += b.vz * dt; b.y += b.vy * dt;
   g.cooldown = Math.max(0, g.cooldown - dt); g.hitFlash = Math.max(0, g.hitFlash - dt);
+  for(let i=0;i<4;i++){
+    const p=g.players[i],isBlocking=i===g.active?block:g.lastTeam!==p.team;
+    if(isBlocking&&g.lastTeam!==p.team&&Math.abs(p.x-500)<90&&p.y<FLOOR-35&&g.cooldown===0&&Math.abs(b.x-p.x)<60&&Math.abs(b.z-p.z)<55&&Math.abs(b.y-(p.y-140))<45){
+      b.vx=(p.team?-1:1)*Math.max(150,Math.abs(b.vx)*.6);b.vy=100;g.lastTeam=p.team;g.lastHit=i;g.touches=0;g.cooldown=.35;
+      p.action='set';p.actionTime=.26;g.shot='BLOQUEIO';g.feedback=`${p.team?'COAST':'VOCÊ'} · BLOQUEIO BOM`;g.feedbackTime=1.8;g.rally++;
+    }
+  }
   if (Math.abs(b.x - 500) < 18 && oldY < 274 && b.y >= 274 && b.vy > 0) { b.y = 274; b.vy *= -.55; }
   else if (b.y >= 274 && b.y < FLOOR && ((oldX <= 482 && b.x > 482) || (oldX >= 518 && b.x < 518))) {
     b.x = oldX < 500 ? 482 : 518; b.vx *= -.65;
   }
   for(let i=0;i<4;i++) {
-    const p=g.players[i], eligible=g.lastHit!==i||g.lastTeam!==p.team;
+    const p=g.players[i], eligible=g.lastHit!==i||g.lastTeam!==p.team||g.touches===0;
     const near=Math.hypot(b.x-p.x,b.z-p.z)<100;
     if(eligible && near && b.vy>0 && b.y>p.y-210 && b.y<p.y-35 && p.action==='idle') {
-      p.action=(g.lastTeam===p.team && g.touches>=2)||(i===g.active&&attack&&p.y<FLOOR-35)?'spike':g.lastTeam===p.team?'set':'bump';
+      p.action=(g.lastTeam===p.team && g.touches>=2)||(i===g.active&&attack)?'spike':g.lastTeam===p.team?'set':'bump';
       p.actionTime=.55;
     }
   }
@@ -212,7 +242,7 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
       const p=g.players[c.i];
       return c.distance<(c.i===g.active&&g.assist?48:30) && p.action!=='idle' && p.actionTime<=.39 && p.actionTime>=.08;
     }).sort((a,c)=>a.distance-c.distance);
-    if(contacts.length) hit(g,contacts[0].i,contacts[0].i===g.active?attack:true,contacts[0].distance);
+    if(contacts.length) hit(g,contacts[0].i,contacts[0].i===g.active?attack:false,contacts[0].distance);
   }
   if (g.status === 'playing' && b.y >= FLOOR - 13) {
     const out = b.x < 35 || b.x > 965 || b.z<25 || b.z>425;

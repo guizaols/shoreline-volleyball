@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createGame, serve as releaseServe, prepareServe, contactQuality, guidance, step, point, switchPlayer, landingX, landingZ, contactPoint, launch, setAim, setServeStyle, FLOOR } from './game.ts';
+import { createGame, serve as releaseServe, prepareServe, toss, setAttackStyle, contactQuality, guidance, step, point, switchPlayer, landingX, landingZ, contactPoint, launch, setAim, setServeStyle, FLOOR } from './game.ts';
 const atlas=readFileSync(new URL('../public/art/athlete-clean.png',import.meta.url));
 assert.equal(atlas.readUInt32BE(16),1254,'Sprite frame coordinates require the original atlas width');
 assert.equal(atlas[25],6,'Athlete atlas must have true alpha transparency');
 const tick = 1 / 120;
-function serve(g:ReturnType<typeof createGame>){prepareServe(g);releaseServe(g);}
+function serve(g:ReturnType<typeof createGame>){g.windEnabled=false;prepareServe(g);toss(g);g.tossTime=.55;releaseServe(g);}
 const g = createGame();
 assert.equal(g.players.length, 4);
 assert.deepEqual(g.players.map(p => p.team), [0, 0, 1, 1]);
@@ -80,7 +80,7 @@ const lowBall=low.ball,netTime=(500-lowBall.x)/lowBall.vx;
 assert.ok(lowBall.y+lowBall.vy*netTime+310*netTime*netTime<250,'Low attack must clear the tape');
 let arcs=0;
 for(const team of [0,1])for(const startX of [55,210,440,475])for(const height of [145,245,310,384])for(const targetX of [570,790,935])for(const targetZ of [55,225,395]){
-  const shot=createGame();shot.status='playing';shot.active=-1;shot.lastTeam=team;shot.cooldown=99;
+  const shot=createGame();shot.windEnabled=false;shot.status='playing';shot.active=-1;shot.lastTeam=team;shot.cooldown=99;
   shot.ball={x:team?1000-startX:startX,z:225,y:height,vx:0,vz:0,vy:0};
   const target={x:team?1000-targetX:targetX,z:targetZ};launch(shot,target,.65);
   const direction=team?-1:1;let last={...shot.ball};
@@ -106,7 +106,7 @@ console.log(`Passed: ${arcs} net-clearance and aiming cases, automatic selection
 
 const waiting=createGame();releaseServe(waiting);assert.equal(waiting.status,'ready');prepareServe(waiting);
 const stationary={...waiting.ball};for(let i=0;i<300;i++)step(waiting,tick,1,true,'Club');
-assert.equal(waiting.status,'serving');assert.deepEqual(waiting.ball,stationary);releaseServe(waiting);assert.equal(waiting.status,'playing');
+assert.equal(waiting.status,'serving');assert.deepEqual(waiting.ball,stationary);toss(waiting);waiting.tossTime=.55;releaseServe(waiting);assert.equal(waiting.status,'playing');
 assert.equal(contactQuality(10),'BOM');assert.equal(contactQuality(40),'RUIM');
 const guide=guidance(waiting);assert.ok(Number.isFinite(guide.x)&&Number.isFinite(guide.time));
 assert.match(reception.feedback,/RECEPÇÃO BOM/);assert.match(set.feedback,/PASSE BOM/);assert.match(attack.feedback,/ATAQUE BOM/);
@@ -118,3 +118,16 @@ const assistance=createGame();serve(assistance);assistance.autoSwitch=false;assi
 assistance.ball={x:assistance.players[0].x+70,z:assistance.players[0].z,y:180,vx:0,vz:0,vy:0};
 const initialDistance=Math.abs(assistance.players[0].x-guidance(assistance).x);step(assistance,tick,0,false,'Club');
 assert.ok(Math.abs(assistance.players[0].x-guidance(assistance).x)<initialDistance,'Assistance moves toward the displayed guide');
+
+const tossGame=createGame();prepareServe(tossGame);toss(tossGame);releaseServe(tossGame);assert.equal(tossGame.status,'tossing','Cannot strike before the toss rises');
+const tossY=tossGame.ball.y;step(tossGame,.1,0,false,'Club');assert.ok(tossGame.ball.y<tossY,'Toss actually moves upward');
+for(let i=0;i<150;i++)step(tossGame,tick,0,false,'Club');assert.equal(tossGame.status,'serving','Missed toss returns to preparation');
+function secondBall(style:string){const g=createGame();serve(g);g.autoSwitch=false;g.active=0;g.cooldown=0;g.lastTeam=0;g.lastHit=1;g.touches=1;setAttackStyle(g,style);g.players[0].action='spike';g.players[0].actionTime=.28;g.ball={...contactPoint(g.players[0]),vx:0,vz:0,vy:0};step(g,tick,0,false,'Club',true);return g;}
+const second=secondBall('power');assert.equal(second.touches,2);assert.equal(second.shot,'ATTACK');assert.ok(landingX(second,437)>500);
+const tip=secondBall('tip');assert.ok(landingX(tip,437)<=651);assert.match(tip.feedback,/LARGADINHA/);
+const roll=secondBall('roll');assert.match(roll.feedback,/COLOCADO/);assert.notEqual(roll.ball.vx,second.ball.vx);
+const blocking=createGame();serve(blocking);blocking.autoSwitch=false;blocking.active=0;blocking.cooldown=0;blocking.lastTeam=1;blocking.lastHit=2;
+Object.assign(blocking.players[0],{x:450,z:225,y:350});blocking.ball={x:460,z:225,y:210,vx:-220,vz:0,vy:20};
+step(blocking,tick,0,false,'Club',false,false,0,true);assert.equal(blocking.shot,'BLOQUEIO');assert.ok(blocking.ball.vx>0);assert.equal(blocking.touches,0);
+const windy=createGame();serve(windy);windy.windEnabled=true;windy.clock=3;windy.ball={x:750,z:225,y:0,vx:0,vz:0,vy:0};step(windy,tick,0,false,'Club');assert.notEqual(windy.ball.vz,0);
+const firstWind=windy.wind;windy.clock=12;step(windy,tick,0,false,'Club');assert.notEqual(windy.wind,firstWind);windy.windEnabled=false;step(windy,tick,0,false,'Club');assert.equal(windy.wind,0);
