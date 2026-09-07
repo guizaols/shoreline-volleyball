@@ -102,7 +102,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         const ground=project(x,z),pos=project(x,z,y),sprite=this.athletes[i];
         sprite.setPosition(pos.x,pos.y).setScale(.56).setFlipX(p.action==='dive'?p.diveX<0:p.team===1).setDepth(z+20);
         // A subtle warm tint and labels distinguish the opposing team.
-        sprite.setTint(i<2?0xffffff:0xffdbd1);
+        sprite.setTint(i<2?(g.gold?0xffd260:0xffffff):0xffdbd1);
         const moving=Math.hypot(p.vx,p.vz)>25;
         if(p.action==='idle'&&(p.y<FLOOR||p.windup>0||p.landing>0)){
           sprite.stop();sprite.setFrame(`spike-${p.windup>0?0:p.landing>0?5:p.vy<0?2:4}`);
@@ -126,7 +126,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         const close=Math.hypot(p.x-guide.x,p.z-guide.z)<50;
         this.receive.setPosition(spot.x,spot.y).setStrokeStyle(3,close?0xa4ef7a:0x49ded2);
         this.guideLine.lineStyle(2,0x49ded2,.7).lineBetween(pos.x,pos.y,spot.x,spot.y);
-        this.hint.setPosition(spot.x,spot.y+38).setText(close?'SEGURE JOGAR / J':'VÁ AO CÍRCULO');
+        this.hint.setPosition(spot.x,spot.y+38).setText(g.challenge===0?'MOVA ATÉ O CÍRCULO':close?'SEGURE JOGAR / J':'VÁ AO CÍRCULO');
       }
       (this.target.list[2] as Phaser.GameObjects.Text).setText(g.aimPreset>=0?aimPresets[g.aimPreset].label:'MIRA');
       const target=project(g.aim.x,g.aim.z);this.target.setPosition(target.x,target.y);

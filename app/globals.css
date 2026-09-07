@@ -69,3 +69,18 @@
  .virtual-style{grid-column:1;grid-row:2;border-radius:16px;width:64px;min-height:48px;background:#244853dc;font-size:11px;padding:5px}
  .virtual-play{grid-column:2;grid-row:1 / span 2}
 }
+.cup-overlay{z-index:8;background:#193b4666;pointer-events:auto}
+.cup-card{background:#fff7e9;color:#254d3f;border-radius:16px;padding:20px;width:min(94%,560px);max-height:96%;overflow:auto;box-shadow:0 8px 40px #1235}
+.cup-card h2{margin:6px 0 12px;font:700 25px Manrope,sans-serif}
+.cup-card ol{display:flex;gap:8px;padding:0;list-style:none;margin:12px 0}
+.cup-card li{flex:1;border:1px solid #cad5bf;border-radius:8px;padding:9px;font-size:12px}
+.cup-card li.current{border:2px solid #315941;background:#e5edda}.cup-card li.complete{background:#efe2ae}
+.cup-card small{display:block;font-size:10px;line-height:1.5;margin-top:5px}
+.cup-lessons{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0;font-size:11px}.cup-lessons span{width:100%}
+.cup-lessons button{border:1px solid #bac9b1;border-radius:6px;background:#f4f0de;color:#315941;padding:8px;font-size:10px}
+.cup-uniform{font-size:12px;display:block;margin:8px 0}
+.lesson-hint{position:absolute;top:85px;left:50%;transform:translateX(-50%);background:#fff7e9ed;padding:7px 10px;border-radius:6px;font-size:11px;z-index:4;pointer-events:none;width:max-content;max-width:85%;text-align:center}
+@media(pointer:coarse),(max-width:700px){.cup-overlay{position:absolute;inset:0;max-height:none}.cup-card{padding:12px}.cup-card h2{font-size:19px}.cup-card ol{margin:7px 0}.cup-card li{font-size:10px;padding:6px}.cup-card .primary{padding:9px 16px}.cup-lessons{margin:7px 0}.lesson-hint{top:60px;font-size:10px}}
+@media(max-width:550px) and (orientation:portrait){.cup-overlay{bottom:-154px}.cup-card{max-height:98%}}
+@media(max-width:550px) and (orientation:portrait){.cup-open .court{overflow:visible}}
+@media(pointer:coarse),(max-width:700px){.game-toolbar{padding-left:10px;padding-right:10px}.court-label{font-size:8px;letter-spacing:.3px}.court-label .tag{display:none}.tools{gap:8px}.cup-lessons button:disabled{opacity:.5}.cup-card button{min-height:40px}}
