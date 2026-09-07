@@ -195,3 +195,32 @@ for(let i=0;i<600&&contextualShots.length<3;i++){
 }
 assert.deepEqual(contextualShots,['RECEPTION','SET','ATTACK']);
 console.log('Passed: one contextual button receives, sets and jumps to attack in a match.');
+
+// Responsive ground movement must brake without overshooting or changing the aim.
+const movementGame=createGame();movementGame.status='playing';movementGame.assist=false;movementGame.autoSwitch=false;movementGame.windEnabled=false;
+movementGame.ball={x:850,z:400,y:-1000,vx:0,vz:0,vy:0};
+for(let i=0;i<12;i++)step(movementGame,tick,1,false,'Club');
+assert.ok(movementGame.players[0].vx>285,'Reach running speed within 100ms');
+const stoppingX=movementGame.players[0].x;
+for(let i=0;i<12;i++)step(movementGame,tick,0,false,'Club');
+assert.ok(movementGame.players[0].vx<16,'Brake within 100ms');
+assert.ok(movementGame.players[0].x-stoppingX<10,'Stopping must not slide past a target');
+
+function chosenAttack(style:'power'|'tip',preparation:number){
+  const g=createGame();g.status='playing';g.autoSwitch=false;g.windEnabled=false;g.lastTeam=0;g.lastHit=1;g.touches=2;g.attackStyle=style;
+  Object.assign(g.players[0],{x:300,z:225,y:350,action:'spike',actionTime:.3,preparation});
+  g.ball={...contactPoint(g.players[0]),vx:0,vz:0,vy:1};
+  step(g,tick,0,false,'Club',false,false,0,false,true);
+  return g;
+}
+for(const charge of [.1,.8]){
+ const spike=chosenAttack('power',charge),tip=chosenAttack('tip',charge);
+ assert.match(spike.feedback,/ATAQUE/);assert.match(tip.feedback,/LARGADINHA/);
+ assert.ok(landingX(spike,437)>780);assert.ok(landingX(tip,437)<680);
+ assert.ok(tip.ball.vx<spike.ball.vx,'A selected tip stays softer regardless of preparation time');
+}
+const clean=chosenAttack('power',.8);
+assert.ok(Math.abs(landingX(clean,437)-clean.aim.x)<.01,'Good contacts respect the chosen target');
+clean.rally=8;point(clean,0);
+assert.equal(clean.lastRally,8);assert.equal(clean.bestRally,8);assert.equal(clean.rally,0);
+console.log('Passed: acceleration, braking, explicit spike/tip choice, accurate good contact and rally results.');

@@ -2,9 +2,9 @@
 import {useEffect,useRef,useState} from 'react';
 import {stickDirection} from '../lib/controls';
 
-export default function TouchControls({onMove,onPress,onRelease,onAim,label,charge,enabled}:{
+export default function TouchControls({onMove,onPress,onRelease,onAim,onStyle,styleLabel,label,charge,enabled}:{
   onMove:(x:number,z:number)=>void;onPress:()=>void;onRelease:()=>void;
-  onAim:()=>void;label:string;charge:number;enabled:boolean;
+  onAim:()=>void;onStyle:()=>void;styleLabel:string;label:string;charge:number;enabled:boolean;
 }){
   const stickPointer=useRef<number|null>(null),actionPointer=useRef<number|null>(null);
   const [thumb,setThumb]=useState({x:0,y:0}),[held,setHeld]=useState(false);
@@ -40,6 +40,7 @@ export default function TouchControls({onMove,onPress,onRelease,onAim,label,char
     </div>
     <div className="virtual-actions">
       <button className="virtual-aim" disabled={!enabled} onClick={onAim} aria-label="Trocar alvo">◎<small>ALVO</small></button>
+      <button className="virtual-style" disabled={!enabled} onClick={onStyle} aria-label="Alternar cortada e largadinha">{styleLabel}<small>GOLPE</small></button>
       <button className={`virtual-play ${held?'held':''}`} disabled={!enabled}
         onPointerDown={e=>{if(actionPointer.current!==null)return;e.preventDefault();actionPointer.current=e.pointerId;e.currentTarget.setPointerCapture(e.pointerId);setHeld(true);onPress();}}
         onPointerUp={endAction} onPointerCancel={endAction} onLostPointerCapture={endAction}

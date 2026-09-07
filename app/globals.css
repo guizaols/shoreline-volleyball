@@ -62,3 +62,10 @@
   .start-card p{margin-bottom:10px}
   .modal-backdrop{z-index:30}
 }
+.contact-feedback small{display:block;font-size:10px;font-weight:400;margin-top:4px}
+@media(pointer:coarse),(max-width:700px){
+ .virtual-actions{display:grid;grid-template-columns:64px 98px;gap:8px;align-items:center}
+ .virtual-aim{grid-column:1;grid-row:1;margin:0}
+ .virtual-style{grid-column:1;grid-row:2;border-radius:16px;width:64px;min-height:48px;background:#244853dc;font-size:11px;padding:5px}
+ .virtual-play{grid-column:2;grid-row:1 / span 2}
+}

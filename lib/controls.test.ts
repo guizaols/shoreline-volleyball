@@ -18,10 +18,10 @@ runInNewContext(ts.transpileModule(readFileSync(new URL('../app/TouchControls.ts
     useEffect:(fn:()=>void|(()=>void))=>{const cleanup=fn();if(cleanup)cleanups.push(cleanup);},
   }:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:{stickDirection},
 });
-let movement={x:0,z:0},pressed=false,aims=0;
+let movement={x:0,z:0},pressed=false,aims=0,styles=0;
 const tree=exports.default({onMove:(x:number,z:number)=>{movement={x,z};},onPress:()=>{pressed=true;},
-  onRelease:()=>{pressed=false;},onAim:()=>aims++,label:'Jogar',charge:0,enabled:true});
-const stick=tree.children[0],actions=tree.children[1].children,button=actions[1];
+  onRelease:()=>{pressed=false;},onAim:()=>aims++,onStyle:()=>styles++,styleLabel:'Cortada',label:'Jogar',charge:0,enabled:true});
+const stick=tree.children[0],actions=tree.children[1].children,button=actions[2];
 const event=(pointerId:number,clientX=120,clientY=60)=>({
   pointerId,clientX,clientY,preventDefault:()=>{},
   currentTarget:{setPointerCapture:()=>{},getBoundingClientRect:()=>({left:0,top:0,width:120,height:120})},
@@ -36,7 +36,7 @@ assert.deepEqual(movement,{x:0,z:0});assert.ok(pressed,'Cancelling the stick mus
 button.onLostPointerCapture(event(2));assert.equal(pressed,false);
 stick.onPointerDown(event(3));button.onPointerDown(event(4));
 listeners.get('blur')!();assert.deepEqual(movement,{x:0,z:0});assert.equal(pressed,false);
-actions[0].onClick();assert.equal(aims,1);
+actions[0].onClick();assert.equal(aims,1);actions[1].onClick();assert.equal(styles,1);
 for(const [dx,dy] of [[200,0],[0,-200],[-100,100]])assert.ok(Math.hypot(...Object.values(stickDirection(dx,dy,40)))<=1.00001);
 assert.deepEqual(stickDirection(2,2,40),{x:0,z:0});
 assert.ok(Math.hypot(...Object.values(stickDirection(20,0,40)))<.5,'Small gestures must move more slowly');
