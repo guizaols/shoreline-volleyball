@@ -182,9 +182,8 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
     if (!p.actionTime) p.action = 'idle';
     if(human&&g.practice){
       p.preparation=attack?Math.min(1,p.preparation+dt):Math.max(0,p.preparation-dt*2);
-      if(attack)setAim(g,g.aim.x+move*220*dt,g.aim.z+depth*190*dt);
     }
-    let direction = g.practice&&human&&attack?0:move, depthDirection=g.practice&&human&&attack?0:depth, wantsJump = jump || (human && block);
+    let direction = move, depthDirection=depth, wantsJump = jump || (human && block);
     if (!human) {
       const onBall = receivingTeam === p.team && receivers[p.team] === i;
       const home = i % 2 === 0 ? (p.team ? 620 : 200) : (p.team ? 800 : 380);
@@ -196,7 +195,7 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
     }
     if(human && g.assist && receivingTeam===0 && receivers[0]===i) {
       const guide=guidance(g),dx=guide.x-p.x,dz=guide.z-p.z;
-      if(Math.hypot(dx,dz)<(g.practice?165:115) && ((!move&&!depth)||(g.practice&&attack))){direction=clamp(dx/45,-1,1)*.7;depthDirection=clamp(dz/45,-1,1)*.7;}
+      if(Math.hypot(dx,dz)<(g.practice?165:115) && (!move&&!depth)){direction=clamp(dx/45,-1,1)*.7;depthDirection=clamp(dz/45,-1,1)*.7;}
     }
     if(!human&&g.lastTeam!==p.team&&Math.abs(p.x-500)<90&&Math.abs(b.x-500)<130&&Math.abs(b.z-p.z)<65&&b.y<280)wantsJump=true;
     if(human&&g.practice&&attack&&guidance(g).attack&&Math.hypot(p.x-predicted,p.z-predictedZ)<65&&b.vy>0&&b.y>140&&b.y<260)wantsJump=true;

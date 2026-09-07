@@ -72,11 +72,17 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       const circle=this.add.ellipse(0,0,34,17).setStrokeStyle(2,0xffee75);
       const cross=this.add.graphics().lineStyle(2,0xffee75);cross.lineBetween(-10,0,10,0);cross.lineBetween(0,-8,0,8);
       this.target=this.add.container(0,0,[circle,cross]).setDepth(3);
-      this.input.on('pointerdown',(pointer:Phaser.Input.Pointer)=>{
+      const aimPointer=(pointer:Phaser.Input.Pointer)=>{
         const sx=pointer.x-95,sy=pointer.y-245,det=.77*.66+.2*.035;
         const x=(sx*.66-sy*.2)/det,z=(sy*.77+sx*.035)/det;
         if(x>=535&&x<=965&&z>=25&&z<=425){setAim(getGame(),x,z);changed();}
-      });
+      };
+      this.input.on('pointerdown',(pointer:Phaser.Input.Pointer)=>{aimPointer(pointer);if(getGame().practice)keys.add('mouse-attack');});
+      this.input.on('pointermove',aimPointer);
+      const releasePointer=()=>keys.delete('mouse-attack');
+      this.input.on('pointerup',releasePointer);
+      this.input.on('pointerupoutside',releasePointer);
+      this.input.on('gameout',releasePointer);
       this.landing=this.add.ellipse(0,0,28,14).setStrokeStyle(2,0xffffff).setDepth(3);
       this.receive=this.add.ellipse(0,0,64,25,0x49ded2,.18).setStrokeStyle(3,0x49ded2).setDepth(4);
       this.hint=this.add.text(0,0,'',{fontFamily:'sans-serif',fontSize:'13px',color:'#ffffff',backgroundColor:'#193e46',padding:{x:7,y:5}}).setOrigin(.5).setDepth(950);
@@ -87,7 +93,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
     update(_time:number,delta:number) {
       if(!this.ball)return;
       this.accumulator+=Math.min(delta/1000,.1);
-      while(this.accumulator>=1/120){this.previous=this.snapshot();step(getGame(),1/120,(keys.has('right')?1:0)-(keys.has('left')?1:0),keys.has('jump'),getLevel(),keys.has('attack'),keys.has('dive'),(keys.has('down')?1:0)-(keys.has('up')?1:0),keys.has('block'));this.accumulator-=1/120;}
+      while(this.accumulator>=1/120){this.previous=this.snapshot();step(getGame(),1/120,(keys.has('right')?1:0)-(keys.has('left')?1:0),keys.has('jump'),getLevel(),keys.has('attack')||keys.has('mouse-attack'),keys.has('dive'),(keys.has('down')?1:0)-(keys.has('up')?1:0),keys.has('block'));this.accumulator-=1/120;}
       const g=getGame(),alpha=this.accumulator*120, lerp=(a:number,b:number)=>a+(b-a)*alpha;
       const render=(p:Player,i:number)=>{
         const old=this.previous.players[i];
@@ -119,7 +125,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         const close=Math.hypot(p.x-guide.x,p.z-guide.z)<50;
         this.receive.setPosition(spot.x,spot.y).setStrokeStyle(3,close?0xa4ef7a:0x49ded2);
         this.guideLine.lineStyle(2,0x49ded2,.7).lineBetween(pos.x,pos.y,spot.x,spot.y);
-        this.hint.setPosition(spot.x,spot.y+38).setText(g.practice?(close?'SEGURE J · DIREÇÃO MIRA':'VÁ AO CÍRCULO'):guide.attack?(close&&guide.time<.5?'PULE AGORA · ESPAÇO':'ATAQUE · VÁ AO CÍRCULO'):close?'BEM POSICIONADO':'VÁ AO CÍRCULO');
+        this.hint.setPosition(spot.x,spot.y+38).setText(g.practice?(close?'MOUSE MIRA · SEGURE PARA PREPARAR':'VÁ AO CÍRCULO'):guide.attack?(close&&guide.time<.5?'PULE AGORA · ESPAÇO':'ATAQUE · VÁ AO CÍRCULO'):close?'BEM POSICIONADO':'VÁ AO CÍRCULO');
       }
       const target=project(g.aim.x,g.aim.z);this.target.setPosition(target.x,target.y);
       const old=this.previous.ball,b=g.ball;
