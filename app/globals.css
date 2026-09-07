@@ -84,3 +84,8 @@
 @media(max-width:550px) and (orientation:portrait){.cup-overlay{bottom:-154px}.cup-card{max-height:98%}}
 @media(max-width:550px) and (orientation:portrait){.cup-open .court{overflow:visible}}
 @media(pointer:coarse),(max-width:700px){.game-toolbar{padding-left:10px;padding-right:10px}.court-label{font-size:8px;letter-spacing:.3px}.court-label .tag{display:none}.tools{gap:8px}.cup-lessons button:disabled{opacity:.5}.cup-card button{min-height:40px}}
+.career-panel{margin:10px 0;font-size:12px}.career-panel details{border-bottom:1px solid #d5ddcb;padding:8px 0}.career-panel summary{cursor:pointer;font-weight:700;padding:5px}
+.career-panel form{display:grid;gap:8px;padding:8px 0}.career-panel label{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.career-panel input,.career-panel select{font:inherit;padding:8px;border:1px solid #bdcbb4;border-radius:5px;max-width:65%}
+.career-panel button{border:1px solid #aebb9f;border-radius:5px;background:#e8efdd;color:#264e3b;padding:7px 10px;margin:3px}
+.career-panel button:disabled{opacity:.45;cursor:default}.athlete-stats{display:grid;grid-template-columns:1fr 1fr;gap:14px}.athlete-stats section>div,.calendar-event{display:flex;justify-content:space-between;align-items:center;gap:8px}.calendar-event{margin:8px 0}

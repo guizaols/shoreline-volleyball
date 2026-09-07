@@ -114,7 +114,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         }
         if(g.status==='paused')sprite.anims.pause();else sprite.anims.resume();
         this.shadows[i].setPosition(ground.x,ground.y-1).setScale(y<FLOOR?.75:1);
-        this.labels[i].setPosition(ground.x,ground.y+9).setDepth(z+21).setAlpha(i===g.active?1:.65);
+        this.labels[i].setText(i<2?g.names[i]:`COAST ${i%2+1}`).setPosition(ground.x,ground.y+9).setDepth(z+21).setAlpha(i===g.active?1:.65);
         if(i===g.active){this.ring.setPosition(ground.x,ground.y);this.arrow.setPosition(pos.x,pos.y-110);}
       };
       g.players.forEach(render);
