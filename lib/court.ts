@@ -15,7 +15,7 @@ const bounds = [
   [[37,1050,115,71],[204,1051,133,70],[426,1045,139,42],[634,1073,163,49],[893,1039,91,89],[1101,1037,75,94]],
 ];
 export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<string>, getLevel: () => string,
-  changed: () => void, ready: () => void, failed: (message: string) => void) {
+  changed: () => void, ready: () => void, failed: (message: string) => void, getStick:()=>{x:number;z:number}=()=>({x:0,z:0})) {
   class Court extends Phaser.Scene {
     athletes: Phaser.GameObjects.Sprite[] = [];
     shadows: Phaser.GameObjects.Ellipse[] = [];
@@ -94,7 +94,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
     update(_time:number,delta:number) {
       if(!this.ball)return;
       this.accumulator+=Math.min(delta/1000,.1);
-      while(this.accumulator>=1/120){this.previous=this.snapshot();step(getGame(),1/120,(keys.has('right')?1:0)-(keys.has('left')?1:0),keys.has('jump'),getLevel(),keys.has('attack')||keys.has('mouse-attack'),keys.has('dive'),(keys.has('down')?1:0)-(keys.has('up')?1:0),keys.has('block'));this.accumulator-=1/120;}
+      while(this.accumulator>=1/120){this.previous=this.snapshot();step(getGame(),1/120,Math.max(-1,Math.min(1,getStick().x+(keys.has('right')?1:0)-(keys.has('left')?1:0))),keys.has('jump'),getLevel(),keys.has('attack'),keys.has('dive'),Math.max(-1,Math.min(1,getStick().z+(keys.has('down')?1:0)-(keys.has('up')?1:0))),keys.has('block'),keys.has('prepare')||keys.has('touch-prepare')||keys.has('mouse-attack'));this.accumulator-=1/120;}
       const g=getGame(),alpha=this.accumulator*120, lerp=(a:number,b:number)=>a+(b-a)*alpha;
       const render=(p:Player,i:number)=>{
         const old=this.previous.players[i];
@@ -126,7 +126,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         const close=Math.hypot(p.x-guide.x,p.z-guide.z)<50;
         this.receive.setPosition(spot.x,spot.y).setStrokeStyle(3,close?0xa4ef7a:0x49ded2);
         this.guideLine.lineStyle(2,0x49ded2,.7).lineBetween(pos.x,pos.y,spot.x,spot.y);
-        this.hint.setPosition(spot.x,spot.y+38).setText(g.practice?(close?'Q MIRA · SEGURE J':'VÁ AO CÍRCULO'):guide.attack?(close&&guide.time<.5?'PULE AGORA · ESPAÇO':'ATAQUE · VÁ AO CÍRCULO'):close?'BEM POSICIONADO':'VÁ AO CÍRCULO');
+        this.hint.setPosition(spot.x,spot.y+38).setText(close?'SEGURE JOGAR / J':'VÁ AO CÍRCULO');
       }
       (this.target.list[2] as Phaser.GameObjects.Text).setText(g.aimPreset>=0?aimPresets[g.aimPreset].label:'MIRA');
       const target=project(g.aim.x,g.aim.z);this.target.setPosition(target.x,target.y);

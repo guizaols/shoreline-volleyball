@@ -19,3 +19,46 @@
 .serve-prompt small{display:block;font-size:10px;margin-top:5px}.toss-meter{position:relative;height:12px;background:linear-gradient(to right,#ce8c67 0% 35%,#8fc574 35% 63%,#ce8c67 63%);border-radius:5px;margin-top:8px;width:220px;max-width:100%}.toss-meter span{position:absolute;top:-3px;height:18px;width:3px;background:#203a35}.serve-prompt{z-index:2}
 
 .practice-controls{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:16px 0;font-size:14px}.practice-controls meter{width:160px;height:24px}.practice-controls span{color:#496762}
+
+.game-shell{position:relative}.virtual-controls,.tools .mobile-mode{display:none}
+@media (pointer:coarse),(max-width:700px){
+  .virtual-controls{display:flex;position:absolute;bottom:48px;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));justify-content:space-between;align-items:flex-end;z-index:5;pointer-events:none}
+  .virtual-controls button,.virtual-stick{pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+  .virtual-stick{position:relative;width:120px;height:120px;border-radius:50%;background:#163f4966;border:2px solid #fff9;box-shadow:inset 0 0 18px #1235}
+  .stick-cross{position:absolute;inset:0;display:grid;place-items:center;font-size:60px;color:#fff5}
+  .stick-thumb{position:absolute;left:36px;top:36px;width:44px;height:44px;border-radius:50%;background:#fff2c9df;border:2px solid #fff;box-shadow:0 3px 8px #0005;pointer-events:none}
+  .virtual-stick small{position:absolute;bottom:-18px;width:100%;text-align:center;color:#24463a;font-weight:700;font-size:10px}
+  .virtual-actions{display:flex;gap:12px;align-items:flex-end}
+  .virtual-actions button{border:2px solid #fff9;color:white;box-shadow:0 3px 12px #17342d44;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700}
+  .virtual-play{width:98px;height:98px;border-radius:50%;background:#285d4ee6;font-size:16px}
+  .virtual-play.held{background:#b56d2d;transform:scale(.96)}
+  .virtual-play meter{width:60px;height:14px;margin:3px}
+  .virtual-actions small{font-size:9px;letter-spacing:1px}
+  .virtual-aim{width:62px;height:62px;border-radius:50%;background:#244853dc;font-size:22px;margin-bottom:5px}
+  .virtual-actions button:disabled{opacity:.4}
+  .overlay{z-index:6}.serve-prompt{bottom:152px;z-index:4}.serve-prompt .primary{display:none}
+  .scoreboard,.rally,.location{pointer-events:none}
+  .court{aspect-ratio:1000/620;margin-bottom:154px}
+  .game-shell{background:#dabe8c}
+  .game-bottom{background:#fff8e9}
+  .contact-feedback{z-index:4}
+  .tools .mobile-mode{display:flex;font-size:11px;min-height:32px;align-items:center}
+}
+@media (pointer:coarse) and (orientation:landscape) and (max-height:600px){
+  main{padding:0}
+  .game-shell{position:fixed;inset:0;z-index:20;border:0;border-radius:0;height:100dvh;background:#dabe8c}
+  .game-toolbar{height:38px;padding:0 max(12px,env(safe-area-inset-left))}
+  .game-shell .court,.game-shell:fullscreen .court{height:calc(100dvh - 38px);width:calc((100dvh - 38px)*1000/620);max-width:100%;margin:0 auto;aspect-ratio:1000/620}
+  .game-shell .phaser-court canvas{object-fit:contain}
+  .game-bottom,.location,.rally{display:none}
+  .virtual-controls{bottom:max(20px,env(safe-area-inset-bottom))}
+  .virtual-stick{width:112px;height:112px}
+  .stick-thumb{left:32px;top:32px}
+  .scoreboard{top:3px;transform:translateX(-50%) scale(.65);transform-origin:top center}
+  .contact-feedback{top:62px;font-size:11px;padding:6px 10px}
+  .serve-prompt{bottom:20px;max-width:55%;font-size:10px}
+  .start-card{margin-top:30px;padding:12px}
+  .start-card h2{font-size:19px;margin:6px}
+  .start-card p{margin-bottom:10px}
+  .modal-backdrop{z-index:30}
+}

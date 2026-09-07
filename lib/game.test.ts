@@ -184,3 +184,14 @@ assert.equal(keyboardAim.aimPreset,-1);
 cycleAim(keyboardAim);
 assert.equal(keyboardAim.aimPreset,0);
 console.log('Passed: keyboard targets cycle, wrap and recover after manual aiming.');
+
+// The contextual button behaves identically in a match and in practice.
+const contextual=createGame();startPractice(contextual);contextual.practice=false;
+const contextualShots:string[]=[];
+for(let i=0;i<600&&contextualShots.length<3;i++){
+  const rally=contextual.rally;
+  step(contextual,tick,0,false,'Club',false,false,0,false,true);
+  if(contextual.rally!==rally)contextualShots.push(contextual.shot);
+}
+assert.deepEqual(contextualShots,['RECEPTION','SET','ATTACK']);
+console.log('Passed: one contextual button receives, sets and jumps to attack in a match.');
