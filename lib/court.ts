@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { step, DIVE_DURATION, setAim, guidance, landingX, landingZ, FLOOR, type Game, type Player } from './game';
+import { step, aimPresets, DIVE_DURATION, setAim, guidance, landingX, landingZ, FLOOR, type Game, type Player } from './game';
 
 export function project(x: number, z: number, y = FLOOR) {
   return { x: 95 + x * .77 + z * .20, y: 245 + z * .66 - x * .035 - (FLOOR - y) * .68 };
@@ -70,15 +70,16 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       this.ball=this.add.container(0,0,[this.add.circle(0,0,8,0xfff9df).setStrokeStyle(1,0x624f3f),this.add.arc(0,0,6,-60,110,false,0x3a93b5),this.add.arc(0,0,5,140,280,false,0xe4b841)]).setDepth(900);
       this.impact=this.add.circle(0,0,12).setStrokeStyle(2,0xffffd3).setDepth(901);
       const circle=this.add.ellipse(0,0,34,17).setStrokeStyle(2,0xffee75);
+      const targetLabel=this.add.text(0,-24,'',{fontSize:'13px',color:'#fff075',backgroundColor:'#193e46',padding:{x:5,y:3}}).setOrigin(.5);
       const cross=this.add.graphics().lineStyle(2,0xffee75);cross.lineBetween(-10,0,10,0);cross.lineBetween(0,-8,0,8);
-      this.target=this.add.container(0,0,[circle,cross]).setDepth(3);
+      this.target=this.add.container(0,0,[circle,cross,targetLabel]).setDepth(3);
       const aimPointer=(pointer:Phaser.Input.Pointer)=>{
         const sx=pointer.x-95,sy=pointer.y-245,det=.77*.66+.2*.035;
         const x=(sx*.66-sy*.2)/det,z=(sy*.77+sx*.035)/det;
         if(x>=535&&x<=965&&z>=25&&z<=425){setAim(getGame(),x,z);changed();}
       };
       this.input.on('pointerdown',(pointer:Phaser.Input.Pointer)=>{aimPointer(pointer);if(getGame().practice)keys.add('mouse-attack');});
-      this.input.on('pointermove',aimPointer);
+      this.input.on('pointermove',(pointer:Phaser.Input.Pointer)=>{if(pointer.isDown)aimPointer(pointer);});
       const releasePointer=()=>keys.delete('mouse-attack');
       this.input.on('pointerup',releasePointer);
       this.input.on('pointerupoutside',releasePointer);
@@ -125,8 +126,9 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         const close=Math.hypot(p.x-guide.x,p.z-guide.z)<50;
         this.receive.setPosition(spot.x,spot.y).setStrokeStyle(3,close?0xa4ef7a:0x49ded2);
         this.guideLine.lineStyle(2,0x49ded2,.7).lineBetween(pos.x,pos.y,spot.x,spot.y);
-        this.hint.setPosition(spot.x,spot.y+38).setText(g.practice?(close?'MOUSE MIRA · SEGURE PARA PREPARAR':'VÁ AO CÍRCULO'):guide.attack?(close&&guide.time<.5?'PULE AGORA · ESPAÇO':'ATAQUE · VÁ AO CÍRCULO'):close?'BEM POSICIONADO':'VÁ AO CÍRCULO');
+        this.hint.setPosition(spot.x,spot.y+38).setText(g.practice?(close?'Q MIRA · SEGURE J':'VÁ AO CÍRCULO'):guide.attack?(close&&guide.time<.5?'PULE AGORA · ESPAÇO':'ATAQUE · VÁ AO CÍRCULO'):close?'BEM POSICIONADO':'VÁ AO CÍRCULO');
       }
+      (this.target.list[2] as Phaser.GameObjects.Text).setText(g.aimPreset>=0?aimPresets[g.aimPreset].label:'MIRA');
       const target=project(g.aim.x,g.aim.z);this.target.setPosition(target.x,target.y);
       const old=this.previous.ball,b=g.ball;
       const x=g.status==='playing'?lerp(old.x,b.x):b.x,z=g.status==='playing'?lerp(old.z,b.z):b.z,y=g.status==='playing'?lerp(old.y,b.y):b.y;

@@ -15,7 +15,7 @@ function players(): Player[] {
     action: 'idle', actionTime: 0, stride: 0, landing: 0, windup: 0, jumpBuffer: 0, jumpHeld: false, diveHeld: false, diveX: i<2?1:-1, diveZ: 0, preparation: 0 }));
 }
 export function createGame() {
-  return { players: players(), active: 0, autoSwitch: true, aim: {x:810,z:225}, power: 1, serveStyle: 'float' as ServeStyle, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
+  return { players: players(), active: 0, autoSwitch: true, aimPreset: -1, aim: {x:810,z:225}, power: 1, serveStyle: 'float' as ServeStyle, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
     practice: false, practiceDelay: 0, repetitions: 0, attackStyle: 'power' as AttackStyle, tossTime: 0, tossQuality: '', windEnabled: true, wind: 0, clock: 0, resumeStatus: 'playing', assist: true, feedback: '', feedbackTime: 0, server: 0, status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
     lastHit: -1, lastTeam: -1, touches: 0, rally: 0, shot: '', hitFlash: 0 };
 }
@@ -34,7 +34,17 @@ export function switchPlayer(g: Game) {
 }
 export function setAim(g: Game, x: number, z: number) {
   if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+  g.aimPreset=-1;
   g.aim={x:clamp(x,570,935),z:clamp(z,55,395)};
+}
+export const aimPresets = [
+  {x:610,z:80,label:'Curto ↑'}, {x:890,z:80,label:'Fundo ↑'},
+  {x:890,z:370,label:'Fundo ↓'}, {x:610,z:370,label:'Curto ↓'},
+];
+export function cycleAim(g:Game) {
+  const next=(g.aimPreset+1)%aimPresets.length;
+  setAim(g,aimPresets[next].x,aimPresets[next].z);
+  g.aimPreset=next;
 }
 export function setServeStyle(g: Game, style: string) {
   if(style==='underhand'||style==='float'||style==='jump')g.serveStyle=style;

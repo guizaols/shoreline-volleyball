@@ -171,3 +171,16 @@ assert.ok(drill.players[drill.active].preparation>0);
 assert.ok(strokeQuality(10,.7,0)>strokeQuality(55,0,320));
 assert.ok(strokeQuality(55,0,320)>0);
 console.log('Passed: practice sequence, automatic restart, preparation, aiming and graduated quality.');
+
+const {cycleAim,aimPresets}=await import('./game.ts');
+const keyboardAim=createGame();
+for(let i=0;i<8;i++){
+  cycleAim(keyboardAim);
+  assert.equal(keyboardAim.aimPreset,i%4);
+  assert.deepEqual(keyboardAim.aim,{x:aimPresets[i%4].x,z:aimPresets[i%4].z});
+}
+setAim(keyboardAim,750,225);
+assert.equal(keyboardAim.aimPreset,-1);
+cycleAim(keyboardAim);
+assert.equal(keyboardAim.aimPreset,0);
+console.log('Passed: keyboard targets cycle, wrap and recover after manual aiming.');
