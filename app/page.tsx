@@ -75,6 +75,7 @@ export default function Home(){
  <span className="arcade-badge">BEACH VOLLEY · BETA</span><h1 className="arcade-title">SHORE<span>LINE</span></h1><p className="arcade-tagline">A praia é sua quadra.</p>
  <nav className="arcade-menu" aria-label="Modos de jogo">
  <button className="arcade-play" disabled={!loaded||!!error} onClick={()=>view.status==='paused'?pause():friendly(0)}>{view.status==='paused'?'CONTINUAR':'JOGAR AGORA'} <span>{view.status==='paused'?'Sua partida está esperando':'Amistoso · direto para a quadra'}</span></button>
+ <a className="arcade-sport-link" href="/gol-a-gol">GOL A GOL <span>Futebol na areia · 1 contra 1</span></a>
  <button onClick={()=>setMenuPage('career')}>CARREIRA <span>{progress.career.country} · {progress.career.players.map(p=>p.name).join(' & ')}</span></button>
  <button onClick={()=>setMenuPage('training')}>TREINO <span>Medalhas e XP · treino por atleta</span></button>
  <button onClick={()=>setMenuPage('settings')}>OPÇÕES <span>Controles · instalar · transferir carreira</span></button>

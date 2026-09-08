@@ -2,9 +2,9 @@
 import {useEffect,useRef,useState} from 'react';
 import {stickDirection} from '../lib/controls';
 
-export default function TouchControls({onMove,onPress,onRelease,onAim,label,charge,enabled}:{
+export default function TouchControls({onMove,onPress,onRelease,onAim,label,charge,enabled,flat=false}:{
   onMove:(x:number,z:number)=>void;onPress:()=>void;onRelease:()=>void;
-  onAim:()=>void;label:string;charge:number;enabled:boolean;
+  onAim:()=>void;label:string;charge:number;enabled:boolean;flat?:boolean;
 }){
   const stickPointer=useRef<number|null>(null),actionPointer=useRef<number|null>(null);
   const thumb=useRef<HTMLSpanElement>(null),geometry=useRef({x:0,y:0,radius:1});
@@ -24,7 +24,7 @@ export default function TouchControls({onMove,onPress,onRelease,onAim,label,char
     const dx=e.clientX-x,dy=e.clientY-y;
     const limit=Math.max(1,Math.hypot(dx,dy)/radius);
     moveThumb(dx/limit,dy/limit);
-    const direction=stickDirection(dx,dy,radius);onMove(direction.x,direction.z);
+    const direction=stickDirection(dx,dy,radius,flat);onMove(direction.x,direction.z);
   };
   const endStick=(e:React.PointerEvent<HTMLDivElement>)=>{
     if(e.pointerId!==stickPointer.current)return;
