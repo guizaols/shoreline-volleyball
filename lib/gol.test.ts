@@ -30,3 +30,23 @@ const cpu=newFootball();startFootball(cpu);cpu.owner=1;
 for(let i=0;i<140;i++)stepFootball(cpu,tick,0,0);
 assert.equal(cpu.owner,-1);assert.ok(cpu.ball.vx<0);
 console.log('Passed: charged shots, swept saves, goals, outs, kickoff, dives, half limits, AI, pause and flat joystick.');
+
+// Bank shots preserve their intended angle when rebounding off the boards.
+for(const style of ['top','bottom']){
+ const bank=newFootball();startFootball(bank);bank.shotStyle=style;bank.aim=0;bank.charge=1;shootFootball(bank);
+ for(let i=0;i<1200&&bank.status==='playing';i++){bank.players[1].y=500;stepFootball(bank,tick,0,0);}
+ assert.equal(bank.score[0],1,style+' bank should reach the aimed corner');
+ assert.equal(bank.bankGoals,1);assert.match(bank.message,/TABELA/);
+}
+const {newFootballProgress,recordFootball,effectUnlocked,readFootballProgress}=await import('./gol.ts');
+const result=newFootball();result.status='over';result.score=[5,2];result.saves=[5,2];result.bankGoals=3;
+const earned=recordFootball(newFootballProgress(),result);
+for(const id of ['aqua','comet','electric','aurora'])assert.ok(effectUnlocked(earned,id));
+assert.deepEqual(recordFootball(earned,result),earned,'A finished match is recorded only once');
+assert.deepEqual(readFootballProgress(JSON.stringify({...earned,effect:'aurora'})),{...earned,effect:'aurora'});
+assert.equal(readFootballProgress('{"effect":"aurora"}').effect,'classic','Locked effects cannot be equipped');
+assert.deepEqual(readFootballProgress('bad json'),newFootballProgress());
+const plain=newFootball(),decorated=newFootball();decorated.effect='comet';startFootball(plain);startFootball(decorated);
+plain.charge=decorated.charge=1;shootFootball(plain);shootFootball(decorated);
+assert.deepEqual(plain.ball,decorated.ball,'Visual effects do not alter the shot physics');
+console.log('Passed: both bank-shot routes, unlocks, persistence, deduplication and cosmetic fairness.');
