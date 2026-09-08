@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import {newProgress,cupGame} from '../lib/cup.ts';
+import {prepareServe,toss,serve,step,guidance} from '../lib/game.ts';
+
+// Deterministic balance probe, not a substitute for a human playtest.
+// Each opponent gets a fresh match and a 5-minute simulated-time budget.
+for(let event=0;event<4;event++)for(let stage=0;stage<3;stage++){
+ const p=newProgress();p.event=event;p.stage=stage;
+ const g=cupGame(p);let ticks=0,contacts=0;
+ while(g.status!=='over'&&ticks<36000){
+  if(g.status==='ready')prepareServe(g);
+  if(g.status==='serving')toss(g);
+  if(g.status==='tossing'&&g.tossTime>=.55)serve(g);
+  const guide=guidance(g),player=g.players[g.active],dx=guide.x-player.x,dz=guide.z-player.z,d=Math.hypot(dx,dz);
+  const pursuing=guide.team===0&&d>55;
+  if(g.lastTeam===0&&g.touches===2){
+   g.attackStyle=Math.floor(g.rally/3)%2?'tip':'power';
+   g.aim={x:870,z:g.players[2].z+g.players[3].z>450?80:370};
+  }
+  const before=g.rally;
+  step(g,1/120,pursuing?dx/d:0,false,'Club',false,false,pursuing?dz/d:0,false,true);
+  if(g.rally>before)contacts+=g.rally-before;
+  ticks++;
+ }
+ assert.equal(g.status,'over',`${g.opponentName}: match exceeded the 5-minute simulation budget`);
+ assert.ok(contacts>=14,`${g.opponentName}: match must contain real rallies`);
+ console.log(JSON.stringify({event:event+1,opponent:g.opponentName,score:g.score,seconds:Math.round(ticks/120),contacts,finished:g.status==='over'}));
+}

@@ -15,7 +15,7 @@ function players(): Player[] {
     action: 'idle', actionTime: 0, stride: 0, landing: 0, windup: 0, jumpBuffer: 0, jumpHeld: false, diveHeld: false, diveX: i<2?1:-1, diveZ: 0, preparation: 0 }));
 }
 export function createGame() {
-  return { opponentName:'COAST', friendlyOpponent:0, country: 'BR', names: ['Alex','Dani'], attributes: [{serve:50,attack:50,defense:50,mobility:50},{serve:50,attack:50,defense:50,mobility:50}], playerContacts:[0,0], event:0, matchSerial:0, cupStage: -1, cpuStyle: 'normal', pointGoal: 11, gold: false, challenge: -1, challengeStrike: false, players: players(), active: 0, autoSwitch: true, aimPreset: -1, aim: {x:810,z:225}, power: 1, serveStyle: 'float' as ServeStyle, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
+  return { cpuTier:0,opponentCountry:'US',opponentPlayers:['Noah','Ethan'],opponentName:'COAST', friendlyOpponent:0, country: 'BR', names: ['Alex','Dani'], attributes: [{serve:50,attack:50,defense:50,mobility:50},{serve:50,attack:50,defense:50,mobility:50}], playerContacts:[0,0], event:0, matchSerial:0, cupStage: -1, cpuStyle: 'normal', pointGoal: 11, gold: false, challenge: -1, challengeStrike: false, players: players(), active: 0, autoSwitch: true, aimPreset: -1, aim: {x:810,z:225}, power: 1, serveStyle: 'float' as ServeStyle, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
     pace: 'Club', lastRally: 0, bestRally: 0, pointReason: '', contactHint: '', practice: false, practiceDelay: 0, repetitions: 0, attackStyle: 'power' as AttackStyle, tossTime: 0, tossQuality: '', windEnabled: true, wind: 0, clock: 0, resumeStatus: 'playing', assist: true, feedback: '', feedbackTime: 0, server: 0, status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
     lastHit: -1, lastTeam: -1, touches: 0, rally: 0, shot: '', hitFlash: 0 };
 }
@@ -139,16 +139,16 @@ function hit(g: Game, i: number, attack: boolean, distance: number) {
   const partner = g.players[i ^ 1];
   const assisted=g.practice||p.preparation>0;
   const skill=assisted&&p.team===0?strokeQuality(distance,p.preparation,Math.hypot(p.vx,p.vz)):1;
-  const sendOver = g.touches === 3 || (attack && !g.practice);
+  const sendOver = g.touches === 3 || (attack && !g.practice) || (p.team===1&&g.cpuStyle==='attack'&&g.cpuTier>=2&&g.touches===2&&p.y<410&&Math.abs(g.players[0].x-g.players[1].x)<170);
   const action = sendOver ? 'spike' : g.touches === 1 ? 'bump' : 'set';
   const diving = p.action === 'dive';
   if (!diving) { p.action = action; p.actionTime = .26; }
   const hand=contactPoint(p);
   b.x=hand.x; b.y=hand.y; b.z=hand.z;
-  const style=p.team?'power':g.attackStyle;
+  const style=p.team?(g.cpuStyle==='placement'&&g.rally%2?'tip':'power'):g.attackStyle;
   if (sendOver) {
     if(p.team===0&&g.challenge>0)g.challengeStrike=g.challenge===1?style==='power':style==='tip';
-    const target=p.team?opponentTarget(g):{...g.aim,x:style==='tip'?Math.min(g.aim.x,650):g.aim.x};
+    const target=p.team?{...opponentTarget(g),...(style==='tip'?{x:390}:{})}:{...g.aim,x:style==='tip'?Math.min(g.aim.x,650):g.aim.x};
     const flight=style==='tip'?1.55:style==='roll'?1.65:b.y<255?.82:1.3;
     if(assisted&&p.team===0){const error=Math.max(0,.72-skill)*70;target.x=clamp(target.x+error,550,960);target.z=clamp(target.z+(p.z>225?error:-error),30,420);}
     launch(g,target,flight/(p.team?1:1+(g.attributes[i].attack-50)*.003)*(p.team&&g.cpuStyle==='attack'?.85:1)*(p.team?(g.pace==='Chill'?1.25:g.pace==='Pro'?.92:1):1)/(p.team?1:assisted?.65+skill*.5:g.power));
@@ -208,10 +208,12 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
       const home = p.team&&g.cpuStyle==='block'?(i===2?550:800):i % 2 === 0 ? (p.team ? 620 : 200) : (p.team ? 800 : 380);
       const target = onBall ? clamp(predicted+(p.team?1:-1)*(contactHeight===384?27:12), p.team ? 550 : 45, p.team ? 955 : 450) : home;
       direction = clamp((target - p.x) / 38, -1, 1);
-      const targetZ=onBall?clamp(predictedZ,35,415):p.team&&g.cpuStyle==='block'&&i===2?clamp(b.z,35,415):(i%2?310:145);
+      // Opponents estimate the landing lane; later events make smaller reading errors.
+      const readError=p.team===1&&g.lastTeam===0&&g.cpuStyle!=='normal'&&g.rally>0?Math.sin((g.rally+1)*12.9898+i*78.233+(g.score[0]+g.score[1])*4.17)*(42-g.cpuTier*3):0;
+      const targetZ=onBall?clamp(predictedZ+readError,35,415):p.team&&g.cpuStyle==='block'&&i===2?clamp(g.cpuTier>=1?predictedZ:b.z,35,415):(i%2?310:145);
       depthDirection=clamp((targetZ-p.z)/38,-1,1);
-      if(p.team===1&&g.lastTeam===0&&g.cooldown>(difficulty==='Chill'?.04:difficulty==='Pro'?.2:.10)){direction=0;depthDirection=0;}
-      wantsJump = onBall && g.lastTeam === p.team && g.touches >= 2 && Math.hypot(b.x - p.x,b.z-p.z) < 85 && b.vy > 0 && b.y > 140 && b.y < 260;
+      if(p.team===1&&g.lastTeam===0&&g.cooldown>Math.min(.2,(difficulty==='Chill'?.04:difficulty==='Pro'?.2:.10)+g.cpuTier*.025)){direction=0;depthDirection=0;}
+      wantsJump = onBall && g.lastTeam === p.team && (g.touches >= 2 || (p.team===1&&g.cpuStyle==='attack'&&g.cpuTier>=2&&g.touches===1)) && Math.hypot(b.x - p.x,b.z-p.z) < 85 && b.vy > 0 && b.y > 140 && b.y < 260;
     }
     if(human && g.assist && receivingTeam===0 && receivers[0]===i) {
       const guide=guidance(g),dx=guide.x-p.x,dz=guide.z-p.z;

@@ -89,3 +89,4 @@
 .career-panel input,.career-panel select{font:inherit;padding:8px;border:1px solid #bdcbb4;border-radius:5px;max-width:65%}
 .career-panel button{border:1px solid #aebb9f;border-radius:5px;background:#e8efdd;color:#264e3b;padding:7px 10px;margin:3px}
 .career-panel button:disabled{opacity:.45;cursor:default}.athlete-stats{display:grid;grid-template-columns:1fr 1fr;gap:14px}.athlete-stats section>div,.calendar-event{display:flex;justify-content:space-between;align-items:center;gap:8px}.calendar-event{margin:8px 0}
+.ranking-table{width:100%;border-collapse:collapse;font-size:11px}.ranking-table th,.ranking-table td{text-align:left;padding:7px 5px;border-bottom:1px solid #d5ddcb}.ranking-table .your-ranking{background:#dbe9c6;font-weight:700}.ranking-table td:last-child{text-align:right}

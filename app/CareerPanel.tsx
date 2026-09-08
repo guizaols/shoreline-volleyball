@@ -1,5 +1,5 @@
 'use client';
-import {attributes,events,nations,improve,type Attribute} from '../lib/career';
+import {attributes,events,nations,improve,standings,canEnter,type Attribute} from '../lib/career';
 import {opponents,type Progress} from '../lib/cup';
 
 export default function CareerPanel({progress,onChange,onEvent,onFriendly}:{progress:Progress;onChange:(p:Progress)=>void;onEvent:(index:number)=>void;onFriendly:(index:number)=>void}){
@@ -17,9 +17,11 @@ export default function CareerPanel({progress,onChange,onEvent,onFriendly}:{prog
  <div className="athlete-stats">{career.players.map((player,i)=><section key={i}><strong>{player.name}</strong><small>{player.xp} XP · {player.points} pontos disponíveis</small>
  {(Object.keys(attributes) as Attribute[]).map(key=><div key={key}><span>{attributes[key]} · {player.stats[key]}</span><button aria-label={`Melhorar ${attributes[key]} de ${player.name}`} disabled={!player.points||player.stats[key]>=100} onClick={()=>onChange({...progress,career:improve(career,i,key)})}>+5</button></div>)}
  </section>)}</div></details>
+ <details><summary>Ranking mundial · {standings(career).findIndex(r=>r.you)+1}º lugar</summary><p>Os rivais pontuam a cada partida de carreira. Olimpíadas: 300 pontos e top 4; em empate, os rivais ficam à frente.</p>
+ <table className="ranking-table"><thead><tr><th>Pos.</th><th>Dupla</th><th>Pontos</th></tr></thead><tbody>{standings(career).map((row,i)=><tr key={row.name} className={row.you?'your-ranking':''}><td>{i+1}</td><td>{row.country} · {row.name}{row.you?' (você)':''}</td><td>{row.points}</td></tr>)}</tbody></table></details>
  <details><summary>Calendário · {career.ranking} pontos no circuito</summary><p>Vitória: 30 pontos · derrota: 5 · título: +30. Conclua o torneio em andamento antes de trocar.</p>
- {events.map((event,i)=><div className="calendar-event" key={event.name}><span><strong>{progress.completed.includes(i)?'✓ ':''}{event.name}</strong><small>{event.location} · {event.required?event.required+' pontos para entrar':'Aberto'}</small></span>
- <button disabled={career.ranking<event.required||(busy&&i!==progress.event)} onClick={()=>onEvent(i)}>{i===progress.event&&progress.stage<3?'Continuar':'Jogar'}</button></div>)}</details>
+ {events.map((event,i)=><div className="calendar-event" key={event.name}><span><strong>{progress.completed.includes(i)?'✓ ':''}{event.name}</strong><small>{event.location} · {event.required?event.required+' pontos'+(i===3?' e top 4':' para entrar'):'Aberto'}</small></span>
+ <button disabled={((i!==progress.event||progress.stage===3)&&!canEnter(career,i))||(busy&&i!==progress.event)} onClick={()=>onEvent(i)}>{i===progress.event&&progress.stage<3?'Continuar':'Jogar'}</button></div>)}</details>
  <details><summary>Amistosos</summary><p>Escolha o adversário. O resultado não altera XP, atributos nem ranking.</p>{opponents.map((opponent,i)=><button key={opponent.name} onClick={()=>onFriendly(i)}>{opponent.name}</button>)}</details>
  <details><summary>Histórico · últimas {career.history.length} partidas</summary>{career.history.length?career.history.slice().reverse().map((match,i)=><p key={i}>{match.won?'Vitória':'Derrota'} · {match.score} × {match.opponent}<small>{match.event}</small></p>):<p>Jogue seu primeiro torneio para começar.</p>}</details>
  </div>;

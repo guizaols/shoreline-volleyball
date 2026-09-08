@@ -71,3 +71,28 @@ function attacking(attack:number){
  g.ball={...contactPoint(g.players[0]),vx:0,vz:0,vy:1};step(g,1/120,0,false,'Club');return g.ball.vx;
 }
 assert.ok(attacking(100)>attacking(50),'Attack upgrades increase ball speed');
+
+const {rivals}=await import('./rivals.ts');
+const {standings,canEnter,reward}=await import('./career.ts');
+const {eventOpponents}=await import('./cup.ts');
+assert.equal(new Set(rivals.map(r=>r.name)).size,12);
+assert.equal(new Set(rivals.flatMap(r=>r.players)).size,24);
+for(let event=0;event<4;event++)assert.equal(eventOpponents(event).length,3);
+const racing={...newCareer(),ranking:300};
+assert.ok(canEnter(racing,3));
+const overtaken={...racing,rivalPoints:racing.rivalPoints.map(()=>400)};
+assert.equal(canEnter(overtaken,3),false,'300 points alone cannot qualify outside the top four');
+assert.equal(standings({...racing,rivalPoints:racing.rivalPoints.map(()=>300)}).findIndex(r=>r.you),12);
+const afterRace=reward(racing,events[0].name,rivals[0].name,[7,3],[5,5]);
+assert.ok(afterRace.rivalPoints.some((n,i)=>n>racing.rivalPoints[i]));
+assert.equal(afterRace.rivalPoints[0],racing.rivalPoints[0],'A beaten rival must not gain victory points');
+assert.deepEqual(readCareer(afterRace).rivalPoints,afterRace.rivalPoints);
+function secondBall(tier:number){
+ const g=createGame();g.status='playing';g.windEnabled=false;g.cpuStyle='attack';g.cpuTier=tier;g.lastTeam=1;g.lastHit=3;g.touches=1;
+ g.players[0].x=200;g.players[1].x=300;
+ Object.assign(g.players[2],{x:700,z:225,y:350,action:'set',actionTime:.3});
+ g.ball={...contactPoint(g.players[2]),vx:0,vz:0,vy:1};step(g,1/120,0,false,'Club');return g;
+}
+assert.equal(secondBall(0).shot,'SET');
+assert.equal(secondBall(2).shot,'ATTACK','Advanced attackers exploit second-ball openings');
+console.log('Passed: distinct rosters, live rival standings, Olympic cutoff and tactical second-ball attacks.');

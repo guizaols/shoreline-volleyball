@@ -1,8 +1,9 @@
+import {rivals} from './rivals.ts';
 export const nations=[['BR','Brasil'],['PT','Portugal'],['US','Estados Unidos'],['CA','Canadá'],['FR','França'],['IT','Itália'],['DE','Alemanha'],['NO','Noruega'],['JP','Japão'],['AU','Austrália'],['AR','Argentina']] as const;
 export const attributes={serve:'Saque',attack:'Ataque',defense:'Defesa',mobility:'Mobilidade'};
 export type Attribute=keyof typeof attributes;
 export function athlete(name:string){return {name,xp:0,points:0,stats:{serve:50,attack:50,defense:50,mobility:50}};}
-export function newCareer(){return {country:'BR',players:[athlete('Alex'),athlete('Dani')],ranking:0,history:[] as {event:string;opponent:string;score:string;won:boolean}[]};}
+export function newCareer(){return {matches:0,rivalPoints:rivals.map(r=>r.points),country:'BR',players:[athlete('Alex'),athlete('Dani')],ranking:0,history:[] as {event:string;opponent:string;score:string;won:boolean}[]};}
 export type Career=ReturnType<typeof newCareer>;
 export const events=[
  {name:'Copa de Praia',location:'Brasil',required:0},
@@ -16,6 +17,8 @@ export function readCareer(value:unknown):Career{
  const bounded=(n:unknown,max:number)=>typeof n==='number'&&Number.isInteger(n)&&n>=0&&n<=max?n:0;
  if(nations.some(([code])=>code===v.country))base.country=v.country!;
  base.ranking=bounded(v.ranking,10000000);
+ base.matches=bounded(v.matches,10000000);
+ if(Array.isArray(v.rivalPoints)&&v.rivalPoints.length===rivals.length)base.rivalPoints=v.rivalPoints.map((n,i)=>typeof n==='number'&&Number.isInteger(n)&&n>=0&&n<=10000000?n:rivals[i].points);
  base.players=base.players.map((fallback,i)=>{
   const p=v.players?.[i];if(!p||typeof p!=='object')return fallback;
   fallback.name=typeof p.name==='string'?p.name.trim().slice(0,24)||fallback.name:fallback.name;
@@ -33,9 +36,18 @@ export function improve(c:Career,index:number,attribute:Attribute):Career{
 }
 export function reward(c:Career,event:string,opponent:string,score:number[],contacts:number[]):Career{
  const won=score[0]>score[1];
- return {...c,ranking:c.ranking+(won?30:5),history:[...c.history,{event,opponent,score:score.join('–'),won}].slice(-30),
+ return {...c,matches:c.matches+1,rivalPoints:c.rivalPoints.map((points,i)=>points+(rivals[i].name===opponent?(won?0:20):((c.matches+i)%3===0?12:4))),ranking:c.ranking+(won?30:5),history:[...c.history,{event,opponent,score:score.join('–'),won}].slice(-30),
   players:c.players.map((p,i)=>{
    const xp=p.xp+(won?40:20)+Math.min(30,Math.max(0,contacts[i]||0)*2);
    return {...p,xp,points:p.points+Math.floor(xp/100)-Math.floor(p.xp/100)};
   })};
+}
+
+export function standings(c:Career){
+ return [...rivals.map((r,i)=>({name:r.name,country:r.country,points:c.rivalPoints[i],you:false})),
+  {name:c.players.map(p=>p.name).join(' & '),country:c.country,points:c.ranking,you:true}]
+  .sort((a,b)=>b.points-a.points||Number(a.you)-Number(b.you));
+}
+export function canEnter(c:Career,event:number){
+ return !!events[event]&&c.ranking>=events[event].required&&(event!==3||standings(c).findIndex(r=>r.you)<4);
 }
