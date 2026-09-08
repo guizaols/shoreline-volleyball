@@ -15,7 +15,7 @@ export default function CareerPanel({progress,onChange,onEvent,onFriendly}:{prog
  <label>Nacionalidade<select name="country" defaultValue={career.country}>{nations.map(([code,name])=><option key={code} value={code}>{name}</option>)}</select></label>
  {career.players.map((player,i)=><label key={i}>Atleta {i+1}<input name={'name'+i} maxLength={24} defaultValue={player.name} placeholder={['Alex','Dani'][i]}/></label>)}
  <button type="submit">Salvar dupla</button></form></details>
- <details><summary>Evolução dos atletas</summary><p>100 XP = 1 ponto. Cada melhoria acrescenta 5 ao atributo (máximo 100). Saque e ataque aumentam a velocidade da bola; defesa amplia o alcance; mobilidade acelera o deslocamento.</p>
+ <details><summary>Evolução dos atletas</summary><p>100 XP = 1 ponto. Cada melhoria acrescenta 5 ao atributo (máximo 100). Saque amplia a faixa verde e melhora força e precisão. Ataque dá potência e controle. Defesa melhora recepção, passe e alcance contra bolas fortes. Mobilidade aumenta velocidade e resposta. O tempo da batida e o posicionamento continuam essenciais.</p>
  <div className="athlete-stats">{career.players.map((player,i)=><section key={i}><strong>{player.name}</strong><small>{player.xp} XP · {player.points} pontos disponíveis</small>
  {(Object.keys(attributes) as Attribute[]).map(key=><div key={key}><span>{attributes[key]} · {player.stats[key]}</span><button aria-label={`Melhorar ${attributes[key]} de ${player.name}`} disabled={!player.points||player.stats[key]>=100} onClick={()=>onChange({...progress,career:improve(career,i,key)})}>+5</button></div>)}
  </section>)}</div></details>

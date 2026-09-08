@@ -1,3 +1,4 @@
+import {fundamentalQuality,playerAttribute,serveTiming,landingX,landingZ} from './game.ts';
 import assert from 'node:assert/strict';
 import {events,newCareer,readCareer,improve} from './career.ts';
 import {newProgress,readProgress,cupGame,recordProgress,beginEvent,rematch,applyCareer} from './cup.ts';
@@ -96,3 +97,26 @@ function secondBall(tier:number){
 assert.equal(secondBall(0).shot,'SET');
 assert.equal(secondBall(2).shot,'ATTACK','Advanced attackers exploit second-ball openings');
 console.log('Passed: distinct rosters, live rival standings, Olympic cutoff and tactical second-ball attacks.');
+
+{
+ function timedServe(stat:number,time:number){
+  const g=createGame();g.attributes[0].serve=stat;g.aim={x:925,z:390};prepareServe(g);toss(g);g.tossTime=time;serve(g);return g;
+ }
+ const novice=timedServe(50,.66),expert=timedServe(100,.66);
+ const miss=(g:ReturnType<typeof createGame>)=>Math.hypot(landingX(g,437)-g.aim.x,landingZ(g,437)-g.aim.z);
+ assert.equal(novice.tossQuality,'RUIM');assert.equal(expert.tossQuality,'BOM');
+ assert.ok(miss(expert)<miss(novice),'Higher serve skill preserves placement at the same timing');
+ assert.ok(serveTiming(expert).goodHalf>serveTiming(novice).goodHalf);
+ assert.equal(timedServe(100,.95).tossQuality,'RUIM','Max attributes do not rescue bad timing');
+ assert.equal(timedServe(50,.56).tossQuality,'BOM','A beginner can still execute a perfect serve');
+ assert.ok(fundamentalQuality(.8,100)>fundamentalQuality(.8,50),'Attack and passing quality improve');
+ assert.ok(fundamentalQuality(.8,50,.3)<fundamentalQuality(.8,50,0),'Fast incoming balls pressure reception');
+ assert.ok(fundamentalQuality(.8,100,.3)>fundamentalQuality(.8,50,.3),'High defense handles pressure better');
+ const rival=createGame(),basic=playerAttribute(rival,2,'attack');rival.cpuTier=3;
+ assert.ok(playerAttribute(rival,2,'attack')>basic);
+ const advanced=playerAttribute(rival,2,'attack');rival.attributes[0].attack=100;
+ assert.equal(playerAttribute(rival,2,'attack'),advanced,'Opponents never scale to the human upgrades');
+ rival.cpuStyle='attack';assert.ok(playerAttribute(rival,2,'attack')>advanced);
+ rival.pace='Chill';assert.ok(playerAttribute(rival,2,'attack')<advanced);
+ console.log('Passed: attribute-dependent timing, precision, contact pressure and independent rival levels.');
+}

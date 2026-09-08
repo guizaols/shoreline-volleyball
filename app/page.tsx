@@ -7,7 +7,7 @@ import {newAchievements,applyCareer,beginEvent,rematch,eventOpponents,opponents,
 import TouchControls from './TouchControls';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Maximize, Pause, Play, RotateCcw, Volleyball, Wind, X } from 'lucide-react';
-import { createGame, chooseShot, shotChoices, cycleAim, startPractice, prepareServe, serve, toss, switchPlayer } from '../lib/game';
+import { createGame, serveTiming, chooseShot, shotChoices, cycleAim, startPractice, prepareServe, serve, toss, switchPlayer } from '../lib/game';
 
 export default function Home(){
  const canvas=useRef<HTMLDivElement>(null), game=useRef(createGame()), keys=useRef(new Set<string>()), level=useRef('Club'), region=useRef<HTMLDivElement>(null);
@@ -35,7 +35,7 @@ export default function Home(){
    }
    prepareServe(game.current);keys.current.clear();stick.current={x:0,z:0};sync();
  };
- const release=()=>{if(game.current.status==='serving')toss(game.current);else serve(game.current);keys.current.clear();stick.current={x:0,z:0};sync();};
+ const release=()=>{game.current.pace=level.current;if(game.current.status==='serving')toss(game.current);else serve(game.current);keys.current.clear();stick.current={x:0,z:0};sync();};
  const pause=()=>{setCupOpen(false);keys.current.clear();stick.current={x:0,z:0};if(['playing','tossing','practice-wait'].includes(game.current.status)){game.current.resumeStatus=game.current.status;game.current.status='paused';}else if(game.current.status==='paused')game.current.status=game.current.resumeStatus;sync();};
  const friendly=(index:number)=>{setCupOpen(false);const g=applyCareer(createGame(),progressRef.current);g.friendlyOpponent=index;g.cpuStyle=opponents[index].style;g.cpuTier=Math.floor(index/3);g.opponentCountry=opponents[index].country;g.opponentPlayers=[...opponents[index].players];g.opponentName=opponents[index].name;g.pointGoal=7;game.current=g;keys.current.clear();stick.current={x:0,z:0};sync();};
  const reset=()=>friendly(0);
@@ -61,6 +61,7 @@ export default function Home(){
    chooseShot(game.current,index);if(game.current.status==='playing')keys.current.add('touch-attack');sync();
  };
  const shotUp=(e:React.PointerEvent<HTMLButtonElement>)=>{if(shotPointer.current!==e.pointerId)return;shotPointer.current=null;keys.current.delete('touch-attack');};
+ const serveBand=serveTiming(view),greenStart=(.56-serveBand.goodHalf)/1.15*100,greenEnd=(.56+serveBand.goodHalf)/1.15*100;
  const playLabel=view.status==='serving'?'Lançar':view.status==='tossing'?'Sacar':view.lastTeam===0?(view.touches>=2?(view.attackStyle==='tip'?'Largar':'Cortar'):'Levantar'):'Jogar';
  return <main className="arcade-app">
  <section className={`game-shell ${cupOpen?'cup-open':''}`} ref={region}><div className="game-toolbar"><div className="court-label"><span className="live-dot"/> BEACH VOLLEYBALL <span className="tag">2 VS 2</span></div><div className="tools"><button onClick={openCup}>Carreira</button><button className="mobile-mode" onClick={practice}>Treino</button><button className="mobile-mode" onClick={reset}>Partida</button><button aria-label="Pause or resume game" onClick={pause}>{view.status==='paused'?<Play size={17}/>:<Pause size={17}/>}</button><button aria-label="Restart match" onClick={reset}><RotateCcw size={16}/></button><button aria-label="Toggle fullscreen" onClick={()=>{if(document.fullscreenElement)void document.exitFullscreen();else void region.current?.requestFullscreen?.().catch(()=>{});}}><Maximize size={17}/></button></div></div>
@@ -99,7 +100,7 @@ export default function Home(){
  <small role="status">{error||saveError||(!loaded?'Preparando a quadra…':menuPage==='career'?'Carreira salva neste navegador':'')}</small>
  </section></div>}
  {view.challenge>=0&&!cupOpen&&view.status==='playing'&&<div className="lesson-hint">{lessons[view.challenge]}</div>}
- {['serving','tossing'].includes(view.status)&&<div className="serve-prompt"><div><strong>{view.server?'Saque adversário':view.status==='tossing'?'Espaço novamente para bater':'Escolha o saque e o alvo · Lance e bata na faixa verde'}</strong><small>{view.tossQuality||'Bata quando a barra estiver verde'}</small>{view.status==='tossing'&&<div className="toss-meter"><span style={{left:`${Math.min(100,view.tossTime/1.15*100)}%`}}/></div>}</div><button className="primary" onClick={release} disabled={view.server===1&&view.status==='tossing'}>{view.status==='tossing'?'Bater agora':view.server?'Pronto para receber':'Lançar bola'} · Espaço</button></div>}
+ {['serving','tossing'].includes(view.status)&&<div className="serve-prompt"><div><strong>{view.server?'Saque adversário':view.status==='tossing'?'Espaço novamente para bater':'Escolha o saque e o alvo · Lance e bata na faixa verde'}</strong><small>{view.tossQuality||'Bata quando a barra estiver verde'}</small>{view.status==='tossing'&&<div className="toss-meter" style={{background:`linear-gradient(to right,#ce8c67 0% ${greenStart}%,#8fc574 ${greenStart}% ${greenEnd}%,#ce8c67 ${greenEnd}%)`}}><span style={{left:`${Math.min(100,view.tossTime/1.15*100)}%`}}/></div>}</div><button className="primary" onClick={release} disabled={view.server===1&&view.status==='tossing'}>{view.status==='tossing'?'Bater agora':view.server?'Pronto para receber':'Lançar bola'} · Espaço</button></div>}
 
  {view.feedbackTime>0&&<div role="status" className={`contact-feedback ${view.feedback.endsWith('RUIM')?'poor':''}`}>{view.feedback}<small>{view.contactHint}</small></div>}
  {view.status==='playing'&&<span className="rally">{view.rally?`${view.shot} · ${view.rally} hits`:'Find the ball. Make it yours.'}</span>}</div>

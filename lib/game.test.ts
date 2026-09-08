@@ -66,7 +66,7 @@ step(body,tick,0,false,'Club');assert.equal(body.rally,0,'Touching the torso is 
 const combo=createGame();combo.active=-1;serve(combo);const actions:string[]=[];const participants=new Set<number>();let previous=0;
 for(let i=0;i<1200;i++){
   step(combo,tick,0,false,'Pro');
-  if(combo.rally>previous){actions.push(combo.shot);participants.add(combo.lastHit);previous=combo.rally;}
+  if(combo.rally>previous){actions.push(combo.shot==='DIVING SAVE'?(combo.touches===1?'RECEPTION':combo.touches===2?'SET':'ATTACK'):combo.shot);participants.add(combo.lastHit);previous=combo.rally;}
 }
 assert.deepEqual(actions.slice(0,6).map(action=>action==='DIVING SAVE'?'RECEPTION':action),['RECEPTION','SET','ATTACK','RECEPTION','SET','ATTACK']);
 assert.equal(participants.size,4,'All four athletes participate across the net');

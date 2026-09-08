@@ -6,7 +6,10 @@ import {prepareServe,toss,serve,step,guidance} from '../lib/game.ts';
 // Each opponent gets a fresh match and a 5-minute simulated-time budget.
 for(let event=0;event<4;event++)for(let stage=0;stage<3;stage++){
  const p=newProgress();p.event=event;p.stage=stage;
- const g=cupGame(p);let ticks=0,contacts=0;
+ const g=cupGame(p);
+ // Compare similarly developed teams; later events require career upgrades.
+ g.attributes=g.attributes.map(()=>({serve:50+event*12,attack:50+event*12,defense:50+event*12,mobility:50+event*12}));
+ let ticks=0,contacts=0;
  while(g.status!=='over'&&ticks<36000){
   if(g.status==='ready')prepareServe(g);
   if(g.status==='serving')toss(g);
@@ -14,7 +17,7 @@ for(let event=0;event<4;event++)for(let stage=0;stage<3;stage++){
   const guide=guidance(g),player=g.players[g.active],dx=guide.x-player.x,dz=guide.z-player.z,d=Math.hypot(dx,dz);
   const pursuing=guide.team===0&&d>55;
   if(g.lastTeam===0&&g.touches===2){
-   g.attackStyle=Math.floor(g.rally/3)%2?'tip':'power';
+   g.attackStyle=Math.floor(g.rally/6)%2?'tip':'power';
    g.aim={x:870,z:g.players[2].z+g.players[3].z>450?80:370};
   }
   const before=g.rally;
