@@ -18,16 +18,18 @@ runInNewContext(ts.transpileModule(readFileSync(new URL('../app/TouchControls.ts
     useEffect:(fn:()=>void|(()=>void))=>{const cleanup=fn();if(cleanup)cleanups.push(cleanup);},
   }:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:{stickDirection},
 });
-let movement={x:0,z:0},pressed=false,aims=0,styles=0;
+let movement={x:0,z:0},pressed=false,aims=0,styles=0,boundsReads=0;
 const tree=exports.default({onMove:(x:number,z:number)=>{movement={x,z};},onPress:()=>{pressed=true;},
   onRelease:()=>{pressed=false;},onAim:()=>aims++,onStyle:()=>styles++,styleLabel:'Cortada',label:'Jogar',charge:0,enabled:true});
 const stick=tree.children[0],actions=tree.children[1].children,button=actions[2];
 const event=(pointerId:number,clientX=120,clientY=60)=>({
   pointerId,clientX,clientY,preventDefault:()=>{},
-  currentTarget:{setPointerCapture:()=>{},getBoundingClientRect:()=>({left:0,top:0,width:120,height:120})},
+  currentTarget:{setPointerCapture:()=>{},getBoundingClientRect:()=>{boundsReads++;return {left:0,top:0,width:120,height:120};}},
 });
 stick.onPointerDown(event(1));button.onPointerDown(event(2));
 assert.ok(movement.x>.9&&pressed,'Both thumbs must work simultaneously');
+stick.onPointerMove(event(1,90,60));
+assert.equal(boundsReads,1,'Read stick geometry only once per gesture');
 const before={...movement};
 stick.onPointerMove(event(2,0,0));
 assert.deepEqual(movement,before,'The action finger must not move the stick');
@@ -39,7 +41,9 @@ listeners.get('blur')!();assert.deepEqual(movement,{x:0,z:0});assert.equal(press
 actions[0].onClick();assert.equal(aims,1);actions[1].onClick();assert.equal(styles,1);
 for(const [dx,dy] of [[200,0],[0,-200],[-100,100]])assert.ok(Math.hypot(...Object.values(stickDirection(dx,dy,40)))<=1.00001);
 assert.deepEqual(stickDirection(2,2,40),{x:0,z:0});
-assert.ok(Math.hypot(...Object.values(stickDirection(20,0,40)))<.5,'Small gestures must move more slowly');
+const halfway=Math.hypot(...Object.values(stickDirection(20,0,40)));
+assert.ok(halfway>.65&&halfway<.75,'Half a gesture should give useful running speed');
+assert.ok(Math.abs(Math.hypot(...Object.values(stickDirection(28,0,40)))-1)<1e-10,'Reach full speed before the edge');
 const up=stickDirection(0,-40,40);
 assert.ok(Math.abs(.77*up.x+.2*up.z)<1e-10,'Up on the stick must move vertically on screen');
 cleanups.forEach(fn=>fn());
