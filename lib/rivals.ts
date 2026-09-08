@@ -11,4 +11,16 @@ export const rivals=[
  {name:'Sakura',country:'JP',players:['Ren','Haruto'],style:'placement',description:'Procuram o lado vazio da quadra.',points:205},
  {name:'Fiorde',country:'NO',players:['Erik','Magnus'],style:'block',description:'Bloqueiam na frente; o parceiro cobre o fundo.',points:225},
  {name:'Pacífico',country:'US',players:['Mason','Oliver'],style:'attack',description:'Ataques de segunda e cortadas nos espaços.',points:245},
-];
+ {name:'Dunas',country:'BR',players:['Bia','Caio'],style:'defense',description:'Dupla mista; cobre o fundo.',points:8},
+ {name:'Brisa',country:'AR',players:['Luz','Valentina'],style:'placement',description:'Variam bolas curtas e diagonais.',points:15},
+ {name:'Farol',country:'BR',players:['Lia','Ravi'],style:'attack',description:'Dupla mista; acelera a segunda bola.',points:25},
+ {name:'Recife',country:'BR',players:['Cecília','Iago'],style:'block',description:'Dupla mista; protege a rede.',points:45},
+ {name:'Sertão',country:'PT',players:['Inês','Marta'],style:'defense',description:'Defesa paciente contra o vento.',points:55},
+ {name:'Mangue',country:'BR',players:['Yara','Davi'],style:'placement',description:'Dupla mista; procura espaços curtos.',points:65},
+ {name:'Guanabara',country:'BR',players:['Nina','Otávio'],style:'attack',description:'Dupla mista; ataques rápidos.',points:110},
+ {name:'Costa Azul',country:'FR',players:['Élise','Chloé'],style:'defense',description:'Defendem as diagonais.',points:130},
+ {name:'Arpoador',country:'BR',players:['Jade','Bento'],style:'block',description:'Dupla mista; bloqueio e cobertura.',points:150},
+ {name:'Sol Nascente',country:'JP',players:['Aiko','Kenji'],style:'placement',description:'Dupla mista; controle nas rajadas.',points:190},
+ {name:'Oceano',country:'AU',players:['Mia','Zoe'],style:'defense',description:'Recuperam bolas nas extremidades.',points:210},
+ {name:'Atlântica',country:'BR',players:['Clara','Theo'],style:'attack',description:'Dupla mista; potência na final.',points:230},
+].map((r,i)=>({...r,genders:(i<12?['male','male']:i%3===1?['female','female']:['female','male']) as ('male'|'female')[]}));

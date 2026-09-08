@@ -7,7 +7,7 @@ let p=newProgress();p.career.players[0].name='João';const g=cupGame(p);
 for(let i=0;i<7;i++)point(g,0);p=recordProgress(p,g);
 assert.deepEqual(importCareer(exportCareer(p)),p);
 assert.deepEqual(importCareer(exportCareer(readProgress(JSON.stringify(p)))),p);
-for(const raw of ['{}','not json',JSON.stringify({format:'shoreline-career',version:2,progress:p}),exportCareer({...p,stage:99}),exportCareer({...p,career:{...p.career,country:'BAD'}}),' '.repeat(200001)])assert.throws(()=>importCareer(raw));
+for(const raw of ['{}','not json',JSON.stringify({format:'shoreline-career',version:3,progress:p}),exportCareer({...p,stage:99}),exportCareer({...p,career:{...p.career,country:'BAD'}}),' '.repeat(200001)])assert.throws(()=>importCareer(raw));
 const manifest=JSON.parse(readFileSync('public/manifest.webmanifest','utf8'));
 assert.equal(manifest.display,'standalone');assert.equal(manifest.start_url,'/');
 for(const size of [192,512]){
@@ -15,3 +15,9 @@ for(const size of [192,512]){
 }
 assert.ok(readFileSync('public/offline.html','utf8').includes('Conecte-se'));
 console.log('Passed: backup round-trip, invalid import rejection, installation manifest and icon dimensions.');
+
+const legacy=JSON.parse(exportCareer(p));legacy.version=1;delete legacy.progress.drills;
+legacy.progress.career.players.forEach((player:any)=>delete player.gender);legacy.progress.career.rivalPoints=legacy.progress.career.rivalPoints.slice(0,12);
+const migrated=importCareer(JSON.stringify(legacy));
+assert.equal(migrated.career.players[0].name,'João');assert.equal(migrated.stage,p.stage);
+assert.equal(migrated.career.players[0].gender,'unspecified');assert.equal(migrated.drills[0].length,9);

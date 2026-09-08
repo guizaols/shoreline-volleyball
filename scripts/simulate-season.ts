@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict';
+import {events} from '../lib/career.ts';
 import {newProgress,cupGame} from '../lib/cup.ts';
 import {prepareServe,toss,serve,step,guidance} from '../lib/game.ts';
 
 // Deterministic balance probe, not a substitute for a human playtest.
 // Each opponent gets a fresh match and a 5-minute simulated-time budget.
-for(let event=0;event<4;event++)for(let stage=0;stage<3;stage++){
+for(let event=0;event<events.length;event++)for(let stage=0;stage<3;stage++){
  const p=newProgress();p.event=event;p.stage=stage;
  const g=cupGame(p);
  // Compare similarly developed teams; later events require career upgrades.
- g.attributes=g.attributes.map(()=>({serve:50+event*12,attack:50+event*12,defense:50+event*12,mobility:50+event*12}));
+ g.attributes=g.attributes.map(()=>({serve:50+events[event].tier*12,attack:50+events[event].tier*12,defense:50+events[event].tier*12,mobility:50+events[event].tier*12}));
  let ticks=0,contacts=0;
  while(g.status!=='over'&&ticks<36000){
   if(g.status==='ready')prepareServe(g);

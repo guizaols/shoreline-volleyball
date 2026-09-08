@@ -1,3 +1,4 @@
+import {drills,trainingMedal} from './training.ts';
 export const FLOOR = 450;
 const GRAVITY = 620;
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
@@ -15,11 +16,36 @@ function players(): Player[] {
     action: 'idle', actionTime: 0, stride: 0, landing: 0, windup: 0, jumpBuffer: 0, jumpHeld: false, diveHeld: false, diveX: i<2?1:-1, diveZ: 0, preparation: 0 }));
 }
 export function createGame() {
-  return { cpuTier:0,opponentCountry:'US',opponentPlayers:['Noah','Ethan'],opponentName:'COAST', friendlyOpponent:0, country: 'BR', names: ['Alex','Dani'], attributes: [{serve:50,attack:50,defense:50,mobility:50},{serve:50,attack:50,defense:50,mobility:50}], playerContacts:[0,0], event:0, matchSerial:0, cupStage: -1, cpuStyle: 'normal', pointGoal: 11, gold: false, challenge: -1, challengeStrike: false, players: players(), active: 0, autoSwitch: true, aimPreset: -1, aim: {x:810,z:225}, power: 1, serveStyle: 'float' as ServeStyle, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
+  return { drill:-1,drillAthlete:0,drillAttempts:0,drillScore:0,drillMedal:0,drillQuality:0,drillStruck:false,drillTarget:{x:890,z:80},location:'Palm Cove',windStrength:27,genders:['unspecified','unspecified'],opponentGenders:['male','male'],cpuTier:0,opponentCountry:'US',opponentPlayers:['Noah','Ethan'],opponentName:'COAST', friendlyOpponent:0, country: 'BR', names: ['Alex','Dani'], attributes: [{serve:50,attack:50,defense:50,mobility:50},{serve:50,attack:50,defense:50,mobility:50}], playerContacts:[0,0], event:0, matchSerial:0, cupStage: -1, cpuStyle: 'normal', pointGoal: 11, gold: false, challenge: -1, challengeStrike: false, players: players(), active: 0, autoSwitch: true, aimPreset: -1, aim: {x:810,z:225}, power: 1, serveStyle: 'float' as ServeStyle, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
     pace: 'Club', lastRally: 0, bestRally: 0, pointReason: '', contactHint: '', practice: false, practiceDelay: 0, repetitions: 0, attackStyle: 'power' as AttackStyle, tossTime: 0, tossQuality: '', windEnabled: true, wind: 0, clock: 0, resumeStatus: 'playing', assist: true, feedback: '', feedbackTime: 0, server: 0, status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
     lastHit: -1, lastTeam: -1, touches: 0, rally: 0, shot: '', hitFlash: 0 };
 }
 export type Game = ReturnType<typeof createGame>;
+export function startDrill(g:Game,index:number,athlete:number){
+ if(!drills[index]||![0,1].includes(athlete))return;
+ g.drill=index;g.drillAthlete=athlete;g.drillAttempts=0;g.drillScore=0;g.drillMedal=0;
+ g.practice=true;g.challenge=-1;g.autoSwitch=false;g.assist=true;g.windEnabled=false;g.wind=0;
+ nextDrillBall(g);
+}
+function nextDrillBall(g:Game){
+ const drill=drills[g.drill],lane=[80,370,225,80,370][g.drillAttempts];
+ g.players=players();g.active=g.drillAthlete;g.drillQuality=0;g.drillStruck=false;g.cooldown=.3;g.rally=0;
+ g.drillTarget={x:clamp(g.drillAttempts%2?610:890,535+drill.radius,965-drill.radius),z:clamp(lane,25+drill.radius,425-drill.radius)};g.aim={x:775,z:225};g.aimPreset=-1;
+ g.server=0;g.touches=0;g.lastTeam=-1;g.lastHit=-1;g.feedbackTime=0;
+ if(drill.kind==='serve'){g.status='ready';prepareServe(g);return;}
+ const p=g.players[g.active];p.x=drill.kind==='attack'?350:210;p.z=225;
+ g.status='playing';g.lastTeam=drill.kind==='attack'?0:1;g.lastHit=drill.kind==='attack'?(g.active^1):2;g.touches=drill.kind==='attack'?2:1;
+ g.ball={x:drill.kind==='attack'?350:720,z:225,y:drill.kind==='attack'?80:200,vx:0,vz:0,vy:0};
+ launch(g,{x:p.x,z:drill.kind==='attack'?225:lane},drill.flight);
+}
+function finishDrillAttempt(g:Game,success:boolean){
+ g.drillAttempts++;if(success)g.drillScore++;
+ g.drillMedal=trainingMedal(g.drillScore);g.practiceDelay=1;
+ g.status=g.drillAttempts>=5?'drill-complete':'practice-wait';
+ g.feedback=success?'ALVO CONCLUÍDO':'TENTE AJUSTAR O PRÓXIMO';g.feedbackTime=1;
+ g.message=`${g.drillScore}/5 acertos`;
+}
+function serverPlayer(g:Game){return g.server?3:g.drill>=0?g.drillAthlete:0;}
 export function startPractice(g:Game) {
   g.challengeStrike=false;g.practice=true;g.autoSwitch=true;g.assist=true;g.feedbackTime=0;g.windEnabled=false;g.wind=0;g.status='playing';g.players=players();g.active=0;
   g.lastTeam=1;g.lastHit=2;g.touches=1;g.rally=0;g.cooldown=.3;g.practiceDelay=0;
@@ -38,13 +64,13 @@ export function fundamentalQuality(execution:number,attribute:number,pressure=0)
   return clamp(execution-(1-execution)*(100-attribute)/70-pressure*(1.15-attribute/100),.15,1);
 }
 export function serveTiming(g:Game){
-  const stat=playerAttribute(g,g.server?3:0,'serve');
+  const stat=playerAttribute(g,serverPlayer(g),'serve');
   const style=g.server?(['float','underhand','jump'] as ServeStyle[])[(g.score[0]+g.score[1])%3]:g.serveStyle;
   const tolerance=(.12+stat*.002)*(style==='underhand'?1.4:style==='jump'?.7:1);
   return {tolerance,goodHalf:.02+tolerance*.28/(1+(100-stat)/70)};
 }
 export function switchPlayer(g: Game) {
-  if (g.status === 'playing' || g.status === 'ready') g.active = 1 - g.active;
+  if (g.drill<0&&(g.status === 'playing' || g.status === 'ready')) g.active = 1 - g.active;
 }
 export function setAim(g: Game, x: number, z: number) {
   if (!Number.isFinite(x) || !Number.isFinite(z)) return;
@@ -93,8 +119,8 @@ function opponentTarget(g: Game) {
 }
 export function prepareServe(g: Game) {
   if(g.status!=='ready')return;
-  g.status='serving';if(g.active>=0)g.active=0;
-  const p=g.players[g.server?3:0];p.x=g.server?960:40;p.z=225;
+  g.status='serving';if(g.active>=0)g.active=g.drill>=0?g.drillAthlete:0;
+  const p=g.players[serverPlayer(g)];p.x=g.server?960:40;p.z=225;
   g.ball={x:p.x,z:p.z,y:p.y-80,vx:0,vz:0,vy:0};
 }
 export function contactQuality(distance:number) { return distance<=22?'BOM':'RUIM'; }
@@ -115,12 +141,12 @@ export function setAttackStyle(g:Game,style:string) {
 export function serve(g: Game) {
   if (g.status !== 'tossing') return;
   if(g.tossTime<.25||g.tossTime>1.05){g.tossQuality='Espere a bola subir';return;}
-  const stat=playerAttribute(g,g.server?3:0,'serve');
+  const stat=playerAttribute(g,serverPlayer(g),'serve');
   const execution=clamp(1-Math.max(0,Math.abs(g.tossTime-.56)-.02)/serveTiming(g).tolerance,0,1);
   const quality=fundamentalQuality(execution,stat);
   g.tossQuality=quality>.72?'BOM':quality>.42?'REGULAR':'RUIM';
   const style=g.server?(['float','underhand','jump'] as ServeStyle[])[(g.score[0]+g.score[1])%3]:g.serveStyle;
-  const i=g.server?3:0,p=g.players[i];
+  const i=serverPlayer(g),p=g.players[i];
   p.x=g.server?960:40;p.z=225;p.y=style==='jump'?365:FLOOR;p.vy=style==='jump'?-130:0;
   p.action=style==='underhand'?'bump':'spike';p.actionTime=.26;
   g.ball={...contactPoint(p),vx:0,vz:0,vy:0};
@@ -129,11 +155,17 @@ export function serve(g: Game) {
   const error=(1-quality)*.32;
   target.x+=(g.server?225-target.x:775-target.x)*error;target.z+=(225-target.z)*error;
   launch(g,target,(style==='underhand'?1.9:style==='float'?1.45:1.05)/((g.server?1:g.power)*(1+(stat-50)*.006)*(.7+quality*.3)));
+  if(g.drill>=0){g.drillQuality=quality;g.drillStruck=true;}
   g.status='playing';g.message='';g.lastHit=i;g.lastTeam=g.server;g.touches=1;g.cooldown=.3;
   g.contactHint='';g.feedback=`SAQUE ${g.tossQuality}`;g.feedbackTime=1.8;
   g.shot=style==='underhand'?'UNDERHAND SERVE':style==='float'?'FLOAT SERVE':'JUMP SERVE';
 }
 export function point(g: Game, winner: number, reason = '') {
+  if(g.drill>=0){
+   const drill=drills[g.drill];
+   finishDrillAttempt(g,drill.kind!=='defense'&&g.drillStruck&&g.drillQuality>=.42&&winner===0&&Math.hypot(g.ball.x-g.drillTarget.x,g.ball.z-g.drillTarget.z)<=drill.radius);
+   return;
+  }
   if(g.challenge>0&&g.challengeStrike&&winner===0&&reason!=='Out.'){g.status='challenge-complete';return;}
   g.lastRally=g.rally;g.bestRally=Math.max(g.bestRally,g.rally);g.pointReason=reason==='Out.'?'Bola fora':reason||'Bola no chão';
   if(g.practice){g.repetitions++;g.practiceDelay=1.2;g.status='practice-wait';return;}
@@ -193,12 +225,16 @@ function hit(g: Game, i: number, attack: boolean, distance: number) {
   g.contactHint=p.team?'':distance>35?'Aproxime-se do círculo':p.preparation<.25?'Prepare o contato mais cedo':Math.hypot(p.vx,p.vz)>170?'Chegue e freie antes do contato':'Contato equilibrado';
   const quality=skill>.72?'BOM':skill>.42?'REGULAR':'RUIM';p.preparation=0;
   g.feedback=`${p.team?'COAST':'VOCÊ'} · ${diving?'DEFESA NO CHÃO':sendOver?(p.team===0&&style==='tip'?'LARGADINHA':p.team===0&&style==='roll'?'ATAQUE COLOCADO':'ATAQUE'):g.touches===1?'RECEPÇÃO':'PASSE'} ${quality}`;g.feedbackTime=1.8;
+  if(g.drill>=0&&i===g.drillAthlete){
+    if(drills[g.drill].kind==='defense'){finishDrillAttempt(g,skill>=[.42,.6,.72][drills[g.drill].level]);return;}
+    if(drills[g.drill].kind==='attack'&&sendOver){g.drillQuality=skill;g.drillStruck=true;}
+  }
   if(sendOver&&p.team===0)g.attackStyle='power';
   g.shot = diving ? 'DIVING SAVE' : action === 'bump' ? 'RECEPTION' : action === 'set' ? 'SET' : 'ATTACK';
 }
 export function step(g: Game, dt: number, move: number, jump: boolean, difficulty: string, attack = false, dive = false, depth = 0, block = false, prepare = false) {
   const preparing=prepare||(g.practice&&attack);
-  if(g.status==='practice-wait'){g.practiceDelay-=dt;if(g.practiceDelay<=0)startPractice(g);return;}
+  if(g.status==='practice-wait'){g.practiceDelay-=dt;if(g.practiceDelay<=0){if(g.drill>=0)nextDrillBall(g);else startPractice(g);}return;}
   if(g.status==='tossing'){
     g.tossTime+=dt;g.ball.vy+=GRAVITY*dt;g.ball.y+=g.ball.vy*dt;
     if(g.server&&g.tossTime>=.55){serve(g);return;}
@@ -207,7 +243,7 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
   }
   if (g.status !== 'playing') return;
   g.pace=difficulty;
-  g.clock+=dt;g.wind=g.windEnabled?18*Math.sin(g.clock*.37)+9*Math.sin(g.clock*.81):0;
+  g.clock+=dt;g.wind=g.windEnabled?(18*Math.sin(g.clock*.37)+9*Math.sin(g.clock*.81))*g.windStrength/27:0;
   g.feedbackTime=Math.max(0,g.feedbackTime-dt);
   const b = g.ball, receivingTeam = landingX(g) < 500 ? 0 : 1;
   const contactHeight=g.lastTeam===receivingTeam?(g.touches>=2?235:334):384;
@@ -220,7 +256,7 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
       return cost(a) <= cost(c) ? a : c;
     });
   }
-  if(g.autoSwitch && g.active>=0 && receivingTeam===0) {
+  if(g.drill<0&&g.autoSwitch && g.active>=0 && receivingTeam===0) {
     const next=receivers[0], current=g.players[g.active];
     const distance=(p:Player)=>Math.hypot(p.x-predicted,p.z-predictedZ);
     // Hysteresis prevents control from flickering between two equally close players.
@@ -302,7 +338,7 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
   g.cooldown = Math.max(0, g.cooldown - dt); g.hitFlash = Math.max(0, g.hitFlash - dt);
   for(let i=0;i<4;i++){
     const p=g.players[i],isBlocking=i===g.active?(block||preparing):g.lastTeam!==p.team;
-    if(isBlocking&&g.lastTeam!==p.team&&Math.abs(p.x-500)<90&&p.y<FLOOR-35&&g.cooldown===0&&Math.abs(b.x-p.x)<60&&Math.abs(b.z-p.z)<55&&Math.abs(b.y-(p.y-140))<45){
+    if(g.drill<0&&isBlocking&&g.lastTeam!==p.team&&Math.abs(p.x-500)<90&&p.y<FLOOR-35&&g.cooldown===0&&Math.abs(b.x-p.x)<60&&Math.abs(b.z-p.z)<55&&Math.abs(b.y-(p.y-140))<45){
       b.vx=(p.team?-1:1)*Math.max(150,Math.abs(b.vx)*.6);b.vy=100;g.lastTeam=p.team;g.lastHit=i;g.touches=0;g.cooldown=.35;
       p.action='set';p.actionTime=.26;g.shot='BLOQUEIO';g.feedback=`${p.team?'COAST':'VOCÊ'} · BLOQUEIO BOM`;g.feedbackTime=1.8;g.rally++;
     }
@@ -325,6 +361,8 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
       const hand=contactPoint(p);
       return {i,distance:Math.hypot((b.x-hand.x)/1.1,b.z-hand.z,(b.y-hand.y)/1.2)};
     }).filter(c=>{
+      if(g.drill>=0&&(c.i!==g.drillAthlete||drills[g.drill].kind==='serve'||g.drillStruck))return false;
+      if(g.drill>=0&&drills[g.drill].kind==='defense'&&c.distance>=[45,32,22][drills[g.drill].level])return false;
       const p=g.players[c.i];
       if(p.action==='dive')return c.distance<38*(1+(playerAttribute(g,c.i,'defense')-50)*.004)&&p.actionTime<=DIVE_DURATION-.06&&p.actionTime>=.3;
       return c.distance<((1+(playerAttribute(g,c.i,'defense')-50)*.004)*(c.i===g.active&&g.assist?(g.practice||prepare?60:48):30)) && p.action!=='idle' && p.actionTime<=.39 && p.actionTime>=.08;

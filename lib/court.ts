@@ -1,3 +1,4 @@
+import {drills} from './training';
 import * as Phaser from 'phaser';
 import { step, aimPresets, DIVE_DURATION, setAim, guidance, landingX, landingZ, FLOOR, type Game, type Player } from './game';
 
@@ -26,6 +27,8 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
     arrow!: Phaser.GameObjects.Triangle;
     impact!: Phaser.GameObjects.Arc;
     target!: Phaser.GameObjects.Container;
+    objective!: Phaser.GameObjects.Graphics;
+    objectiveLabel!: Phaser.GameObjects.Text;
     landing!: Phaser.GameObjects.Ellipse;
     receive!: Phaser.GameObjects.Ellipse;
     hint!: Phaser.GameObjects.Text;
@@ -73,6 +76,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       const targetLabel=this.add.text(0,-24,'',{fontSize:'13px',color:'#fff075',backgroundColor:'#193e46',padding:{x:5,y:3}}).setOrigin(.5);
       const cross=this.add.graphics().lineStyle(2,0xffee75);cross.lineBetween(-10,0,10,0);cross.lineBetween(0,-8,0,8);
       this.target=this.add.container(0,0,[circle,cross,targetLabel]).setDepth(3);
+      this.objective=this.add.graphics().setDepth(3);this.objectiveLabel=this.add.text(0,0,'ALVO DO TREINO',{fontSize:'12px',color:'#fff2a0',backgroundColor:'#193e46'}).setOrigin(.5).setDepth(3);
       const aimPointer=(pointer:Phaser.Input.Pointer)=>{
         const sx=pointer.x-95,sy=pointer.y-245,det=.77*.66+.2*.035;
         const x=(sx*.66-sy*.2)/det,z=(sy*.77+sx*.035)/det;
@@ -100,6 +104,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         const old=this.previous.players[i];
         const x=g.status==='playing'?lerp(old.x,p.x):p.x,z=g.status==='playing'?lerp(old.z,p.z):p.z,y=g.status==='playing'?lerp(old.y,p.y):p.y;
         const ground=project(x,z),pos=project(x,z,y),sprite=this.athletes[i];
+        const visible=g.drill<0||i===g.drillAthlete;sprite.setVisible(visible);this.shadows[i].setVisible(visible);this.labels[i].setVisible(visible);
         sprite.setPosition(pos.x,pos.y).setScale(.56).setFlipX(p.action==='dive'?p.diveX<0:p.team===1).setDepth(z+20);
         // A subtle warm tint and labels distinguish the opposing team.
         sprite.setTint(i<2?(g.gold?0xffd260:0xffffff):0xffdbd1);
@@ -114,7 +119,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         }
         if(g.status==='paused')sprite.anims.pause();else sprite.anims.resume();
         this.shadows[i].setPosition(ground.x,ground.y-1).setScale(y<FLOOR?.75:1);
-        this.labels[i].setText(i<2?g.names[i]:g.opponentPlayers[i-2]).setPosition(ground.x,ground.y+9).setDepth(z+21).setAlpha(i===g.active?1:.65);
+        this.labels[i].setText((i<2?g.names[i]:g.opponentPlayers[i-2])+((i<2?g.genders[i]:g.opponentGenders[i-2])==='female'?' ♀':(i<2?g.genders[i]:g.opponentGenders[i-2])==='male'?' ♂':'')).setPosition(ground.x,ground.y+9).setDepth(z+21).setAlpha(i===g.active?1:.65);
         if(i===g.active){this.ring.setPosition(ground.x,ground.y);this.arrow.setPosition(pos.x,pos.y-110);}
       };
       g.players.forEach(render);
@@ -129,6 +134,13 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         this.hint.setPosition(spot.x,spot.y+38).setText(g.challenge===0?'MOVA ATÉ O CÍRCULO':close?'SEGURE JOGAR / J':'VÁ AO CÍRCULO');
       }
       (this.target.list[2] as Phaser.GameObjects.Text).setText(g.aimPreset>=0?aimPresets[g.aimPreset].label:'MIRA');
+      const objective=g.drill>=0&&drills[g.drill].kind!=='defense';
+      this.objective.clear();this.objectiveLabel.setVisible(objective);
+      if(objective){
+       const radius=drills[g.drill].radius,points=Array.from({length:32},(_,i)=>project(g.drillTarget.x+Math.cos(i*Math.PI/16)*radius,g.drillTarget.z+Math.sin(i*Math.PI/16)*radius));
+       this.objective.fillStyle(0xffd85c,.15).fillPoints(points,true).lineStyle(3,0xffd85c).strokePoints(points,true,true);
+       const pos=project(g.drillTarget.x,g.drillTarget.z);this.objectiveLabel.setPosition(pos.x,pos.y+radius*.66+10);
+      }
       const target=project(g.aim.x,g.aim.z);this.target.setPosition(target.x,target.y);
       const old=this.previous.ball,b=g.ball;
       const x=g.status==='playing'?lerp(old.x,b.x):b.x,z=g.status==='playing'?lerp(old.z,b.z):b.z,y=g.status==='playing'?lerp(old.y,b.y):b.y;

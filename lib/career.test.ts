@@ -1,6 +1,6 @@
 import {fundamentalQuality,playerAttribute,serveTiming,landingX,landingZ} from './game.ts';
 import assert from 'node:assert/strict';
-import {events,newCareer,readCareer,improve} from './career.ts';
+import {events,circuitOrder,newCareer,readCareer,improve} from './career.ts';
 import {newProgress,readProgress,cupGame,recordProgress,beginEvent,rematch,applyCareer} from './cup.ts';
 import {createGame,point,step,prepareServe,toss,serve,contactPoint} from './game.ts';
 
@@ -10,17 +10,17 @@ assert.deepEqual(migrated.score,[3,2]);assert.ok(migrated.gold);
 assert.deepEqual(migrated.career,newCareer());
 let p=newProgress();
 assert.equal(beginEvent(p,3),p,'Olympics require qualification');
-for(let event=0;event<events.length;event++){
+for(const event of circuitOrder){
  p=beginEvent(p,event);assert.equal(p.event,event);
  for(let stage=0;stage<3;stage++){
   const g=cupGame(p);g.playerContacts=[12,6];
-  for(let i=0;i<7;i++)point(g,0);
+  for(let i=0;i<g.pointGoal;i++)point(g,0);
   p=recordProgress(p,g);
   assert.deepEqual(recordProgress(p,g),p,'Repeated callbacks must not duplicate rewards');
  }
  assert.ok(p.completed.includes(event));
 }
-assert.equal(p.career.ranking,480);assert.equal(p.career.history.length,12);
+assert.equal(p.career.ranking,960);assert.equal(p.career.history.length,24);
 assert.ok(p.career.players[0].xp>p.career.players[1].xp);
 assert.ok(p.career.players.every(player=>player.points>0));
 assert.deepEqual(readProgress(JSON.stringify(p)),p);
@@ -76,14 +76,14 @@ assert.ok(attacking(100)>attacking(50),'Attack upgrades increase ball speed');
 const {rivals}=await import('./rivals.ts');
 const {standings,canEnter,reward}=await import('./career.ts');
 const {eventOpponents}=await import('./cup.ts');
-assert.equal(new Set(rivals.map(r=>r.name)).size,12);
-assert.equal(new Set(rivals.flatMap(r=>r.players)).size,24);
-for(let event=0;event<4;event++)assert.equal(eventOpponents(event).length,3);
+assert.equal(new Set(rivals.map(r=>r.name)).size,24);
+assert.equal(new Set(rivals.flatMap(r=>r.players)).size,48);
+for(let event=0;event<events.length;event++)assert.equal(eventOpponents(event).length,3);
 const racing={...newCareer(),ranking:300};
 assert.ok(canEnter(racing,3));
 const overtaken={...racing,rivalPoints:racing.rivalPoints.map(()=>400)};
 assert.equal(canEnter(overtaken,3),false,'300 points alone cannot qualify outside the top four');
-assert.equal(standings({...racing,rivalPoints:racing.rivalPoints.map(()=>300)}).findIndex(r=>r.you),12);
+assert.equal(standings({...racing,rivalPoints:racing.rivalPoints.map(()=>300)}).findIndex(r=>r.you),rivals.length);
 const afterRace=reward(racing,events[0].name,rivals[0].name,[7,3],[5,5]);
 assert.ok(afterRace.rivalPoints.some((n,i)=>n>racing.rivalPoints[i]));
 assert.equal(afterRace.rivalPoints[0],racing.rivalPoints[0],'A beaten rival must not gain victory points');

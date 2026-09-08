@@ -160,3 +160,8 @@
 @media (prefers-reduced-motion:reduce){
  .achievement-toast,.achievement-confetti i{animation:none}.achievement-confetti{display:none}
 }
+.drill-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:100%}
+.drill-grid button{display:flex;flex-direction:column;gap:8px;align-items:flex-start;text-align:left;padding:14px;border:1px solid #78afa1;border-radius:12px;background:#204e51;color:#fff2d1;min-height:105px}
+.drill-grid span{color:#ffe080;font-size:12px}.drill-grid small{font-size:10px;line-height:1.5}.drill-grid button:disabled{opacity:.45}
+.training-menu>label{display:flex;gap:10px;align-items:center}.training-menu>p{width:100%;line-height:1.6}
+@media(max-width:600px){.drill-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

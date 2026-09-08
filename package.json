@@ -11,7 +11,7 @@
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "format": "oxfmt",
-    "test": "node --experimental-strip-types lib/game.test.ts && node --experimental-strip-types lib/controls.test.ts && node --experimental-strip-types lib/cup.test.ts && node --experimental-strip-types lib/career.test.ts && node --experimental-strip-types lib/backup.test.ts",
+    "test": "node --experimental-strip-types lib/game.test.ts && node --experimental-strip-types lib/controls.test.ts && node --experimental-strip-types lib/cup.test.ts && node --experimental-strip-types lib/career.test.ts && node --experimental-strip-types lib/backup.test.ts && node --experimental-strip-types lib/training.test.ts",
     "test:season": "node --experimental-strip-types scripts/simulate-season.ts"
   },
   "dependencies": {

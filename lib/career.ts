@@ -2,15 +2,23 @@ import {rivals} from './rivals.ts';
 export const nations=[['BR','Brasil'],['PT','Portugal'],['US','Estados Unidos'],['CA','Canadá'],['FR','França'],['IT','Itália'],['DE','Alemanha'],['NO','Noruega'],['JP','Japão'],['AU','Austrália'],['AR','Argentina']] as const;
 export const attributes={serve:'Saque',attack:'Ataque',defense:'Defesa',mobility:'Mobilidade'};
 export type Attribute=keyof typeof attributes;
-export function athlete(name:string){return {name,xp:0,points:0,stats:{serve:50,attack:50,defense:50,mobility:50}};}
+export type Gender='male'|'female'|'unspecified';
+export const genders=[['unspecified','Não informado'],['female','Mulher'],['male','Homem']] as const;
+export function athlete(name:string){return {name,gender:'unspecified' as Gender,xp:0,points:0,stats:{serve:50,attack:50,defense:50,mobility:50}};}
 export function newCareer(){return {matches:0,rivalPoints:rivals.map(r=>r.points),country:'BR',players:[athlete('Alex'),athlete('Dani')],ranking:0,history:[] as {event:string;opponent:string;score:string;won:boolean}[]};}
 export type Career=ReturnType<typeof newCareer>;
 export const events=[
- {name:'Copa de Praia',location:'Brasil',required:0},
- {name:'Circuito Mundial · Lisboa',location:'Portugal',required:90},
- {name:'Circuito Mundial · Sydney',location:'Austrália',required:180},
- {name:'Jogos Olímpicos',location:'Final da temporada',required:300},
+ {name:'Copa de Praia',location:'Brasil',required:0,tier:0,wind:0,goal:7,qualifier:-1},
+ {name:'Circuito Mundial · Lisboa',location:'Portugal',required:90,tier:1,wind:10,goal:7,qualifier:-1},
+ {name:'Circuito Mundial · Sydney',location:'Austrália',required:180,tier:2,wind:18,goal:7,qualifier:-1},
+ {name:'Jogos Olímpicos',location:'Final da temporada',required:300,tier:3,wind:8,goal:7,qualifier:-1},
+ {name:'Classificatória · Nordeste',location:'Natal',required:0,tier:0,wind:12,goal:5,qualifier:-1},
+ {name:'Campeonato Regional · Recife',location:'Recife',required:30,tier:1,wind:18,goal:7,qualifier:4},
+ {name:'Classificatória · Rio',location:'Niterói',required:120,tier:2,wind:24,goal:5,qualifier:-1},
+ {name:'Masters · Rio',location:'Copacabana',required:240,tier:3,wind:32,goal:9,qualifier:6},
 ];
+export const circuitOrder=[0,4,5,1,6,2,7,3];
+export const roundNames=['Classificatória','Semifinal','Final'];
 export function readCareer(value:unknown):Career{
  const base=newCareer(),v=value as Partial<Career>|null;
  if(!v||typeof v!=='object')return base;
@@ -18,9 +26,10 @@ export function readCareer(value:unknown):Career{
  if(nations.some(([code])=>code===v.country))base.country=v.country!;
  base.ranking=bounded(v.ranking,10000000);
  base.matches=bounded(v.matches,10000000);
- if(Array.isArray(v.rivalPoints)&&v.rivalPoints.length===rivals.length)base.rivalPoints=v.rivalPoints.map((n,i)=>typeof n==='number'&&Number.isInteger(n)&&n>=0&&n<=10000000?n:rivals[i].points);
+ if(Array.isArray(v.rivalPoints)&&(v.rivalPoints.length===rivals.length||v.rivalPoints.length===12))base.rivalPoints=rivals.map((r,i)=>{const n=v.rivalPoints![i];return typeof n==='number'&&Number.isInteger(n)&&n>=0&&n<=10000000?n:r.points;});
  base.players=base.players.map((fallback,i)=>{
   const p=v.players?.[i];if(!p||typeof p!=='object')return fallback;
+  fallback.gender=genders.some(([gender])=>gender===p.gender)?p.gender!:'unspecified';
   fallback.name=typeof p.name==='string'?p.name.trim().slice(0,24)||fallback.name:fallback.name;
   fallback.xp=bounded(p.xp,10000000);fallback.points=Math.min(bounded(p.points,100000),Math.floor(fallback.xp/100));
   for(const key of Object.keys(attributes) as Attribute[])fallback.stats[key]=Math.max(50,Math.min(100,bounded(p.stats?.[key],100)));
@@ -48,6 +57,6 @@ export function standings(c:Career){
   {name:c.players.map(p=>p.name).join(' & '),country:c.country,points:c.ranking,you:true}]
   .sort((a,b)=>b.points-a.points||Number(a.you)-Number(b.you));
 }
-export function canEnter(c:Career,event:number){
- return !!events[event]&&c.ranking>=events[event].required&&(event!==3||standings(c).findIndex(r=>r.you)<4);
+export function canEnter(c:Career,event:number,completed:number[]=[]){
+ return !!events[event]&&(events[event].qualifier<0||completed.includes(events[event].qualifier))&&c.ranking>=events[event].required&&(event!==3||standings(c).findIndex(r=>r.you)<4);
 }
