@@ -124,3 +124,39 @@
 .beta-tools details{margin-top:15px}.beta-tools summary{cursor:pointer;padding:10px 0}
 @media(max-width:700px){.arcade-app{padding:0}.arcade-app .game-shell{border:0;border-radius:0}.arcade-home .cup-card{padding:14px}.arcade-menu{grid-template-columns:1fr 1fr;gap:8px}.arcade-menu button{font-size:13px;padding:12px 24px 12px 12px}.arcade-menu button:after{right:8px}.arcade-title{letter-spacing:-2px}.arcade-tagline{margin:8px 0 15px}}
 @media(pointer:coarse) and (orientation:landscape) and (max-height:600px){.arcade-home .cup-card{padding:8px 16px}.arcade-menu{grid-template-columns:1fr 1fr;gap:7px}.arcade-title{font-size:44px;margin:6px 0;letter-spacing:-2px}.arcade-tagline{margin:5px 0 10px;font-size:12px}.arcade-menu button{font-size:14px;min-height:56px;padding:10px 32px 10px 12px}.arcade-badge{font-size:8px}.arcade-footer{margin-top:10px!important;font-size:7px!important}}
+
+.shot-bar{padding:10px 14px;background:#183e46;color:#fff3d0;text-align:center;touch-action:none}
+.shot-bar>small{display:block;font-size:9px;letter-spacing:1px;margin-bottom:6px}
+.shot-bar>div{display:flex;justify-content:center;gap:7px}
+.shot-bar button{min-height:44px;padding:8px 16px;border:1px solid #80b6ac;border-radius:10px;background:#28535b;color:#fff;font-weight:800;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.shot-bar button[aria-pressed=true]{background:#ffe080;color:#183e46;border-color:#fff2be;box-shadow:0 3px 0 #b98232}
+.shot-bar button:active{transform:translateY(2px)}
+.shot-bar kbd{background:transparent;border:0;font-size:11px;color:inherit}
+.badge-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:12px 0}
+.badge-grid>div{display:flex;flex-direction:column;gap:6px;padding:14px;border:1px solid #b8c3b4;border-radius:12px;text-align:center}
+.badge-grid .earned{background:linear-gradient(135deg,#fff2b7,#edcd78);border-color:#bb8d32;color:#523915}
+.badge-grid .locked{background:#e6e7dd;color:#73796b}
+.badge-grid span{font-size:30px}.badge-grid strong{font-size:12px}.badge-grid small{font-size:10px}
+.achievement-toast{position:absolute;top:58px;left:50%;transform:translateX(-50%);width:min(390px,calc(100% - 24px));z-index:50;display:flex;align-items:center;gap:12px;padding:18px;background:linear-gradient(125deg,#143f49,#27675e);border:2px solid #ffe080;border-radius:16px;box-shadow:0 0 32px #ffd36499;color:#ffe080;animation:achievement-in .45s ease-out}
+.achievement-toast>svg{flex-shrink:0;filter:drop-shadow(0 0 8px #ffde80)}
+.achievement-toast strong,.achievement-toast span,.achievement-toast small{display:block}
+.achievement-toast strong{font-size:17px;margin:5px 0;color:#fff6d9}.achievement-toast small{font-size:9px;letter-spacing:1px}.achievement-toast span{font-size:11px;color:#bde9d4}
+.achievement-toast button{margin-left:auto;align-self:flex-start;background:transparent;color:#fff;border:0;min-width:32px;min-height:32px}
+.achievement-confetti{position:absolute;inset:-20px 0;overflow:hidden;pointer-events:none;border-radius:16px}
+.achievement-confetti i{position:absolute;top:-12px;width:7px;height:12px;animation:achievement-confetti 1.8s ease-out both}
+@keyframes achievement-in{from{opacity:0;transform:translate(-50%,-20px) scale(.9)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+@keyframes achievement-confetti{from{transform:translateY(0) rotate(0);opacity:1}to{transform:translateY(200px) rotate(400deg);opacity:0}}
+@media (pointer:coarse),(max-width:700px){
+ .court{margin-bottom:230px}
+ .shot-bar{position:absolute;bottom:184px;left:12px;right:12px;z-index:5;border-radius:12px;padding:8px}
+ .shot-bar button{flex:1;padding:8px 5px;font-size:12px}.shot-bar kbd{display:none}
+ .shot-bar>small{font-size:8px;letter-spacing:0}
+}
+@media (pointer:coarse) and (orientation:landscape) and (max-height:600px){
+ .shot-bar{bottom:130px;left:auto;right:max(12px,env(safe-area-inset-right));width:250px}
+ .shot-bar>small{font-size:7px}
+ .achievement-toast{top:42px}
+}
+@media (prefers-reduced-motion:reduce){
+ .achievement-toast,.achievement-confetti i{animation:none}.achievement-confetti{display:none}
+}

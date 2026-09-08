@@ -1,3 +1,4 @@
+import {chooseShot,shotChoices} from './game.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createGame, serve as releaseServe, prepareServe, toss, setAttackStyle, contactQuality, guidance, step, point, switchPlayer, landingX, landingZ, contactPoint, launch, setAim, setServeStyle, FLOOR } from './game.ts';
@@ -224,3 +225,30 @@ assert.ok(Math.abs(landingX(clean,437)-clean.aim.x)<.01,'Good contacts respect t
 clean.rally=8;point(clean,0);
 assert.equal(clean.lastRally,8);assert.equal(clean.bestRally,8);assert.equal(clean.rally,0);
 console.log('Passed: acceleration, braking, explicit spike/tip choice, accurate good contact and rally results.');
+
+// Fast serves used to cross the receiver's hands before the animation allowed contact.
+for(const style of ['underhand','float','jump'] as const)for(const x of [610,890,935])for(const z of [55,80,370,395]){
+ const g=createGame();g.windEnabled=false;g.aim={x,z};g.serveStyle=style;
+ prepareServe(g);toss(g);g.tossTime=.55;releaseServe(g);
+ for(let ticks=0;ticks<600&&g.status==='playing'&&g.lastTeam===0;ticks++)step(g,1/120,0,false,'Club');
+ assert.equal(g.lastTeam,1,`Receiver must contact ${style} serve at ${x},${z}`);
+}
+console.log('Passed: receivers contact all 36 corner-serve trajectories without increasing their reach.');
+
+{
+const choice=createGame();prepareServe(choice);chooseShot(choice,2);
+assert.equal(choice.serveStyle,'jump');toss(choice);chooseShot(choice,0);
+assert.equal(choice.serveStyle,'underhand','Saque can change until contact');
+choice.status='playing';chooseShot(choice,1);
+assert.equal(choice.attackStyle,'roll');assert.equal(shotChoices(choice)[2].style,'tip');
+chooseShot(choice,99);assert.equal(choice.attackStyle,'roll');
+point(choice,0);assert.equal(choice.attackStyle,'power');assert.equal(choice.serveStyle,'float');
+const second=createGame();second.status='playing';second.autoSwitch=false;second.windEnabled=false;
+second.lastTeam=0;second.lastHit=1;second.touches=1;chooseShot(second,2);
+Object.assign(second.players[0],{x:420,z:225,y:300,action:'spike',actionTime:.3});
+second.ball={...contactPoint(second.players[0]),vx:0,vz:0,vy:1};
+step(second,1/120,0,false,'Club',true);
+assert.match(second.feedback,/LARGADINHA/,'Chosen tip can attack on the second touch');
+assert.ok(second.ball.vx>0);assert.equal(second.attackStyle,'power','Choice is consumed after the attack');
+console.log('Passed: contextual shot selection, second-ball tip and reset after each attack.');
+}

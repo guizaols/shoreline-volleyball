@@ -94,7 +94,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
     update(_time:number,delta:number) {
       if(!this.ball)return;
       this.accumulator+=Math.min(delta/1000,.1);
-      while(this.accumulator>=1/120){this.previous=this.snapshot();step(getGame(),1/120,Math.max(-1,Math.min(1,getStick().x+(keys.has('right')?1:0)-(keys.has('left')?1:0))),keys.has('jump'),getLevel(),keys.has('attack'),keys.has('dive'),Math.max(-1,Math.min(1,getStick().z+(keys.has('down')?1:0)-(keys.has('up')?1:0))),keys.has('block'),keys.has('prepare')||keys.has('touch-prepare')||keys.has('mouse-attack'));this.accumulator-=1/120;}
+      while(this.accumulator>=1/120){this.previous=this.snapshot();step(getGame(),1/120,Math.max(-1,Math.min(1,getStick().x+(keys.has('right')?1:0)-(keys.has('left')?1:0))),keys.has('jump'),getLevel(),(keys.has('attack')||keys.has('touch-attack')||keys.has('1')||keys.has('2')||keys.has('3')),keys.has('dive'),Math.max(-1,Math.min(1,getStick().z+(keys.has('down')?1:0)-(keys.has('up')?1:0))),keys.has('block'),keys.has('touch-attack')||keys.has('1')||keys.has('2')||keys.has('3')||keys.has('prepare')||keys.has('touch-prepare')||keys.has('mouse-attack'));this.accumulator-=1/120;}
       const g=getGame(),alpha=this.accumulator*120, lerp=(a:number,b:number)=>a+(b-a)*alpha;
       const render=(p:Player,i:number)=>{
         const old=this.previous.players[i];

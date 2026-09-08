@@ -1,10 +1,12 @@
 'use client';
 import {attributes,events,nations,improve,standings,canEnter,type Attribute} from '../lib/career';
-import {opponents,type Progress} from '../lib/cup';
+import {achievements,opponents,type Progress} from '../lib/cup';
 
 export default function CareerPanel({progress,onChange,onEvent,onFriendly}:{progress:Progress;onChange:(p:Progress)=>void;onEvent:(index:number)=>void;onFriendly:(index:number)=>void}){
  const career=progress.career,busy=progress.stage<3&&(progress.stage>0||progress.score.some(Boolean));
  return <div className="career-panel">
+ <details className="trophy-cabinet" open><summary>Conquistas · {achievements(progress).filter(a=>a.unlocked).length}/{achievements(progress).length}</summary>
+ <div className="badge-grid">{achievements(progress).map(a=><div key={a.id} className={a.unlocked?'earned':'locked'}><span aria-hidden="true">{a.unlocked?'★':'◇'}</span><strong>{a.title}</strong><small>{a.detail} · {a.unlocked?'Conquistado':'Bloqueado'}</small></div>)}</div></details>
  <details><summary>{career.country} · {career.players.map(p=>p.name).join(' & ')} · Editar dupla</summary>
  <form key={career.country+career.players.map(p=>p.name).join('|')} onSubmit={e=>{
   e.preventDefault();const data=new FormData(e.currentTarget);

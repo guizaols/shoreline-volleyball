@@ -46,6 +46,14 @@ export function cycleAim(g:Game) {
   setAim(g,aimPresets[next].x,aimPresets[next].z);
   g.aimPreset=next;
 }
+export const serveChoices=[{style:'underhand',label:'Por baixo'},{style:'float',label:'Flutuante'},{style:'jump',label:'Em salto'}] as const;
+export const attackChoices=[{style:'power',label:'Cortada'},{style:'roll',label:'Colocado'},{style:'tip',label:'Largadinha'}] as const;
+export function shotChoices(g:Game){return ['serving','tossing'].includes(g.status)?serveChoices:attackChoices;}
+export function chooseShot(g:Game,index:number){
+  if(!Number.isInteger(index)||index<0||index>2)return;
+  if(['serving','tossing'].includes(g.status))setServeStyle(g,serveChoices[index].style);
+  else setAttackStyle(g,attackChoices[index].style);
+}
 export function setServeStyle(g: Game, style: string) {
   if(style==='underhand'||style==='float'||style==='jump')g.serveStyle=style;
 }
@@ -113,6 +121,7 @@ export function point(g: Game, winner: number, reason = '') {
   g.message = g.status === 'over' ? (winner === 0 ? 'Your team owns the beach!' : 'The beach wants a rematch.')
     : `${winner === 0 ? 'Your point!' : 'Point, Coast.'}${reason ? ` ${reason}` : ' Next ball.'}`;
   g.players = players(); g.ball = { x: winner ? 800 : 200, z: winner ? 310 : 145, y: 325, vx: 0, vz: 0, vy: 0 };
+  g.serveStyle='float';g.attackStyle='power';
   g.active=0; g.rally = 0; g.touches = 0; g.lastHit = -1; g.lastTeam = -1; g.shot = ''; g.hitFlash = 0;
 }
 // Predict the descending crossing of a contact height, using the same gravity as the ball.
@@ -161,6 +170,7 @@ function hit(g: Game, i: number, attack: boolean, distance: number) {
   g.contactHint=p.team?'':distance>35?'Aproxime-se do círculo':p.preparation<.25?'Prepare o contato mais cedo':Math.hypot(p.vx,p.vz)>170?'Chegue e freie antes do contato':'Contato equilibrado';
   const quality=assisted&&p.team===0?(skill>.72?'BOM':skill>.42?'REGULAR':'RUIM'):contactQuality(distance);p.preparation=0;
   g.feedback=`${p.team?'COAST':'VOCÊ'} · ${diving?'DEFESA NO CHÃO':sendOver?(p.team===0&&style==='tip'?'LARGADINHA':p.team===0&&style==='roll'?'ATAQUE COLOCADO':'ATAQUE'):g.touches===1?'RECEPÇÃO':'PASSE'} ${quality}`;g.feedbackTime=1.8;
+  if(sendOver&&p.team===0)g.attackStyle='power';
   g.shot = diving ? 'DIVING SAVE' : action === 'bump' ? 'RECEPTION' : action === 'set' ? 'SET' : 'ATTACK';
 }
 export function step(g: Game, dt: number, move: number, jump: boolean, difficulty: string, attack = false, dive = false, depth = 0, block = false, prepare = false) {
@@ -280,7 +290,8 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
   }
   for(let i=0;i<4;i++) {
     const p=g.players[i], eligible=g.lastHit!==i||g.lastTeam!==p.team||g.touches===0;
-    const near=Math.hypot(b.x-p.x,b.z-p.z)<100;
+    // Start the pose early enough for fast balls; the contact radius stays unchanged.
+    const near=Math.hypot(b.x-p.x,b.z-p.z)<Math.max(100,Math.hypot(b.vx,b.vz)*.3);
     if(eligible && near && b.vy>0 && b.y>p.y-210 && b.y<p.y-35 && p.action==='idle') {
       p.action=(g.lastTeam===p.team && g.touches>=2)||(i===g.active&&attack&&!g.practice)?'spike':g.lastTeam===p.team?'set':'bump';
       p.actionTime=.55;

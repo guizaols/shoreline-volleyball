@@ -1,3 +1,4 @@
+import {achievements,newAchievements} from './cup.ts';
 import assert from 'node:assert/strict';
 import {newProgress,readProgress,cupGame,recordProgress,challengeGame,opponents} from './cup.ts';
 import {point,step,contactPoint,FLOOR} from './game.ts';
@@ -55,3 +56,12 @@ function cpuAttack(stage:number){
 }
 assert.ok(Math.abs(cpuAttack(2).ball.vx)>Math.abs(cpuAttack(0).ball.vx),'Tempestade attacks faster');
 console.log('Passed: full cup, saved score, rematch, deuce, reward, invalid saves, three playable lessons and opponent behaviors.');
+
+{
+const locked=newProgress(),earned={...locked,training:3,champion:true,completed:[0]};
+assert.equal(achievements(locked).filter(a=>a.unlocked).length,0);
+assert.deepEqual(newAchievements(locked,earned).map(a=>a.id),['training','trophy-0','gold-uniform']);
+assert.equal(newAchievements(earned,earned).length,0,'Repeated saves must not replay celebrations');
+assert.deepEqual(achievements(readProgress(JSON.stringify(earned))),achievements(earned),'Badges survive reload');
+console.log('Passed: achievement unlocks, deduplication and saved trophy collection.');
+}

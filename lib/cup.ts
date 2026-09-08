@@ -4,7 +4,7 @@ import {createGame, startPractice, type Game} from './game.ts';
 export {rivals as opponents} from './rivals.ts';
 import {rivals} from './rivals.ts';
 export function eventOpponents(event:number){return rivals.slice(event*3,event*3+3);}
-export const lessons=['Movimento: chegue ao círculo','Cortada: envie uma bola para o outro lado','Largadinha: escolha Golpe e envie uma bola curta'];
+export const lessons=['Movimento: chegue ao círculo','Cortada: envie uma bola para o outro lado','Largadinha: escolha Largadinha e envie uma bola curta'];
 export function newProgress(){return {career:newCareer(),event:0,completed:[] as number[],matchSerial:0,lastRecorded:-1,contacts:[0,0],stage:0,score:[0,0],server:0,champion:false,gold:false,training:0};}
 export type Progress=ReturnType<typeof newProgress>;
 export function readProgress(raw:string|null):Progress{
@@ -48,4 +48,18 @@ export function challengeGame(index:number,gold=false):Game{
   // Lessons teach the choice: the tip lesson starts with a spike selected.
   if(index===0){g.assist=false;g.autoSwitch=false;g.ball={x:350,z:225,y:437,vx:0,vz:0,vy:0};}
   return g;
+}
+
+export function achievements(p:Progress){
+ return [
+  {id:'first-match',title:'Estreia no circuito',detail:'Complete uma partida de carreira',unlocked:p.career.matches>0},
+  {id:'training',title:'Domínio da areia',detail:'Complete os três desafios de treino',unlocked:p.training===3},
+  {id:'level-up',title:'Dupla em evolução',detail:'Conquiste 100 XP com um atleta',unlocked:p.career.players.some(player=>player.xp>=100)},
+  ...events.map((event,i)=>({id:'trophy-'+i,title:event.name,detail:'Conquiste o título',unlocked:p.completed.includes(i)})),
+  {id:'gold-uniform',title:'Brilho de campeão',detail:'Uniforme dourado desbloqueado',unlocked:p.champion},
+ ];
+}
+export function newAchievements(before:Progress,after:Progress){
+ const earned=new Set(achievements(before).filter(a=>a.unlocked).map(a=>a.id));
+ return achievements(after).filter(a=>a.unlocked&&!earned.has(a.id));
 }
