@@ -50,3 +50,32 @@ const plain=newFootball(),decorated=newFootball();decorated.effect='comet';start
 plain.charge=decorated.charge=1;shootFootball(plain);shootFootball(decorated);
 assert.deepEqual(plain.ball,decorated.ball,'Visual effects do not alter the shot physics');
 console.log('Passed: both bank-shot routes, unlocks, persistence, deduplication and cosmetic fairness.');
+
+const {jumpFootball}=await import('./gol.ts');
+for(const style of ['curve-up','curve-down','lob']){
+ const special=newFootball();startFootball(special);special.shotStyle=style;special.aim=1;special.charge=1;
+ shootFootball(special);const firstVY=special.ball.vy;let peak=0;
+ for(let i=0;i<1200&&special.status==='playing';i++){
+  special.players[1].x=905;special.players[1].y=500;
+  stepFootball(special,tick,0,0);peak=Math.max(peak,special.ballHeight);
+  if(i===30&&style!=='lob')assert.notEqual(special.ball.vy,firstVY,'Curve changes direction in flight');
+ }
+ assert.equal(special.score[0],1,style+' should still reach the selected target');
+ if(style==='lob')assert.ok(peak>150,'A lob must clear an advanced keeper');
+}
+function highBall(jumping:boolean){
+ const g=newFootball();startFootball(g);g.owner=-1;g.ball={x:170,y:315,vx:-750,vy:0};g.ballHeight=100;
+ if(jumping)g.players[0].jump=70;
+ stepFootball(g,tick,0,0);return g;
+}
+assert.equal(highBall(false).owner,-1,'Standing cannot intercept a high ball');
+assert.equal(highBall(true).owner,0,'A jumping keeper reaches a high ball');
+const leaper=newFootball();startFootball(leaper);leaper.owner=-1;jumpFootball(leaper);
+for(let i=0;i<20;i++)stepFootball(leaper,tick,0,0);
+assert.ok(leaper.players[0].jump>30);const lift=leaper.players[0].jumpVelocity;jumpFootball(leaper);
+assert.equal(leaper.players[0].jumpVelocity,lift,'No double jump');
+const above=newFootball();startFootball(above);above.owner=-1;above.ball={x:929,y:315,vx:750,vy:0};above.ballHeight=140;
+stepFootball(above,tick,0,0);assert.deepEqual(above.score,[0,0]);assert.match(above.last,/POR CIMA/);
+const retreat=newFootball();startFootball(retreat);retreat.owner=-1;retreat.ball={x:500,y:315,vx:400,vy:0};retreat.ballHeight=160;
+stepFootball(retreat,tick,0,0);assert.ok(retreat.players[1].vx>0,'CPU retreats under a lob');
+console.log('Passed: aimed curves, lob height, jump reach, double-jump guard, crossbar height and goalkeeper retreat.');
