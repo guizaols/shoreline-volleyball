@@ -46,16 +46,14 @@ export default defineConfig(async () => {
 
   return {
     css: { postcss: { plugins: [tailwindcss()] } },
-    server: isCodexSeatbeltSandbox
-      ? { watch: { useFsEvents: false, usePolling: true } }
-      : undefined,
+    server: {proxy:{'/play':{target:'ws://127.0.0.1:3002',ws:true}},...(isCodexSeatbeltSandbox?{watch:{useFsEvents:false,usePolling:true}}:{})},
     plugins: [
       vinext(),
       sites(),
-      cloudflare({
+      ...(process.env.RAILWAY_BUILD?[]:[cloudflare({
         viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
         config: localBindingConfig,
-      }),
+      })]),
     ],
   };
 });

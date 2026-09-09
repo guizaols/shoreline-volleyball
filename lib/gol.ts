@@ -1,7 +1,7 @@
 export const goal={left:70,right:930,top:220,bottom:410};
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 export function newFootball(){
- return {difficulty:'arcade',energy:40,specialArmed:false,specialShot:false,cpuReaction:0,ballHeight:0,ballLift:0,spin:0,effect:'classic',shotStyle:'direct',lastShooter:0,banks:0,bankGoals:0,saves:[0,0],recorded:false,impact:{x:0,y:0,life:0,kind:''},status:'ready',score:[0,0],players:[{x:160,y:315,vx:0,vy:0,dive:0,recovery:0,kick:0,save:0,jump:0,jumpVelocity:0},{x:840,y:315,vx:0,vy:0,dive:0,recovery:0,kick:0,save:0,jump:0,jumpVelocity:0}],
+ return {online:false,remoteCharge:0,remoteEnergy:40,remoteArmed:false,remoteAim:0,remoteStyle:'direct',difficulty:'arcade',energy:40,specialArmed:false,specialShot:false,cpuReaction:0,ballHeight:0,ballLift:0,spin:0,effect:'classic',shotStyle:'direct',lastShooter:0,banks:0,bankGoals:0,saves:[0,0],recorded:false,impact:{x:0,y:0,life:0,kind:''},status:'ready',score:[0,0],players:[{x:160,y:315,vx:0,vy:0,dive:0,recovery:0,kick:0,save:0,jump:0,jumpVelocity:0},{x:840,y:315,vx:0,vy:0,dive:0,recovery:0,kick:0,save:0,jump:0,jumpVelocity:0}],
  ball:{x:184,y:315,vx:0,vy:0},owner:0,aim:0,charge:0,clock:0,cpuWait:0,cooldown:0,delay:0,message:'Sua praia. Seu gol.',last:'',winner:-1};
 }
 export type Football=ReturnType<typeof newFootball>;
@@ -40,7 +40,7 @@ function possession(g:Football,team:number){
  g.ballHeight=0;g.ballLift=0;g.spin=0;g.owner=team;g.charge=0;g.cpuWait=0;g.cooldown=.2;
  g.ball={x:g.players[team].x+(team?-24:24),y:g.players[team].y,vx:0,vy:0};
 }
-export function stepFootball(g:Football,dt:number,x:number,y:number,charging=false){
+export function stepFootball(g:Football,dt:number,x:number,y:number,charging=false,second?:{x:number;y:number;charging:boolean}){
  if(g.status==='goal'){
   g.delay-=dt;if(g.delay<=0){g.status='playing';possession(g,1-g.winner);}return;
  }
@@ -50,12 +50,13 @@ export function stepFootball(g:Football,dt:number,x:number,y:number,charging=fal
  g.clock+=dt;g.cooldown=Math.max(0,g.cooldown-dt);
  const cpu=g.players[1],b=g.ball;
  g.charge=g.owner===0&&charging?Math.min(1,g.charge+dt*1.3):g.owner===0?g.charge:0;
+ if(second)g.remoteCharge=g.owner===1&&second.charging?Math.min(1,g.remoteCharge+dt*1.3):g.owner===1?g.remoteCharge:0;
  const flight=b.vx>0?Math.max(0,(cpu.x-b.x)/b.vx):0;
  const targetY=g.owner>=0||g.cpuReaction>0?315:clamp(b.y+b.vy*flight+(g.difficulty==='arcade'?.15:.5)*g.spin*flight*flight+Math.sin(g.clock*1.8)*22,150,480);
  const predictedHeight=Math.max(0,g.ballHeight+g.ballLift*flight-210*flight*flight);
- if(g.owner<0&&b.vx>0&&flight<.4&&predictedHeight>45&&Math.abs(targetY-cpu.y)<60)jumpFootball(g,1);
+ if(!second&&g.owner<0&&b.vx>0&&flight<.4&&predictedHeight>45&&Math.abs(targetY-cpu.y)<60)jumpFootball(g,1);
  const defensiveX=g.owner===1?760:g.ballHeight>65||g.ballLift>120?890:g.players[0].x>300?800:840;
- if(g.difficulty==='arcade'&&g.owner<0&&b.vx<0){
+ if(!second&&g.difficulty==='arcade'&&g.owner<0&&b.vx<0){
   const t=Math.max(0,(g.players[0].x-b.x)/b.vx),lane=clamp(b.y+b.vy*t+.5*g.spin*t*t,125,505),height=g.ballHeight+g.ballLift*t-210*t*t;
   if(t<.4&&height>45&&Math.abs(lane-g.players[0].y)<65)jumpFootball(g);
   if(!x&&!y&&Math.abs(lane-g.players[0].y)<90)y=clamp((lane-g.players[0].y)/55,-.7,.7);
@@ -64,28 +65,28 @@ export function stepFootball(g:Football,dt:number,x:number,y:number,charging=fal
   const a=g.players[i];if(a.jumpVelocity||a.jump){a.jumpVelocity-=650*dt;a.jump=Math.max(0,a.jump+a.jumpVelocity*dt);if(!a.jump)a.jumpVelocity=0;}a.kick=Math.max(0,a.kick-dt);a.save=Math.max(0,a.save-dt);a.recovery=Math.max(0,a.recovery-dt);
   if(a.dive>0){a.dive=Math.max(0,a.dive-dt);a.vy*=Math.exp(-dt*2);a.vx=0;}
   else{
-   let dx=i?clamp((defensiveX-a.x)/35,-1,1):x;
-   let dy=i?clamp((targetY-a.y)/35,-1,1):y;
+   let dx=i&&second?second.x:i?clamp((defensiveX-a.x)/35,-1,1):x;
+   let dy=i&&second?second.y:i?clamp((targetY-a.y)/35,-1,1):y;
    const length=Math.max(1,Math.hypot(dx,dy));dx/=length;dy/=length;
-   const speed=i?(g.difficulty==='arcade'?145:235):300;
+   const speed=i&&!second?(g.difficulty==='arcade'?145:235):300;
    a.vx+=(dx*speed-a.vx)*(1-Math.exp(-dt*22));a.vy+=(dy*speed-a.vy)*(1-Math.exp(-dt*22));
   }
   a.x=clamp(a.x+a.vx*dt,i?550:95,i?905:450);a.y=clamp(a.y+a.vy*dt,125,505);
  }
  if(g.owner>=0){
   const a=g.players[g.owner];b.x=a.x+(g.owner?-24:24);b.y=a.y;
-  if(g.owner===1){g.cpuWait+=dt;if(g.cpuWait>(g.difficulty==='arcade'?1.6:1.1))shootFootball(g,1);}return;
+  if(!second&&g.owner===1){g.cpuWait+=dt;if(g.cpuWait>(g.difficulty==='arcade'?1.6:1.1))shootFootball(g,1);}return;
  }
  const oldX=b.x,oldY=b.y,oldHeight=g.ballHeight;
  b.x+=b.vx*dt;b.y+=b.vy*dt+.5*g.spin*dt*dt;b.vy+=g.spin*dt;
  g.ballHeight+=g.ballLift*dt-210*dt*dt;
  if(g.ballHeight>0)g.ballLift-=420*dt;else{g.ballHeight=0;g.ballLift=0;}
- if(b.y<115||b.y>515){const wall=b.y<115?115:515;b.y=2*wall-b.y;b.vy*=-.92;b.vx*=.92;g.spin*=-.8;g.banks++;if(g.lastShooter===0&&g.banks===1)g.energy=Math.min(100,g.energy+10);g.impact={x:b.x,y:wall,life:.3,kind:'bank'};g.last='TABELA!';}
+ if(b.y<115||b.y>515){const wall=b.y<115?115:515;b.y=2*wall-b.y;b.vy*=-.92;b.vx*=.92;g.spin*=-.8;g.banks++;if(g.lastShooter===0&&g.banks===1)g.energy=Math.min(100,g.energy+10);if(second&&g.lastShooter===1&&g.banks===1)g.remoteEnergy=Math.min(100,g.remoteEnergy+10);g.impact={x:b.x,y:wall,life:.3,kind:'bank'};g.last='TABELA!';}
  for(let i=0;i<2;i++){
   const a=g.players[i],dx=b.x-oldX,dy=b.y-oldY,t=clamp(((a.x-oldX)*dx+(a.y-oldY)*dy)/(dx*dx+dy*dy||1),0,1);
   const distance=Math.hypot(a.x-oldX-dx*t,a.y-oldY-dy*t);
   const contactHeight=oldHeight+(g.ballHeight-oldHeight)*t;
-  if(!g.cooldown&&distance<(a.dive>0?43:i===0&&g.difficulty==='arcade'?38:25)&&contactHeight>=Math.max(0,a.jump-35)&&contactHeight<=(a.dive>0?24:50+a.jump)){g.saves[i]++;if(i===0)g.energy=Math.min(100,g.energy+25);a.save=.35;g.impact={x:a.x,y:a.y,life:.35,kind:'save'};possession(g,i);g.last=i?'DEFESA ADVERSÁRIA':'BOA DEFESA!';return;}
+  if(!g.cooldown&&distance<(a.dive>0?43:(i===0||second)&&g.difficulty==='arcade'?38:25)&&contactHeight>=Math.max(0,a.jump-35)&&contactHeight<=(a.dive>0?24:50+a.jump)){g.saves[i]++;if(i===0)g.energy=Math.min(100,g.energy+25);else if(second)g.remoteEnergy=Math.min(100,g.remoteEnergy+25);a.save=.35;g.impact={x:a.x,y:a.y,life:.35,kind:'save'};possession(g,i);g.last=i?'DEFESA ADVERSÁRIA':'BOA DEFESA!';return;}
  }
  if(b.x<goal.left||b.x>goal.right){
   const line=b.x<goal.left?goal.left:goal.right,t=(line-oldX)/(b.x-oldX);
@@ -94,6 +95,7 @@ export function stepFootball(g:Football,dt:number,x:number,y:number,charging=fal
   if(crossingY>=goal.top&&crossingY<=goal.bottom&&crossingHeight<=95){
    if(attacker===0&&g.banks>0)g.bankGoals++;
    g.energy=Math.min(100,g.energy+(attacker===0?30:15));
+   if(second)g.remoteEnergy=Math.min(100,g.remoteEnergy+(attacker===1?30:15));
    g.score[attacker]++;g.winner=attacker;g.status=g.score[attacker]>=5?'over':'goal';g.delay=1.2;
    g.message=attacker?'Gol adversário!':g.banks>0?'GOLAÇO DE TABELA!':'GOOOL!';g.last=g.message;
    g.players.forEach((p,i)=>Object.assign(p,{x:i?840:160,y:315,vx:0,vy:0,dive:0,recovery:0,kick:0,save:0,jump:0,jumpVelocity:0}));

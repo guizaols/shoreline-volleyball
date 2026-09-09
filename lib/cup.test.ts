@@ -65,3 +65,12 @@ assert.equal(newAchievements(earned,earned).length,0,'Repeated saves must not re
 assert.deepEqual(achievements(readProgress(JSON.stringify(earned))),achievements(earned),'Badges survive reload');
 console.log('Passed: achievement unlocks, deduplication and saved trophy collection.');
 }
+
+const rotationProgress=newProgress(),rotationGame=cupGame(rotationProgress);
+point(rotationGame,1);point(rotationGame,0);
+const rotationSaved=recordProgress(rotationProgress,rotationGame);
+assert.deepEqual(cupGame(readProgress(JSON.stringify(rotationSaved))).serviceOrder,[1,2]);
+assert.deepEqual(rotationProgress.serviceOrder,[0,3],'Recording does not mutate the old save');
+assert.deepEqual(readProgress(JSON.stringify({...rotationSaved,serviceOrder:undefined})).serviceOrder,[0,3],'Old saves receive a default service order');
+assert.deepEqual(readProgress(JSON.stringify({...rotationSaved,serviceOrder:[3,0]})).serviceOrder,[0,3],'Invalid team positions are rejected');
+console.log('Passed: service order survives saving and loading, with legacy and invalid-save fallback.');

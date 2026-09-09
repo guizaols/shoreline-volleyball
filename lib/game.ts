@@ -17,7 +17,7 @@ function players(): Player[] {
 }
 export function createGame() {
   return { drill:-1,drillAthlete:0,drillAttempts:0,drillScore:0,drillMedal:0,drillQuality:0,drillStruck:false,drillTarget:{x:890,z:80},location:'Palm Cove',windStrength:27,genders:['unspecified','unspecified'],opponentGenders:['male','male'],cpuTier:0,opponentCountry:'US',opponentPlayers:['Noah','Ethan'],opponentName:'COAST', friendlyOpponent:0, country: 'BR', names: ['Alex','Dani'], attributes: [{serve:50,attack:50,defense:50,mobility:50},{serve:50,attack:50,defense:50,mobility:50}], playerContacts:[0,0], event:0, matchSerial:0, cupStage: -1, cpuStyle: 'normal', pointGoal: 11, gold: false, challenge: -1, challengeStrike: false, players: players(), active: 0, autoSwitch: true, aimPreset: -1, aim: {x:810,z:225}, power: 1, serveStyle: 'float' as ServeStyle, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
-    pace: 'Club', lastRally: 0, bestRally: 0, pointReason: '', contactHint: '', practice: false, practiceDelay: 0, repetitions: 0, attackStyle: 'power' as AttackStyle, tossTime: 0, tossQuality: '', windEnabled: true, wind: 0, clock: 0, resumeStatus: 'playing', assist: true, feedback: '', feedbackTime: 0, server: 0, status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
+    pace: 'Club', lastRally: 0, bestRally: 0, pointReason: '', contactHint: '', practice: false, practiceDelay: 0, repetitions: 0, attackStyle: 'power' as AttackStyle, tossTime: 0, tossQuality: '', windEnabled: true, wind: 0, clock: 0, resumeStatus: 'playing', assist: true, feedback: '', feedbackTime: 0, server: 0, serviceOrder: [0,3], status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
     lastHit: -1, lastTeam: -1, touches: 0, rally: 0, shot: '', hitFlash: 0 };
 }
 export type Game = ReturnType<typeof createGame>;
@@ -45,7 +45,7 @@ function finishDrillAttempt(g:Game,success:boolean){
  g.feedback=success?'ALVO CONCLUÍDO':'TENTE AJUSTAR O PRÓXIMO';g.feedbackTime=1;
  g.message=`${g.drillScore}/5 acertos`;
 }
-function serverPlayer(g:Game){return g.server?3:g.drill>=0?g.drillAthlete:0;}
+function serverPlayer(g:Game){return g.drill>=0?g.drillAthlete:g.serviceOrder[g.server];}
 export function startPractice(g:Game) {
   g.challengeStrike=false;g.practice=true;g.autoSwitch=true;g.assist=true;g.feedbackTime=0;g.windEnabled=false;g.wind=0;g.status='playing';g.players=players();g.active=0;
   g.lastTeam=1;g.lastHit=2;g.touches=1;g.rally=0;g.cooldown=.3;g.practiceDelay=0;
@@ -119,7 +119,7 @@ function opponentTarget(g: Game) {
 }
 export function prepareServe(g: Game) {
   if(g.status!=='ready')return;
-  g.status='serving';if(g.active>=0)g.active=g.drill>=0?g.drillAthlete:0;
+  g.status='serving';if(g.active>=0&&g.server===0)g.active=serverPlayer(g);
   const p=g.players[serverPlayer(g)];p.x=g.server?960:40;p.z=225;
   g.ball={x:p.x,z:p.z,y:p.y-80,vx:0,vz:0,vy:0};
 }
@@ -169,6 +169,7 @@ export function point(g: Game, winner: number, reason = '') {
   if(g.challenge>0&&g.challengeStrike&&winner===0&&reason!=='Out.'){g.status='challenge-complete';return;}
   g.lastRally=g.rally;g.bestRally=Math.max(g.bestRally,g.rally);g.pointReason=reason==='Out.'?'Bola fora':reason||'Bola no chão';
   if(g.practice){g.repetitions++;g.practiceDelay=1.2;g.status='practice-wait';return;}
+  if(winner!==g.server)g.serviceOrder[g.server]^=1;
   g.score[winner]++; g.server = winner;
   g.status = Math.max(...g.score) >= g.pointGoal && Math.abs(g.score[0] - g.score[1]) >= 2 ? 'over' : 'ready';
   g.message = g.status === 'over' ? (winner === 0 ? 'Your team owns the beach!' : 'The beach wants a rematch.')

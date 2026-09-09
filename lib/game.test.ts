@@ -252,3 +252,15 @@ assert.match(second.feedback,/LARGADINHA/,'Chosen tip can attack on the second t
 assert.ok(second.ball.vx>0);assert.equal(second.attackStyle,'power','Choice is consumed after the attack');
 console.log('Passed: contextual shot selection, second-ball tip and reset after each attack.');
 }
+
+const rotating=createGame();
+function checkServer(expected:number){
+ prepareServe(rotating);assert.equal(rotating.players[expected].x,rotating.server?960:40);
+ if(rotating.server===0)assert.equal(rotating.active,expected,'Control follows the serving athlete');
+ toss(rotating);rotating.tossTime=.56;releaseServe(rotating);assert.equal(rotating.lastHit,expected);
+}
+checkServer(0);point(rotating,0);checkServer(0);
+point(rotating,1);checkServer(3);point(rotating,1);checkServer(3);
+point(rotating,0);checkServer(1);point(rotating,0);checkServer(1);
+point(rotating,1);checkServer(2);
+console.log('Passed: both teams rotate service on regaining possession, retain it after scoring and select the correct athlete.');
