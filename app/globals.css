@@ -195,3 +195,7 @@
 @media(pointer:coarse) and (orientation:landscape) and (max-height:600px){.football-app .shot-bar{bottom:122px;max-width:46vw}.football-app .game-shell{position:relative;height:100dvh}.football-app .court.football-court{margin-bottom:0}.football-app .football-club{position:relative}.football-app .football-shot-types button{min-height:26px;font-size:9px;padding:4px}}
 .football-shot-types{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
 @media(pointer:coarse),(max-width:700px){.football-app .court{margin-bottom:320px}.football-app .football-shot-types{grid-template-columns:repeat(3,minmax(0,1fr))}.football-app .shot-bar>div:not(.football-shot-types){flex-wrap:wrap}.football-app .shot-bar>div:not(.football-shot-types)>button{flex:1 1 16%}}
+
+.shot-bar .football-special{display:block;width:100%;min-height:32px;margin-bottom:8px;padding:6px 12px;border-color:#ffe080;color:#fff2bf;letter-spacing:1px}.shot-bar .football-special:disabled{opacity:.8}.shot-bar .football-special[aria-pressed=true]{outline:2px solid #fff2bf;outline-offset:2px}
+@media(pointer:coarse),(max-width:700px){.football-app .court{margin-bottom:360px}}
+@media(pointer:coarse) and (orientation:landscape) and (max-height:600px){.football-app .court.football-court{margin-bottom:0}}

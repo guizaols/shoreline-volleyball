@@ -1,3 +1,4 @@
+import {athleteFrames as bounds} from './athlete-art';
 import {drills} from './training';
 import * as Phaser from 'phaser';
 import { step, aimPresets, DIVE_DURATION, setAim, guidance, landingX, landingZ, FLOOR, type Game, type Player } from './game';
@@ -7,14 +8,7 @@ export function project(x: number, z: number, y = FLOOR) {
 }
 const rows = ['idle', 'run', 'bump', 'set', 'spike', 'dive'];
 // Frames use explicit bounds because the illustrated poses have different heights.
-const bounds = [
-  [[52,79,101,120],[266,81,87,119],[453,80,98,120],[677,84,95,116],[887,84,88,115],[1100,83,86,116]],
-  [[44,251,105,128],[242,254,115,124],[441,253,108,126],[663,253,107,126],[872,253,112,126],[1113,254,68,126]],
-  [[58,447,80,112],[262,444,88,110],[457,451,85,98],[668,448,91,106],[889,449,91,106],[1104,450,76,105]],
-  [[62,615,74,135],[265,622,73,130],[460,621,77,130],[666,601,72,150],[888,606,71,145],[1096,616,77,136]],
-  [[48,816,90,114],[243,813,99,121],[465,804,94,137],[677,776,78,175],[891,799,73,134],[1102,838,71,104]],
-  [[37,1050,115,71],[204,1051,133,70],[426,1045,139,42],[634,1073,163,49],[893,1039,91,89],[1101,1037,75,94]],
-];
+
 export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<string>, getLevel: () => string,
   changed: () => void, ready: () => void, failed: (message: string) => void, getStick:()=>{x:number;z:number}=()=>({x:0,z:0})) {
   class Court extends Phaser.Scene {

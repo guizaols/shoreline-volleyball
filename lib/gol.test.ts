@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {newFootball,startFootball,shootFootball,diveFootball,stepFootball,goal} from './gol.ts';
+import {newFootball,startFootball,shootFootball,diveFootball,stepFootball,armFootballSpecial,goal} from './gol.ts';
 import {stickDirection} from './controls.ts';
 const tick=1/120;
 const g=newFootball();shootFootball(g);assert.equal(g.owner,0);assert.equal(g.ball.vx,0);
@@ -27,7 +27,7 @@ stepFootball(winner,tick,0,0);assert.equal(winner.status,'over');assert.equal(wi
 const flat=stickDirection(0,-40,40,true);assert.equal(flat.x,0);assert.equal(flat.z,-1);
 // Autonomous opponent can take possession, prepare and send a ball toward the human goal.
 const cpu=newFootball();startFootball(cpu);cpu.owner=1;
-for(let i=0;i<140;i++)stepFootball(cpu,tick,0,0);
+for(let i=0;i<200;i++)stepFootball(cpu,tick,0,0);
 assert.equal(cpu.owner,-1);assert.ok(cpu.ball.vx<0);
 console.log('Passed: charged shots, swept saves, goals, outs, kickoff, dives, half limits, AI, pause and flat joystick.');
 
@@ -79,3 +79,23 @@ stepFootball(above,tick,0,0);assert.deepEqual(above.score,[0,0]);assert.match(ab
 const retreat=newFootball();startFootball(retreat);retreat.owner=-1;retreat.ball={x:500,y:315,vx:400,vy:0};retreat.ballHeight=160;
 stepFootball(retreat,tick,0,0);assert.ok(retreat.players[1].vx>0,'CPU retreats under a lob');
 console.log('Passed: aimed curves, lob height, jump reach, double-jump guard, crossbar height and goalkeeper retreat.');
+
+// Arcade leaves an opening at the corner while retaining saves at the center.
+for(const [difficulty,aim,scored] of [['arcade',0,true],['arcade',1,false],['pro',0,false]] as const){
+ const match=newFootball();match.difficulty=difficulty;startFootball(match);match.aim=aim;match.charge=1;shootFootball(match);
+ for(let i=0;i<600&&match.owner<0&&match.status==='playing';i++)stepFootball(match,tick,0,0);
+ assert.equal(match.score[0]===1,scored,`${difficulty}, target ${aim}`);
+}
+const assisted=newFootball();startFootball(assisted);assisted.owner=1;shootFootball(assisted,1);
+for(let i=0;i<600&&assisted.owner<0&&assisted.status==='playing';i++)stepFootball(assisted,tick,0,0);
+assert.equal(assisted.owner,0,'Arcade helps a stationary keeper reach a nearby shot');
+assert.equal(assisted.energy,65,'A save charges the special');
+const turbo=newFootball();startFootball(turbo);armFootballSpecial(turbo);assert.equal(turbo.specialArmed,false);
+turbo.energy=100;armFootballSpecial(turbo);assert.equal(turbo.specialArmed,true);
+armFootballSpecial(turbo);assert.equal(turbo.specialArmed,false,'Arming can be cancelled without spending energy');
+armFootballSpecial(turbo);turbo.shotStyle='lob';shootFootball(turbo);
+assert.equal(turbo.energy,0);assert.equal(turbo.specialArmed,false);assert.equal(turbo.specialShot,true);
+assert.ok(turbo.ball.vx>1000,'Turbo is a powerful direct shot regardless of the previous style');
+assert.equal(turbo.ballLift,0);
+assert.equal(crossing(315).energy,70,'Goals charge the next special');
+console.log('Passed: Arcade scoring window, assisted save, energy rewards, Turbo activation, cancellation and consumption.');

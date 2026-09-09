@@ -1,11 +1,12 @@
 'use client';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import AchievementToast from '../AchievementToast';
+import {athleteFrames} from '../../lib/athlete-art';
 import TouchControls from '../TouchControls';
 import {readProgress} from '../../lib/cup';
-import {footballEffects,effectUnlocked,newFootballProgress,readFootballProgress,recordFootball,goal,newFootball,startFootball,shootFootball,diveFootball,jumpFootball,stepFootball,type Football} from '../../lib/gol';
+import {footballEffects,effectUnlocked,newFootballProgress,readFootballProgress,recordFootball,armFootballSpecial,goal,newFootball,startFootball,shootFootball,diveFootball,jumpFootball,stepFootball,type Football} from '../../lib/gol';
 
-function draw(ctx:CanvasRenderingContext2D,g:Football,beach:HTMLImageElement,name:string,trail:{x:number;y:number}[],reduced=false){
+function draw(ctx:CanvasRenderingContext2D,g:Football,beach:HTMLImageElement,name:string,trail:{x:number;y:number}[],athlete:HTMLImageElement,reduced=false){
  ctx.clearRect(0,0,1000,620);
  if(beach.complete&&beach.naturalWidth)ctx.drawImage(beach,0,0,1000,620);
  else{ctx.fillStyle='#dbbd86';ctx.fillRect(0,0,1000,620);}
@@ -30,10 +31,10 @@ function draw(ctx:CanvasRenderingContext2D,g:Football,beach:HTMLImageElement,nam
   ctx.strokeStyle='#ffe36b';ctx.lineWidth=3;ctx.beginPath();ctx.arc(925,[240,315,390][g.aim],18,0,Math.PI*2);ctx.stroke();
   ctx.fillStyle='#173e49';ctx.font='bold 12px sans-serif';ctx.fillText('ALVO',897,[240,315,390][g.aim]-24);
  }
- const effect=footballEffects.find(e=>e.id===g.effect)||footballEffects[0],effectColor=g.lastShooter===0?effect.color:'#ffac86';
+ const effect=footballEffects.find(e=>e.id===g.effect)||footballEffects[0],effectColor=g.specialShot?'#fff078':g.lastShooter===0?effect.color:'#ffac86';
  if(trail.length>1&&!reduced){
   ctx.save();ctx.lineCap='round';ctx.shadowColor=effectColor;ctx.shadowBlur=g.effect==='classic'?0:12;
-  for(let i=1;i<trail.length;i++){ctx.globalAlpha=i/trail.length*.65;ctx.strokeStyle=effectColor;ctx.lineWidth=i/trail.length*(g.effect==='classic'?8:14);ctx.beginPath();ctx.moveTo(trail[i-1].x,trail[i-1].y);ctx.lineTo(trail[i].x,trail[i].y);ctx.stroke();}
+  for(let i=1;i<trail.length;i++){ctx.globalAlpha=i/trail.length*.65;ctx.strokeStyle=effectColor;ctx.lineWidth=i/trail.length*(g.specialShot?24:g.effect==='classic'?8:14);ctx.beginPath();ctx.moveTo(trail[i-1].x,trail[i-1].y);ctx.lineTo(trail[i].x,trail[i].y);ctx.stroke();}
   ctx.restore();
  }
  g.players.forEach((p,i)=>{
@@ -43,6 +44,15 @@ function draw(ctx:CanvasRenderingContext2D,g:Football,beach:HTMLImageElement,nam
   ctx.translate(0,-p.jump*.65);
   if(i===0){ctx.strokeStyle=g.owner===0?effect.color:'#5de7d3';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,14,27,12,0,0,Math.PI*2);ctx.stroke();}
   if(i===0&&g.charge>0){ctx.strokeStyle=effect.color;ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,-7,43,-Math.PI/2,-Math.PI/2+g.charge*Math.PI*2);ctx.stroke();}
+  if(athlete.complete&&athlete.naturalWidth){
+   const row=p.dive>0?5:p.jump>0||p.save>0?3:speed>25?1:0;
+   const frame=p.dive>0?Math.min(5,Math.floor((1-p.dive/.28)*6)):Math.floor(g.clock*(speed>25?12:4))%6;
+   const [sx,sy,sw,sh]=athleteFrames[row][frame],scale=.56;
+   ctx.save();if(i===1)ctx.scale(-1,1);
+   if(p.kick>0)ctx.rotate(-Math.sin(p.kick/.32*Math.PI)*.15);
+   ctx.drawImage(athlete,sx,sy,sw,sh,-sw*scale/2,-sh*scale+14,sw*scale,sh*scale);
+   ctx.restore();
+  }else{
   ctx.rotate(p.dive>0?Math.sign(p.vy)*1.1:p.vx/300*.1);
   const skin=i?'#b97b50':'#d99e70';
   ctx.lineCap='round';ctx.lineJoin='round';
@@ -68,6 +78,7 @@ function draw(ctx:CanvasRenderingContext2D,g:Football,beach:HTMLImageElement,nam
   ctx.fillStyle=skin;ctx.fillRect(-5,-37,10,8);ctx.beginPath();ctx.ellipse(0,-44,11,13,0,0,Math.PI*2);ctx.fill();
   ctx.fillStyle=i?'#3c271e':'#28332d';ctx.beginPath();ctx.ellipse(-2,-51,11,7,-.1,Math.PI,Math.PI*2);ctx.fill();ctx.fillRect(-10,-51,4,9);
   ctx.fillStyle='#293837';ctx.fillRect(facing*4-1,-46,2,2);ctx.fillStyle='#ab6e50';ctx.fillRect(facing*9,-43,3,4);
+  }
   ctx.restore();
   if(!reduced&&speed>80){ctx.fillStyle='#fbe0ac80';for(let j=0;j<5;j++){ctx.beginPath();ctx.arc(p.x-p.vx*.025-j*3,p.y+15+Math.sin(j*2+g.clock*7)*7,2+j*.5,0,Math.PI*2);ctx.fill();}}
   ctx.font='bold 11px sans-serif';ctx.textAlign='center';const label=i?'RIVAL':name;const width=ctx.measureText(label).width+16;
@@ -103,6 +114,7 @@ export default function GoalToGoal(){
   const trail:{x:number;y:number}[]=[];
   const ctx=canvas.current!.getContext('2d');if(!ctx)return;
   const beach=new Image();beach.src='/art/beach.png';
+  const athlete=new Image();athlete.src='/art/athlete-clean.png';
   let frame=0,last=0,accumulator=0,lastView='';
   const animate=(time:number)=>{
    accumulator+=Math.min(.1,(time-last)/1000);last=time;
@@ -111,14 +123,14 @@ export default function GoalToGoal(){
      stick.current.z+(keys.current.has('s')||keys.current.has('arrowdown')?1:0)-(keys.current.has('w')||keys.current.has('arrowup')?1:0),held.current);accumulator-=1/120;
    }
    if(game.current.owner<0&&game.current.status==='playing'){trail.push({x:game.current.ball.x,y:game.current.ball.y-game.current.ballHeight*.65});if(trail.length>14)trail.shift();}else trail.length=0;
-   draw(ctx,game.current,beach,playerName,trail,reduced);
+   draw(ctx,game.current,beach,playerName,trail,athlete,reduced);
    if(game.current.status==='over'&&!game.current.recorded){
     const before=progressRef.current,next=recordFootball(before,game.current);
     const earned=footballEffects.filter(e=>!effectUnlocked(before,e.id)&&effectUnlocked(next,e.id));
     if(earned.length)setUnlocks(q=>[...q,...earned.map(e=>e.name)]);
     persist(next);
    }
-   const g=game.current,signature=[g.status,g.score.join(),g.owner,g.aim,g.shotStyle,g.effect,Math.floor(g.charge*20),g.last].join(':');
+   const g=game.current,signature=[g.status,g.score.join(),g.owner,g.aim,g.shotStyle,g.effect,g.energy,g.specialArmed,g.difficulty,Math.floor(g.charge*20),g.last].join(':');
    if(signature!==lastView){lastView=signature;sync();}
    frame=requestAnimationFrame(animate);
   };
@@ -126,9 +138,9 @@ export default function GoalToGoal(){
    if((e.target as HTMLElement).closest('select,input,textarea'))return;
    const k=e.key.toLowerCase();
    if(k===' '&&(e.target as HTMLElement).closest('button,a'))return;
-   if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' ','q','k','l','p'].includes(k))e.preventDefault();
+   if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' ','q','k','l','f','p'].includes(k))e.preventDefault();
    keys.current.add(k);
-   if(!e.repeat){if(k===' ')press();if(k==='q')game.current.aim=(game.current.aim+1)%3;if(k==='k')diveFootball(game.current,(keys.current.has('s')?1:0)-(keys.current.has('w')?1:0));if(k==='l')jumpFootball(game.current);if(k==='p')pause();}
+   if(!e.repeat){if(k===' ')press();if(k==='q')game.current.aim=(game.current.aim+1)%3;if(k==='k')diveFootball(game.current,(keys.current.has('s')?1:0)-(keys.current.has('w')?1:0));if(k==='f'){armFootballSpecial(game.current);sync();}if(k==='l')jumpFootball(game.current);if(k==='p')pause();}
   };
   const up=(e:KeyboardEvent)=>{keys.current.delete(e.key.toLowerCase());if(e.key===' ')release();};
   const blur=()=>{if(game.current.status==='playing')pause();else{held.current=false;keys.current.clear();stick.current={x:0,z:0};}};
@@ -137,21 +149,21 @@ export default function GoalToGoal(){
   return()=>{cancelAnimationFrame(frame);window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',blur);};
  },[]);
  return <main className="arcade-app football-app"><section className="game-shell">
-  <div className="game-toolbar"><a href="/">← Esportes</a><strong>GOL A GOL · AREIA</strong><button onClick={e=>{pause();e.currentTarget.blur();}}>{view.status==='paused'?'Continuar':'Pausar'}</button></div>
+  <div className="game-toolbar"><a href="/">← Esportes</a><strong>GOL A GOL · AREIA</strong><select aria-label="Dificuldade" value={view.difficulty} onChange={e=>{game.current.difficulty=e.target.value;sync();}}><option value="arcade">Arcade · assistido</option><option value="pro">Pro</option></select><button onClick={e=>{pause();e.currentTarget.blur();}}>{view.status==='paused'?'Continuar':'Pausar'}</button></div>
   <div className="court football-court"><canvas ref={canvas} width={1000} height={620} aria-label="Gol a Gol: você protege o gol esquerdo. WASD move, espaço chuta, K mergulha."/>
    <div className="scoreboard"><div>{name}<b>{view.score[0]}</b></div><span>:</span><div><b>{view.score[1]}</b>RIVAL</div><small>PRIMEIRO A 5 GOLS</small></div>
    <div className="football-feedback" role="status">{view.owner===0?'SUA BOLA · MIRE E SEGURE PARA CHUTAR':view.owner===1?'PREPARE A DEFESA':view.last}</div>
-   {['ready','over','paused'].includes(view.status)&&<div className="overlay"><div className="start-card"><span className="mini-label">SHORELINE · GOL A GOL</span><h2>{view.status==='over'?(view.score[0]===5?'A praia é sua!':'Hora da revanche!'):view.status==='paused'?'Pausa na areia':'DOMINE A ARENA.'}</h2><p>Mire direto ou use a tabela. Carregue, solte, comemore.<br/>Complete desafios para desbloquear rastros especiais.</p><button className="primary" onClick={e=>{e.currentTarget.blur();if(view.status==='paused')pause();else{game.current=newFootball();game.current.effect=progressRef.current.effect;startFootball(game.current);held.current=false;sync();}}}>{view.status==='over'?'Revanche':view.status==='paused'?'Continuar':'Jogar'}</button></div></div>}
+   {['ready','over','paused'].includes(view.status)&&<div className="overlay"><div className="start-card"><span className="mini-label">SHORELINE · GOL A GOL</span><h2>{view.status==='over'?(view.score[0]===5?'A praia é sua!':'Hora da revanche!'):view.status==='paused'?'Pausa na areia':'DOMINE A ARENA.'}</h2><p>Mire direto ou use a tabela. Carregue, solte, comemore.<br/>Defesas, gols e tabelas carregam o Turbo. Ative no botão Turbo ou com F e solte um chute potente.</p><button className="primary" onClick={e=>{e.currentTarget.blur();if(view.status==='paused')pause();else{const difficulty=game.current.difficulty;game.current=newFootball();game.current.difficulty=difficulty;game.current.effect=progressRef.current.effect;startFootball(game.current);held.current=false;sync();}}}>{view.status==='over'?'Revanche':view.status==='paused'?'Continuar':'Jogar'}</button></div></div>}
    {view.status==='goal'&&<div className="football-goal" role="status">{view.message}</div>}
   </div>
   {unlocks[0]&&<AchievementToast key={unlocks[0]} title={`Efeito ${unlocks[0]}`} onDone={dismiss}/>}
-  <div className="shot-bar"><div className="football-shot-types">{[['direct','Direto'],['top','Tabela ↑'],['bottom','Tabela ↓'],['curve-up','Curva ↑'],['curve-down','Curva ↓'],['lob','Cobertura']].map(([style,label])=><button key={style} aria-pressed={view.shotStyle===style} onClick={e=>{game.current.shotStyle=style;sync();e.currentTarget.blur();}}>{label}</button>)}</div><small>{view.owner===0?'ESCOLHA O CANTO · SEGURE E SOLTE CHUTAR':'DEFESA AUTOMÁTICA AO ALCANÇAR A BOLA'}</small><div>{['Canto ↑','Centro','Canto ↓'].map((label,i)=><button key={i} aria-pressed={view.aim===i} onClick={e=>{game.current.aim=i;sync();e.currentTarget.blur();}}>{label}</button>)}<button onClick={e=>{diveFootball(game.current,stick.current.z);e.currentTarget.blur();}} disabled={view.status!=='playing'||view.owner===0}>Mergulhar · K</button><button disabled={view.status!=='playing'||view.owner===0} onClick={e=>{jumpFootball(game.current);e.currentTarget.blur();}}>Pular · L</button><button className="desktop-kick" disabled={view.status!=='playing'||view.owner!==0}
+  <div className="shot-bar"><button className="football-special" style={{background:`linear-gradient(90deg, #99712c ${view.energy}%, #28535b ${view.energy}%)`}} disabled={view.energy<100||view.owner!==0||view.status!=='playing'} aria-pressed={view.specialArmed} onClick={e=>{armFootballSpecial(game.current);sync();e.currentTarget.blur();}}>{view.specialArmed?'TURBO ARMADO · CHUTE!':view.energy>=100?'ATIVAR TURBO · F':`TURBO · ${view.energy}%`}</button><div className="football-shot-types">{[['direct','Direto'],['top','Tabela ↑'],['bottom','Tabela ↓'],['curve-up','Curva ↑'],['curve-down','Curva ↓'],['lob','Cobertura']].map(([style,label])=><button key={style} aria-pressed={view.shotStyle===style} onClick={e=>{game.current.shotStyle=style;sync();e.currentTarget.blur();}}>{label}</button>)}</div><small>{view.owner===0?'ESCOLHA O CANTO · SEGURE E SOLTE CHUTAR':'DEFESA AUTOMÁTICA AO ALCANÇAR A BOLA'}</small><div>{['Canto ↑','Centro','Canto ↓'].map((label,i)=><button key={i} aria-pressed={view.aim===i} onClick={e=>{game.current.aim=i;sync();e.currentTarget.blur();}}>{label}</button>)}<button onClick={e=>{diveFootball(game.current,stick.current.z);e.currentTarget.blur();}} disabled={view.status!=='playing'||view.owner===0}>Mergulhar · K</button><button disabled={view.status!=='playing'||view.owner===0} onClick={e=>{jumpFootball(game.current);e.currentTarget.blur();}}>Pular · L</button><button className="desktop-kick" disabled={view.status!=='playing'||view.owner!==0}
  onPointerDown={e=>{e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);press();}} onPointerUp={release}
  onPointerCancel={()=>{held.current=false;game.current.charge=0;}} onLostPointerCapture={()=>{held.current=false;}}
  onKeyDown={e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();if(!e.repeat)press();}}} onKeyUp={e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();release();}}}>Segure e solte · Chutar</button></div>
  <meter className="football-power" min={0} max={1} value={view.charge} aria-label="Força do chute"/><small>{Math.round(view.charge*100)}% · FORÇA</small></div>
   <TouchControls flat onMove={(x,z)=>{stick.current={x,z};}} onPress={press} onRelease={release} onAim={()=>{game.current.aim=(game.current.aim+1)%3;sync();}} label="Chutar" charge={view.charge} enabled={view.status==='playing'}/>
-  <p className="football-help">WASD / setas: mover · Espaço: segurar e soltar para chutar · Q: alvo · K: mergulhar · L: pular · A/D: avançar e recuar · P: pausa</p>
+  <p className="football-help">WASD / setas: mover · Espaço: segurar e soltar para chutar · Q: alvo · K: mergulhar · L: pular · A/D: avançar e recuar · F: armar especial · P: pausa</p>
  </section>
  <section className="football-club" aria-label="Desafios e efeitos"><div className="football-club-heading"><div><small>SEU CAMINHO NA AREIA</small><h2>Jogue. Conquiste. Brilhe.</h2></div><p>{progress.wins} vitórias · {progress.goals} gols · {progress.saves} defesas</p></div>
  <p>Efeitos visuais equipáveis. As conquistas são salvas ao terminar a partida.</p>
