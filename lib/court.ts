@@ -71,10 +71,11 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       const cross=this.add.graphics().lineStyle(2,0xffee75);cross.lineBetween(-10,0,10,0);cross.lineBetween(0,-8,0,8);
       this.target=this.add.container(0,0,[circle,cross,targetLabel]).setDepth(3);
       this.objective=this.add.graphics().setDepth(3);this.objectiveLabel=this.add.text(0,0,'ALVO DO TREINO',{fontSize:'12px',color:'#fff2a0',backgroundColor:'#193e46'}).setOrigin(.5).setDepth(3);
+      let lastOnlineAim=0;
       const aimPointer=(pointer:Phaser.Input.Pointer)=>{
         const sx=pointer.x-95,sy=pointer.y-245,det=.77*.66+.2*.035;
         const x=(sx*.66-sy*.2)/det,z=(sy*.77+sx*.035)/det;
-        if(x>=535&&x<=965&&z>=25&&z<=425){if(getGame().online)onlineAim?.(x,z);else setAim(getGame(),x,z);changed();}
+        if(x>=535&&x<=965&&z>=25&&z<=425){if(getGame().online){const now=performance.now();if(now-lastOnlineAim<40)return;lastOnlineAim=now;onlineAim?.(x,z);}else setAim(getGame(),x,z);changed();}
       };
       this.input.on('pointerdown',(pointer:Phaser.Input.Pointer)=>{aimPointer(pointer);if(getGame().practice)keys.add('mouse-attack');});
       this.input.on('pointermove',(pointer:Phaser.Input.Pointer)=>{if(pointer.isDown)aimPointer(pointer);});
