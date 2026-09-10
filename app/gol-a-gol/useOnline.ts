@@ -13,7 +13,7 @@ export function useOnline<T extends {status:string}>(game:React.RefObject<T>,onS
    const data=JSON.parse(e.data);
    if(data.error){game.current.status='paused';setInfo(i=>({...i,error:data.error}));callback.current();}
    if(data.type==='joined'){
-    const url=new URL(location.href);url.searchParams.set('room',data.room);history.replaceState(null,'',url);
+    const url=new URL(location.href);url.searchParams.delete('online');url.searchParams.set('room',data.room);history.replaceState(null,'',url);
     setInfo(i=>({...i,link:url.toString()}));
    }
    if(data.type==='state'){
@@ -24,6 +24,6 @@ export function useOnline<T extends {status:string}>(game:React.RefObject<T>,onS
   ws.onclose=()=>{if(socket.current!==ws)return;game.current.status='paused';callback.current();setInfo(i=>({...i,error:i.error||'Conexão encerrada. Crie uma nova sala.'}));};
   ws.onerror=()=>setInfo(i=>({...i,error:'Não foi possível conectar à arena online.'}));
  };
- useEffect(()=>{const room=new URLSearchParams(location.search).get('room');if(room)connect(room);return()=>{socket.current?.close();socket.current=null;active.current=false;};},[]);
+ useEffect(()=>{const query=new URLSearchParams(location.search),room=query.get('room');if(room)connect(room);else if(query.get('online')==='1')connect('new');return()=>{socket.current?.close();socket.current=null;active.current=false;};},[]);
  return {active,info,connect,send};
 }

@@ -12,8 +12,8 @@ export default async function Home({searchParams}:{searchParams:Promise<Record<s
    <h1 id="sports-title">Escolha a sua<br/><em>próxima partida.</em></h1>
    <p className="sports-intro">Dois esportes. Uma praia inteira para jogar.</p>
    <nav className="sports-grid" aria-label="Escolha seu esporte">
-    <a className="sport-card sport-volley" href="/volei"><div className="sport-card-top"><span>DUPLAS · 2 × 2</span><Volleyball size={62} strokeWidth={1.4}/></div><div><h2>VÔLEI <br/>DE PRAIA</h2><p>Ralis, mergulhos e aquela cortada.</p><small>Amistosos · Online · Carreira · Treinos</small></div><strong>ENTRAR NA QUADRA <ArrowUpRight size={23}/></strong></a>
-    <a className="sport-card sport-goal" href="/gol-a-gol"><div className="sport-card-top"><span>DUELO · 1 × 1</span><Goal size={62} strokeWidth={1.4}/></div><div><h2>GOL <br/>A GOL</h2><p>Defenda sua praia. Solte o especial.</p><small>Partida rápida · Online · Desafios e efeitos</small></div><strong>ENTRAR NA ARENA <ArrowUpRight size={23}/></strong></a>
+    <article className="sport-card sport-volley"><div className="sport-card-top"><span>DUPLAS · 2 × 2</span><Volleyball size={62} strokeWidth={1.4}/></div><div><h2>VÔLEI <br/>DE PRAIA</h2><p>Ralis, mergulhos e aquela cortada.</p><small>Amistosos · Online · Carreira · Treinos</small></div><div className="sport-actions"><a href="/volei">ENTRAR NA QUADRA <ArrowUpRight size={20}/></a><a className="sport-online" href="/volei?online=1">JOGAR ONLINE · CRIAR CONVITE</a></div></article>
+    <article className="sport-card sport-goal"><div className="sport-card-top"><span>DUELO · 1 × 1</span><Goal size={62} strokeWidth={1.4}/></div><div><h2>GOL <br/>A GOL</h2><p>Defenda sua praia. Solte o especial.</p><small>Partida rápida · Online · Desafios e efeitos</small></div><div className="sport-actions"><a href="/gol-a-gol">ENTRAR NA ARENA <ArrowUpRight size={20}/></a><a className="sport-online" href="/gol-a-gol?online=1">JOGAR ONLINE · CRIAR CONVITE</a></div></article>
    </nav>
    <footer>NO COMPUTADOR OU CELULAR <span>•</span> CONVIDE UM AMIGO POR LINK</footer>
   </section>
