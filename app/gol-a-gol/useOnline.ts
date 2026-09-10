@@ -1,7 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import type {Football} from '../../lib/gol';
-export function useOnline(game:React.RefObject<Football>,onState:()=>void){
+export function useOnline<T extends {status:string}>(game:React.RefObject<T>,onState:()=>void,sport='football'){
  const socket=useRef<WebSocket|null>(null),active=useRef(false);
  const [info,setInfo]=useState({active:false,players:0,ready:false,link:'',error:''});
  const callback=useRef(onState);callback.current=onState;
@@ -9,7 +8,7 @@ export function useOnline(game:React.RefObject<Football>,onState:()=>void){
  const connect=(room:string)=>{
   if(active.current)return;active.current=true;setInfo({active:true,players:0,ready:false,link:'',error:''});
   const ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/play`);socket.current=ws;
-  ws.onopen=()=>send({type:'join',room});
+  ws.onopen=()=>send({type:'join',room,sport});
   ws.onmessage=e=>{
    const data=JSON.parse(e.data);
    if(data.error){game.current.status='paused';setInfo(i=>({...i,error:data.error}));callback.current();}

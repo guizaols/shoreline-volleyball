@@ -10,7 +10,7 @@ const rows = ['idle', 'run', 'bump', 'set', 'spike', 'dive'];
 // Frames use explicit bounds because the illustrated poses have different heights.
 
 export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<string>, getLevel: () => string,
-  changed: () => void, ready: () => void, failed: (message: string) => void, getStick:()=>{x:number;z:number}=()=>({x:0,z:0})) {
+  changed: () => void, ready: () => void, failed: (message: string) => void, getStick:()=>{x:number;z:number}=()=>({x:0,z:0}),onlineAim?:(x:number,z:number)=>void) {
   class Court extends Phaser.Scene {
     athletes: Phaser.GameObjects.Sprite[] = [];
     shadows: Phaser.GameObjects.Ellipse[] = [];
@@ -74,7 +74,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       const aimPointer=(pointer:Phaser.Input.Pointer)=>{
         const sx=pointer.x-95,sy=pointer.y-245,det=.77*.66+.2*.035;
         const x=(sx*.66-sy*.2)/det,z=(sy*.77+sx*.035)/det;
-        if(x>=535&&x<=965&&z>=25&&z<=425){setAim(getGame(),x,z);changed();}
+        if(x>=535&&x<=965&&z>=25&&z<=425){if(getGame().online)onlineAim?.(x,z);else setAim(getGame(),x,z);changed();}
       };
       this.input.on('pointerdown',(pointer:Phaser.Input.Pointer)=>{aimPointer(pointer);if(getGame().practice)keys.add('mouse-attack');});
       this.input.on('pointermove',(pointer:Phaser.Input.Pointer)=>{if(pointer.isDown)aimPointer(pointer);});
@@ -90,10 +90,12 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
     }
     snapshot():Game {const g=getGame();return {...g,ball:{...g.ball},players:g.players.map(p=>({...p}))};}
     update(_time:number,delta:number) {
+      if(getGame().online)this.accumulator=0;
       if(!this.ball)return;
       this.accumulator+=Math.min(delta/1000,.1);
-      while(this.accumulator>=1/120){this.previous=this.snapshot();step(getGame(),1/120,Math.max(-1,Math.min(1,getStick().x+(keys.has('right')?1:0)-(keys.has('left')?1:0))),keys.has('jump'),getLevel(),(keys.has('attack')||keys.has('touch-attack')||keys.has('1')||keys.has('2')||keys.has('3')),keys.has('dive'),Math.max(-1,Math.min(1,getStick().z+(keys.has('down')?1:0)-(keys.has('up')?1:0))),keys.has('block'),keys.has('touch-attack')||keys.has('1')||keys.has('2')||keys.has('3')||keys.has('prepare')||keys.has('touch-prepare')||keys.has('mouse-attack'));this.accumulator-=1/120;}
-      const g=getGame(),alpha=this.accumulator*120, lerp=(a:number,b:number)=>a+(b-a)*alpha;
+      while(!getGame().online&&this.accumulator>=1/120){this.previous=this.snapshot();step(getGame(),1/120,Math.max(-1,Math.min(1,getStick().x+(keys.has('right')?1:0)-(keys.has('left')?1:0))),keys.has('jump'),getLevel(),(keys.has('attack')||keys.has('touch-attack')||keys.has('1')||keys.has('2')||keys.has('3')),keys.has('dive'),Math.max(-1,Math.min(1,getStick().z+(keys.has('down')?1:0)-(keys.has('up')?1:0))),keys.has('block'),keys.has('touch-attack')||keys.has('1')||keys.has('2')||keys.has('3')||keys.has('prepare')||keys.has('touch-prepare')||keys.has('mouse-attack'));this.accumulator-=1/120;}
+      const g=getGame(),alpha=g.online?Math.min(1,delta/35):this.accumulator*120, lerp=(a:number,b:number)=>a+(b-a)*alpha;
+      if(g.online){for(const [i,p] of this.previous.players.entries()){const next=g.players[i];if(Math.hypot(p.x-next.x,p.z-next.z)>180)Object.assign(p,next);else{p.x=lerp(p.x,next.x);p.y=lerp(p.y,next.y);p.z=lerp(p.z,next.z);}}const b=this.previous.ball;if(Math.hypot(b.x-g.ball.x,b.y-g.ball.y)>200)Object.assign(b,g.ball);else{b.x=lerp(b.x,g.ball.x);b.y=lerp(b.y,g.ball.y);b.z=lerp(b.z,g.ball.z);}}
       const render=(p:Player,i:number)=>{
         const old=this.previous.players[i];
         const x=g.status==='playing'?lerp(old.x,p.x):p.x,z=g.status==='playing'?lerp(old.z,p.z):p.z,y=g.status==='playing'?lerp(old.y,p.y):p.y;
