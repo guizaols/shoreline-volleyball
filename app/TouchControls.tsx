@@ -2,16 +2,16 @@
 import {useEffect,useRef,useState} from 'react';
 import {stickDirection} from '../lib/controls';
 
-export default function TouchControls({onMove,onPress,onRelease,onAim,label,charge,enabled,flat=false}:{
+export default function TouchControls({onMove,onPress,onRelease,onAim,onAlternate,alternateLabel,label,charge,enabled,flat=false}:{
   onMove:(x:number,z:number)=>void;onPress:()=>void;onRelease:()=>void;
-  onAim:()=>void;label:string;charge:number;enabled:boolean;flat?:boolean;
+  onAim:()=>void;onAlternate:()=>void;alternateLabel:string;label:string;charge:number;enabled:boolean;flat?:boolean;
 }){
   const stickPointer=useRef<number|null>(null),actionPointer=useRef<number|null>(null);
   const thumb=useRef<HTMLSpanElement>(null),geometry=useRef({x:0,y:0,radius:1});
-  const [held,setHeld]=useState(false);
+  const [held,setHeld]=useState<number|null>(null);
   const moveThumb=(x:number,y:number)=>{if(thumb.current)thumb.current.style.transform=`translate(${x}px,${y}px)`;};
   const callbacks=useRef({onMove,onRelease});callbacks.current={onMove,onRelease};
-  const reset=()=>{stickPointer.current=null;actionPointer.current=null;moveThumb(0,0);setHeld(false);callbacks.current.onMove(0,0);callbacks.current.onRelease();};
+  const reset=()=>{stickPointer.current=null;actionPointer.current=null;moveThumb(0,0);setHeld(null);callbacks.current.onMove(0,0);callbacks.current.onRelease();};
   useEffect(()=>{
     const hidden=()=>{if(document.hidden)reset();};
     window.addEventListener('blur',reset);window.addEventListener('orientationchange',reset);document.addEventListener('visibilitychange',hidden);
@@ -32,7 +32,7 @@ export default function TouchControls({onMove,onPress,onRelease,onAim,label,char
   };
   const endAction=(e:React.PointerEvent<HTMLButtonElement>)=>{
     if(e.pointerId!==actionPointer.current)return;
-    actionPointer.current=null;setHeld(false);onRelease();
+    actionPointer.current=null;setHeld(null);onRelease();
   };
   return <div className="virtual-controls" aria-label="Controles de toque" onContextMenu={e=>e.preventDefault()}>
     <div className="virtual-stick" role="group" aria-label="Direcional: arraste para mover"
@@ -42,13 +42,13 @@ export default function TouchControls({onMove,onPress,onRelease,onAim,label,char
     </div>
     <div className="virtual-actions">
       <button className="virtual-aim" disabled={!enabled} onClick={onAim} aria-label="Trocar alvo">◎<small>ALVO</small></button>
-      <button className={`virtual-play ${held?'held':''}`} disabled={!enabled}
-        onPointerDown={e=>{if(actionPointer.current!==null)return;e.preventDefault();actionPointer.current=e.pointerId;e.currentTarget.setPointerCapture(e.pointerId);setHeld(true);onPress();}}
+      {[label,alternateLabel].map((text,index)=><button key={index} className={`virtual-play ${index?'virtual-alternate':''} ${held===index?'held':''}`} disabled={!enabled}
+        onPointerDown={e=>{if(actionPointer.current!==null)return;e.preventDefault();actionPointer.current=e.pointerId;e.currentTarget.setPointerCapture(e.pointerId);setHeld(index);(index?onAlternate:onPress)();}}
         onPointerUp={endAction} onPointerCancel={endAction} onLostPointerCapture={endAction}
-        onKeyDown={e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();e.stopPropagation();setHeld(true);onPress();}}}
-        onKeyUp={e=>{if(e.key===' '||e.key==='Enter'){e.stopPropagation();setHeld(false);onRelease();}}}>
-        {label}<meter min="0" max="1" value={charge} aria-label="Preparação"/><small>SEGURE</small>
-      </button>
+        onKeyDown={e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();e.stopPropagation();setHeld(index);(index?onAlternate:onPress)();}}}
+        onKeyUp={e=>{if(e.key===' '||e.key==='Enter'){e.stopPropagation();setHeld(null);onRelease();}}}>
+        <b>{index?'B':'A'}</b><span>{text}</span><meter min="0" max="1" value={charge} aria-label="Preparação"/><small>SEGURE</small>
+      </button>)}
     </div>
   </div>;
 }

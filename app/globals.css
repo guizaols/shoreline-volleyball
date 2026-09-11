@@ -224,3 +224,18 @@
 }
 
 @media(pointer:coarse),(max-width:700px){.mobile-game.mobile-tools-open .mobile-exit{display:flex;position:absolute;top:max(8px,env(safe-area-inset-top));left:max(10px,env(safe-area-inset-left));z-index:40;align-items:center;min-height:44px;padding:8px 12px;border-radius:8px;background:#103d50;color:#fff0bd;text-decoration:none;font-size:12px}}
+
+/* Thumb controls stay available throughout the rally. */
+@media(pointer:coarse),(max-width:700px){
+ .mobile-game .virtual-actions{display:grid;grid-template-columns:76px 76px;gap:8px;align-items:end;flex-direction:row}
+ .mobile-game .virtual-aim{grid-column:1 / 3;justify-self:center;width:48px;height:48px;margin:0;font-size:18px}
+ .mobile-game .virtual-play{width:76px;height:76px;font-size:11px;gap:1px;background:#bc493f;border-radius:50%;padding:4px}
+ .mobile-game .virtual-play b{font-size:23px;line-height:1}.mobile-game .virtual-play span{line-height:1.2}.mobile-game .virtual-play meter{width:44px;height:8px;margin:0}
+ .mobile-game .virtual-alternate{background:#386db1}.mobile-game .virtual-play.held{filter:brightness(1.3);transform:scale(.94)}
+ .mobile-game.mobile-tools-open .shot-bar{display:none!important}.mobile-game .mobile-rotate-hint{bottom:184px}
+}
+@media(pointer:coarse) and (orientation:landscape){
+ .mobile-game .court,.mobile-game.football-app .court.football-court{left:max(110px,env(safe-area-inset-left));right:180px;width:calc(100% - 290px)}
+ .mobile-game .virtual-controls{left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right))}
+ .mobile-game .court .overlay{inset:45px 180px 12px 110px}
+}
