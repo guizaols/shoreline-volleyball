@@ -9,9 +9,11 @@ import {armSpecial,cancelArcadeInput,specialName} from '../lib/arcade';
 import {cycleAim} from '../lib/game';
 
 export default function BeachMatch({sport}:{sport:NetSport|'soccer'}){
- const fresh=useCallback(()=>sport==='soccer'?createSoccer():createNetMatch(sport,rivals[Math.floor(Math.random()*rivals.length)]),[sport]);
- const game=useRef(fresh()),host=useRef<HTMLDivElement>(null),keys=useRef(new Set<string>()),stick=useRef({x:0,z:0}),level=useRef('Club');
- const [view,setView]=useState(fresh),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[tools,setTools]=useState(false);
+ // The first rival must match between server and browser render (hydration); later matches draw a random one.
+ const fresh=useCallback((pick=Math.floor(Math.random()*rivals.length))=>sport==='soccer'?createSoccer():createNetMatch(sport,rivals[pick]),[sport]);
+ const firstRival=Math.floor(Date.now()/864e5)%rivals.length;
+ const game=useRef(fresh(firstRival)),host=useRef<HTMLDivElement>(null),keys=useRef(new Set<string>()),stick=useRef({x:0,z:0}),level=useRef('Club');
+ const [view,setView]=useState(()=>fresh(firstRival)),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[tools,setTools]=useState(false);
  const sync=useCallback(()=>setView({...game.current,score:[...game.current.score],...(game.current.sport==='soccer'?{}:{points:[...game.current.points]})}),[]);
  const clear=useCallback(()=>{keys.current.clear();stick.current={x:0,z:0};cancelArcadeInput(game.current);if(game.current.sport==='soccer')game.current.pendingKick='';},[]);
  const start=useCallback(()=>{clear();if(game.current.status==='over')game.current=fresh();if(game.current.sport==='soccer')startSoccer(game.current);else beginServe(game.current);sync();},[clear,fresh,sync]);
