@@ -1,5 +1,5 @@
 import {drills,trainingMedal} from './training.ts';
-import {shotTiming} from './arcade.ts';
+import {shotTiming,PERFECT_ETA,PERFECT_SPAN} from './arcade.ts';
 export const FLOOR = 450;
 const GRAVITY = 620;
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
@@ -18,7 +18,7 @@ function players(): Player[] {
 }
 export function createGame() {
   return { online:false,remoteActive:2,remoteAim:{x:190,z:225},remoteAimPreset:-1,remoteAttackStyle:'power' as AttackStyle,remoteServeStyle:'float' as ServeStyle, drill:-1,drillAthlete:0,drillAttempts:0,drillScore:0,drillMedal:0,drillQuality:0,drillStruck:false,drillTarget:{x:890,z:80},location:'Palm Cove',windStrength:27,genders:['unspecified','unspecified'],opponentGenders:['male','male'],cpuTier:0,opponentCountry:'US',opponentPlayers:['Noah','Ethan'],opponentName:'COAST', friendlyOpponent:0, country: 'BR', names: ['Alex','Dani'], attributes: [{serve:50,attack:50,defense:50,mobility:50},{serve:50,attack:50,defense:50,mobility:50}], playerContacts:[0,0], event:0, matchSerial:0, cupStage: -1, cpuStyle: 'normal', pointGoal: 11, gold: false, challenge: -1, challengeStrike: false, players: players(), active: 0, autoSwitch: true, aimPreset: -1, aim: {x:810,z:225}, power: 1, serveStyle: 'float' as ServeStyle, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
-    pace: 'Club', controlSerial:[-1,-1], timing:null as number|null,strokes:[{time:0,held:0,attack:false,used:false,aimed:false},{time:0,held:0,attack:false,used:false,aimed:false}], lastRally: 0, bestRally: 0, pointReason: '', contactHint: '', practice: false, practiceDelay: 0, repetitions: 0, attackStyle: 'power' as AttackStyle, tossTime: 0, tossQuality: '', windEnabled: true, wind: 0, clock: 0, resumeStatus: 'playing', assist: true, feedback: '', feedbackTime: 0, server: 0, serviceOrder: [0,3], status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
+    pace: 'Club', controlSerial:[-1,-1], timing:null as number|null,strokes:[{time:0,held:0,attack:false,used:false,eta:0},{time:0,held:0,attack:false,used:false,eta:0}], lastRally: 0, bestRally: 0, pointReason: '', contactHint: '', practice: false, practiceDelay: 0, repetitions: 0, attackStyle: 'power' as AttackStyle, tossTime: 0, tossQuality: '', windEnabled: true, wind: 0, clock: 0, resumeStatus: 'playing', assist: true, feedback: '', feedbackTime: 0, server: 0, serviceOrder: [0,3], status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
     lastHit: -1, lastTeam: -1, touches: 0, rally: 0, shot: '', hitFlash: 0 };
 }
 export type Game = ReturnType<typeof createGame>;
@@ -214,7 +214,7 @@ function hit(g: Game, i: number, attack: boolean, distance: number, ahead?: numb
   const sendOver = g.touches === 3 || (attack && !g.practice) || (p.team===1&&g.cpuStyle==='attack'&&g.cpuTier>=2&&g.touches===2&&p.y<410&&Math.abs(g.players[0].x-g.players[1].x)<170);
   const execution=assisted&&p.team===0?strokeQuality(distance,deliberate?.7:p.preparation,Math.hypot(p.vx,p.vz)):clamp(1-distance/100,.15,1);
   const pressure=sameTeam||sendOver?0:Math.min(.35,Math.max(0,Math.hypot(b.vx,b.vz)-350)/900);
-  // Where the ball meets the hand on a deliberate attack: in front crosses the court, behind goes down the line, centred is perfect.
+  // Press timing on a deliberate attack (see PERFECT_ETA): on time is a perfect, stronger hit; late is weaker. Volleyball keeps the chosen target (ALVO), so timing never moves it.
   const timed=deliberate&&sendOver&&ahead!==undefined?shotTiming(ahead):null;
   const skill=clamp(fundamentalQuality(execution,playerAttribute(g,i,sendOver?'attack':'defense'),pressure)*(timed?.late?.85:1)+(timed?.perfect?.15:0),.15,1);
   const action = sendOver ? 'spike' : g.touches === 1 ? 'bump' : 'set';
@@ -226,7 +226,6 @@ function hit(g: Game, i: number, attack: boolean, distance: number, ahead?: numb
     if(p.team===0&&g.challenge>0)g.challengeStrike=g.challenge===1?style==='power':style==='tip';
     const target=p.team?{...opponentTarget(g),...(style==='tip'?{x:390}:{})}:{...g.aim,x:style==='tip'?Math.min(g.aim.x,650):g.aim.x};
     const flight=g.practice?(style==='tip'?1.55:style==='roll'?1.65:b.y<255?.82:1.3):style==='tip'?(b.y<255?.92:1.55):style==='roll'?(b.y<255?1.05:1.65):b.y<255?.68:.9;
-    if(timed&&!timed.perfect&&!g.strokes[0].aimed)target.z=clamp(target.z+((p.z>225)===timed.late?1:-1)*70,30,420);
     if(p.team===0){const error=Math.max(0,.72-skill)*70;target.x=clamp(target.x+error,550,960);target.z=clamp(target.z+(p.z>225?error:-error),30,420);}
     launch(g,target,flight/(1+(playerAttribute(g,i,'attack')-50)*.006)*(p.team&&g.cpuStyle==='attack'?.85:1)*(p.team?(g.pace==='Chill'?1.25:g.pace==='Pro'?.92:1):1)/((p.team||assisted?1:g.power)*(.65+skill*.5)),g.practice?248:260);
   } else {
@@ -240,7 +239,7 @@ function hit(g: Game, i: number, attack: boolean, distance: number, ahead?: numb
   const quality=skill>.72?'BOM':skill>.42?'REGULAR':'RUIM';p.preparation=0;
   g.timing=timed?timed.offset:null;
   if(deliberate){g.strokes[p.team].time=0;g.strokes[p.team].used=true;}
-  g.feedback=`${p.team?'COAST':'VOCÊ'} · ${diving?'DEFESA NO CHÃO':sendOver?(p.team===0&&style==='tip'?'LARGADINHA':p.team===0&&style==='roll'?'ATAQUE COLOCADO':'ATAQUE'):g.touches===1?'RECEPÇÃO':'PASSE'} ${timed?.perfect?'PERFEITO':timed?.early?'CEDO · DIAGONAL':timed?.late?'TARDE · PARALELA':quality}`;g.feedbackTime=1.8;
+  g.feedback=`${p.team?'COAST':'VOCÊ'} · ${diving?'DEFESA NO CHÃO':sendOver?(p.team===0&&style==='tip'?'LARGADINHA':p.team===0&&style==='roll'?'ATAQUE COLOCADO':'ATAQUE'):g.touches===1?'RECEPÇÃO':'PASSE'} ${timed?.perfect?'PERFEITO':timed?.early?'CEDO':timed?.late?'TARDE':quality}`;g.feedbackTime=1.8;
   if(g.drill>=0&&i===g.drillAthlete){
     if(drills[g.drill].kind==='defense'){finishDrillAttempt(g,skill>=[.42,.6,.72][drills[g.drill].level]);return;}
     if(drills[g.drill].kind==='attack'&&sendOver){g.drillQuality=skill;g.drillStruck=true;}
@@ -295,10 +294,10 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
     stroke.time=Math.max(0,stroke.time-dt);
     const pressed=!!(buttons&~stroke.held),released=!!stroke.held&&!buttons&&!stroke.used;
     if(pressed||released){
-      stroke.time=.3;if(pressed){stroke.used=false;stroke.attack=input.attack;stroke.aimed=false;}
+      stroke.time=.3;if(pressed){stroke.used=false;stroke.attack=input.attack;stroke.eta=guidance(g).time;}
       const direction=team?-input.move:input.move;
       if(direction||input.depth){
-        const aim={x:direction<-.2?610:direction>.2?890:775,z:input.depth<-.2?80:input.depth>.2?370:225};stroke.aimed=true;
+        const aim={x:direction<-.2?610:direction>.2?890:775,z:input.depth<-.2?80:input.depth>.2?370:225};
         if(team){g.remoteAim={x:1000-aim.x,z:aim.z};g.remoteAimPreset=-1;}else setAim(g,aim.x,aim.z);
       }
       const p=g.players[team?g.remoteActive:g.active];
@@ -425,7 +424,7 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
       const reach=!human||!g.assist?30:g.practice?60:controlledTeam(p.team)?g.online?48:difficulty==='Pro'?34:difficulty==='Chill'?60:48:((c.i<2?prepare:remote?.prepare)?60:48)*(g.online?1:difficulty==='Pro'?.75:difficulty==='Chill'?1.1:1);
       return c.distance<reach*(1+(playerAttribute(g,c.i,'defense')-50)*.004) && p.action!=='idle' && p.actionTime<=.39 && p.actionTime>=.08;
     }).sort((a,c)=>a.distance-c.distance);
-    if(contacts.length) {const c=contacts[0],p=g.players[c.i],human=c.i===(p.team?g.remoteActive:g.active),hand=contactPoint(p),speed=Math.hypot(b.vx,b.vy,b.vz)||1;hit(g,c.i,human&&(controlledTeam(p.team)?g.strokes[p.team].attack:p.team?!!remote?.attack:attack),c.distance,((hand.x-b.x)*b.vx+(hand.y-b.y)*b.vy+(hand.z-b.z)*b.vz)/speed/40);}
+    if(contacts.length) {const c=contacts[0],p=g.players[c.i],human=c.i===(p.team?g.remoteActive:g.active);hit(g,c.i,human&&(controlledTeam(p.team)?g.strokes[p.team].attack:p.team?!!remote?.attack:attack),c.distance,(g.strokes[p.team].eta-PERFECT_ETA)/PERFECT_SPAN);}
   }
   if (g.status === 'playing' && b.y >= FLOOR - 13) {
     const out = b.x < 35 || b.x > 965 || b.z<25 || b.z>425;

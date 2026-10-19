@@ -1,4 +1,4 @@
-import {createArcade,aimDrift,stepArcade,rewardArcade,takeSpecial,specialName,cancelArcadeInput,shotTiming} from './arcade.ts';
+import {createArcade,aimDrift,stepArcade,rewardArcade,takeSpecial,specialName,cancelArcadeInput,shotTiming,PERFECT_ETA,PERFECT_SPAN} from './arcade.ts';
 import {createGame,launch,landingX,landingZ,flightTime,strokeQuality,setAim,FLOOR,type Player,type AttackStyle} from './game.ts';
 import type {rivals} from './rivals.ts';
 
@@ -41,7 +41,7 @@ export function releaseNet(g:NetMatch,input?:{x:number;z:number}){
  if(g.shotConsumed){g.charge=0;return;}
  g.shotAimed=!!input&&(Math.abs(input.x)>.2||Math.abs(input.z)>.2);
  if(g.shotAimed&&input)setAim(g,input.x>.2?890:input.x<-.2?610:g.aim.x,input.z>.2?370:input.z<-.2?80:g.aim.z);
- g.shotCharge=g.charge;g.shotDrift=aimDrift(g.charge,g.clock);g.shotWindow=.32;g.charge=0;
+ g.shotCharge=g.charge;g.shotDrift=aimDrift(g.charge,g.clock);g.shotWindow=.32;g.charge=0;g.pressEta=netGuide(g).time;
 }
 // The human serve: the ball rises and the hit is timed at its peak (about .5 s after the toss).
 export const tossQuality=(t:number)=>clamp(1-Math.max(0,Math.abs(t-.5)-.05)/.25,0,1);
@@ -78,6 +78,7 @@ export function serveNet(g:NetMatch,quality?:number){
  p.action=g.sport==='tennis'?'spike':'bump';p.actionTime=.26;g.lastTeam=g.server;g.lastHit=i;g.touches=1;g.status='playing';g.cooldown=.3;
  g.contactSerial++;g.impact={...g.ball};g.hitFlash=.16;g.feedback=quality===undefined?'SAQUE':quality>=.85?'SAQUE · PERFEITO':quality>=.5?'SAQUE · BOM':'SAQUE · FRACO';g.feedbackTime=1.5;
  if(quality!==undefined&&quality>=.85)g.perfects++;
+ g.lastPerfect=g.server===0&&quality!==undefined&&quality>=.85;
 }
 export function netPoint(g:NetMatch,winner:number,reason:string){
  g.energy[winner]=Math.min(100,g.energy[winner]+15);g.combo[1-winner]=0;g.comboTime[1-winner]=0;cancelArcadeInput(g);g.specialShot=false;
@@ -115,7 +116,7 @@ export function strikeNet(g:NetMatch,i:number,quality:number,ahead?:number){
  const incomingSpecial=g.specialShot&&g.lastTeam!==p.team;
  const special=over&&!cover?takeSpecial(g,p.team,i):false;
  if(!over||cover){g.specialShot=false;g.specialPlayer=-1;}
- g.lastPower=power;g.timing=timed?timed.offset:null;if(timed?.perfect)g.perfects++;if(special&&p.team===0)g.specials++;
+ g.lastPower=power;g.timing=timed?timed.offset:null;g.lastPerfect=!!timed?.perfect;if(timed?.perfect)g.perfects++;if(special&&p.team===0)g.specials++;
  if(over){
   const target=cover?{x:775,z:225}:cpu?{...cpu.target}:{...g.aim};
   // Without an explicit direction, timing picks the side: early crosses the court, late goes down the line.
@@ -177,8 +178,13 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
   const homeX=attacking?(p.team?575:425):i<2?(i%2?365:200):(i%2?800:635),homeZ=g.sport==='tennis'&&p.team===0&&!human&&g.active>=0?clamp(450-g.players[g.active].z,110,340):i%2?310:145;
   const airTime=flightTime(g,guide.height-65),airX=landingX(g,guide.height-65),aerial=!human&&onBall&&(g.sport==='tennis'||g.lastTeam===p.team&&g.touches===2)&&(p.team?airX>=515:airX<=485)&&(p.y<FLOOR||airTime>.15&&airTime<.6);
   const prediction=Math.min(reaction*.4,guide.time*.3);
-  const receiveX=clamp((aerial?airX+(p.team?1:-1)*(g.sport==='tennis'?56:12):guide.x)-g.ball.vx*prediction,p.team?550:50,p.team?950:450);
-  const receiveZ=clamp((aerial?landingZ(g,guide.height-65):guide.z)-g.ball.vz*prediction,35,415);
+  // AI defenders misread attacks, more for strong, perfect or special shots and on easier levels: a fixed per-rally
+  // offset (no dice roll), so rallies end instead of running forever (playtest 2026-10-19).
+  const attack=human||g.lastTeam<0||g.lastTeam===p.team?0:g.rally===0?.1+(g.lastPerfect?.15:0):Math.min(1.4,.25+g.lastPower*.8+(g.lastPerfect?.5:0)+(g.specialShot?.8:0));
+  // Slow balls (lobs, floaty sets) are easy to read whatever the power behind them.
+  const misread=attack*clamp((Math.hypot(g.ball.vx,g.ball.vz)-200)/350,.15,1.2)*(level==='Chill'?90:level==='Pro'?42:65);
+  const receiveX=clamp((aerial?airX+(p.team?1:-1)*(g.sport==='tennis'?56:12):guide.x)-g.ball.vx*prediction+Math.sin(g.contactSerial*12.9898+i*78.2)*misread,p.team?550:50,p.team?950:450);
+  const receiveZ=clamp((aerial?landingZ(g,guide.height-65):guide.z)-g.ball.vz*prediction+Math.cos(g.contactSerial*4.1+i*3.7)*misread,35,415);
   const down=p.action==='dive'&&p.actionTime>0;
   let dx=down?0:human?clamp(input.x,-1,1):clamp(((onBall&&g.contactAge>=reaction?receiveX:homeX)-p.x)/35,-1,1);
   let dz=down?0:human?clamp(input.z,-1,1):clamp(((onBall&&g.contactAge>=reaction?receiveZ:homeZ)-p.z)/35,-1,1);
@@ -201,7 +207,7 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
  const b=g.ball,old={...b};b.x+=b.vx*dt;b.z+=b.vz*dt;b.y+=b.vy*dt+310*dt*dt;b.vy+=620*dt;
  if(b.y>=(g.sport==='tennis'?316:274)&&((old.x<500&&b.x>=500)||(old.x>500&&b.x<=500))){netPoint(g,1-g.lastTeam,'Bola na rede');return;}
  if(!g.cooldown){
-  let contact=-1,closest=Infinity,contactTime=0,contactAhead=0,contactDive=false;
+  let contact=-1,closest=Infinity,contactTime=0,contactDive=false;
   for(let i=0;i<4;i++){
    const p=g.players[i];
    if(g.lastHit===i||i===g.active&&!g.shotWindow)continue;
@@ -211,14 +217,16 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
    const target=netContact(g,i),dx=b.x-old.x,dy=b.y-old.y,dz=b.z-old.z;
    const t=clamp(((target.x-old.x)*dx+(target.y-old.y)*dy+(target.z-old.z)*dz)/(dx*dx+dy*dy+dz*dz||1),0,1);
    const distance=Math.hypot(old.x+dx*t-target.x,old.y+dy*t-target.y,old.z+dz*t-target.z);
-   const reach=(i===g.active?(level==='Chill'?48:level==='Pro'?28:38):35)+(g.sport==='tennis'&&p.team===0&&g.specialArmed&&g.energy[0]>=100?18:0);
+   // AI defenders (CPU and your partner) are beaten by pace: a fast, perfect or special shot shrinks their reach, more on easier levels, so points end.
+   const threat=i===g.active||g.lastTeam===p.team?0:Math.min(1,clamp((Math.hypot(old.vx,old.vy,old.vz)-380)/480,0,1)*.75+(g.lastPerfect?.35:0)+(g.specialShot?.6:0))*(g.rally===0?.3:1);
+   const reach=(i===g.active?(level==='Chill'?48:level==='Pro'?28:38):35*(1-threat*(level==='Chill'?.9:level==='Pro'?.45:.65)))+(g.sport==='tennis'&&p.team===0&&g.specialArmed&&g.energy[0]>=100?18:0);
    // Beach tennis dive: the human can stretch 50 further by diving, but stays down on the sand afterwards.
    const dive=g.sport==='tennis'&&i===g.active&&p.y===FLOOR&&p.action!=='dive'&&distance>=reach&&distance<reach+50;
-   if((distance<reach||dive)&&(contact<0||i===g.active||contact!==g.active&&distance<closest)&&(p.team?old.x+dx*t>=500:old.x+dx*t<=500)){contact=i;closest=distance;contactTime=t;contactDive=dive;contactAhead=((target.x-old.x-dx*t)*dx+(target.y-old.y-dy*t)*dy+(target.z-old.z-dz*t)*dz)/(Math.hypot(dx,dy,dz)||1)/reach;}
+   if((distance<reach||dive)&&(contact<0||i===g.active||contact!==g.active&&distance<closest)&&(p.team?old.x+dx*t>=500:old.x+dx*t<=500)){contact=i;closest=distance;contactTime=t;contactDive=dive;}
   }
   if(contact>=0){
    const p=g.players[contact];b.x=old.x+(b.x-old.x)*contactTime;b.y=old.y+(b.y-old.y)*contactTime;b.z=old.z+(b.z-old.z)*contactTime;
-   strikeNet(g,contact,contactDive?.55:strokeQuality(closest,Math.max(p.preparation,contact===g.active?.55:0),Math.hypot(p.vx,p.vz)),contact===g.active&&!contactDive?contactAhead:undefined);
+   strikeNet(g,contact,contactDive?.55:strokeQuality(closest,Math.max(p.preparation,contact===g.active?.55:0),Math.hypot(p.vx,p.vz)),contact===g.active&&!contactDive?(g.pressEta-PERFECT_ETA)/PERFECT_SPAN:undefined);
    if(contactDive&&g.lastHit===contact){const d=Math.hypot(b.x-p.x,b.z-p.z)||1;p.action='dive';p.actionTime=.7;p.diveX=(b.x-p.x)/d;p.diveZ=(b.z-p.z)/d;p.vx=p.diveX*320;p.vz=p.diveZ*320;g.feedback=`MERGULHO · ${g.feedback.split(' · ').slice(1).join(' · ')}`;}
    if(g.status==='playing'&&g.sport==='tennis'&&p.team===1&&g.autoSwitch&&g.active>=0){
     const next=netGuide(g),active=g.players[g.active],partner=g.players[g.active^1];

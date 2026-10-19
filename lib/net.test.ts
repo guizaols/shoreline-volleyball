@@ -15,9 +15,10 @@ g.cooldown=0;strikeNet(g,1,1);assert.equal(g.score[1],1,'Fourth touch is a fault
 const repeat=createNetMatch('footvolley');serveNet(repeat);strikeNet(repeat,2,1);strikeNet(repeat,2,1);
 assert.equal(repeat.score[0],1,'Consecutive contacts are a fault');
 const rally=createNetMatch('footvolley');rally.active=-1;serveNet(rally);
-let hits=0;
-for(let i=0;i<2400&&rally.status==='playing';i++){stepNet(rally,1/120,{x:0,z:0,prepare:false,jump:false},'Club');hits=Math.max(hits,rally.rally);}
+let hits=0,points=0;
+for(let i=0;i<120*240&&rally.status!=='over';i++){if(rally.status==='ready'&&!rally.restartDelay)net.beginServe(rally);const before=rally.score[0]+rally.score[1];stepNet(rally,1/120,{x:0,z:0,prepare:false,jump:false},'Club');hits=Math.max(hits,rally.rally);if(rally.score[0]+rally.score[1]>before)points++;}
 assert.ok(hits>=6,`CPU must sustain combinations on both sides, got ${hits} contacts`);
+assert.ok(points>=8,`Points must end: only ${points} points in four minutes of CPU play`);
 assert.ok(rally.players.every(p=>Number.isFinite(p.x)));
 console.log('Passed: footvolley combinations, faults and simulated rally.');
 
@@ -120,7 +121,7 @@ const tap=createNetMatch('tennis');tap.status='playing';tap.autoSwitch=false;tap
 tap.players[0].x=250;tap.players[0].z=225;tap.ball={x:306,z:225,y:322,vx:0,vz:0,vy:30};
 net.pressNet?.(tap,{x:1,z:-1});stepNet(tap,1/120,{x:0,z:0,prepare:false,jump:false},'Club');
 assert.equal(tap.lastHit,0,'A quick tap next to the ball returns it without holding the button');
-assert.match(tap.feedback,/PERFEITO|BOM/,'A centered tap is a good volley, rather than a preparation penalty');
+assert.match(tap.feedback,/VOLEIO · TARDE/,'A tap with the ball already there is returned, graded late (press ~0.12 s earlier for PERFEITO)');
 assert.ok(landingX(tap,437)>875&&tap.ball.vz<0,'The direction held at press chooses a deep upper lane');
 for(let i=0;i<12;i++)stepNet(tap,1/120,{x:0,z:0,prepare:true,jump:false},'Club');
 net.releaseNet(tap,{x:0,z:0});assert.equal(tap.shotWindow,0,'Releasing an already completed stroke cannot arm a second athlete');

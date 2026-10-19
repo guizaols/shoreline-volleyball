@@ -175,7 +175,7 @@ const stationary={...waiting.ball};for(let i=0;i<300;i++)step(waiting,tick,1,tru
 assert.equal(waiting.status,'serving');assert.deepEqual(waiting.ball,stationary);toss(waiting);waiting.tossTime=.55;releaseServe(waiting);assert.equal(waiting.status,'playing');
 assert.equal(contactQuality(10),'BOM');assert.equal(contactQuality(40),'RUIM');
 const guide=guidance(waiting);assert.ok(Number.isFinite(guide.x)&&Number.isFinite(guide.time));
-assert.match(reception.feedback,/RECEPÇÃO BOM/);assert.match(set.feedback,/PASSE BOM/);assert.match(attack.feedback,/ATAQUE (BOM|PERFEITO)/);
+assert.match(reception.feedback,/RECEPÇÃO BOM/);assert.match(set.feedback,/PASSE BOM/);assert.match(attack.feedback,/ATAQUE (BOM|PERFEITO|CEDO|TARDE)/);
 const stretched=createGame();serve(stretched);stretched.autoSwitch=false;stretched.active=0;stretched.cooldown=0;stretched.lastTeam=1;stretched.lastHit=3;
 stretched.players[0].action='bump';stretched.players[0].actionTime=.28;
 stretched.ball={...contactPoint(stretched.players[0]),vx:0,vz:0,vy:0};stretched.ball.z+=39;

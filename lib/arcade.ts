@@ -1,5 +1,5 @@
 export function createArcade(){
- return {charge:0,shotCharge:0,shotDrift:0,shotWindow:0,energy:[0,0],combo:[0,0],comboTime:[0,0],specialArmed:false,specialShot:false,specialPlayer:-1,lastPower:0,timing:null as number|null,perfects:0,specials:0,ballSkin:'classic' as string};
+ return {charge:0,shotCharge:0,shotDrift:0,shotWindow:0,energy:[0,0],combo:[0,0],comboTime:[0,0],specialArmed:false,specialShot:false,specialPlayer:-1,lastPower:0,timing:null as number|null,perfects:0,specials:0,ballSkin:'classic' as string,pressEta:0,lastPerfect:false};
 }
 type Arcade=ReturnType<typeof createArcade>;
 export const powerRisk=(charge:number)=>Math.max(0,(charge-.65)/.35);
@@ -10,6 +10,10 @@ export function shotTiming(ahead:number){
  const offset=Math.max(-1,Math.min(1,ahead));
  return {offset,perfect:Math.abs(offset)<=.36,early:offset>.36,late:offset<-.36};
 }
+// Press timing: seconds the ball still needed to reach the athlete when the button was pressed.
+// About 0.12 s is perfect (±0.03 s); sooner reads as early, later as late. Playtests showed contact position alone made almost every hit "early".
+export const PERFECT_ETA=.12,PERFECT_SPAN=.08;
+export const pressTiming=(eta:number)=>shotTiming((eta-PERFECT_ETA)/PERFECT_SPAN);
 export const specialName=(sport:string)=>sport==='soccer'?'CANHÃO':sport==='tennis'?'VOLEIO RELÂMPAGO':'BICICLETA';
 export function armSpecial(g:Arcade&{status:string}){if(g.status==='playing'&&g.energy[0]>=100)g.specialArmed=!g.specialArmed;}
 export function cancelArcadeInput(g:Arcade){g.charge=0;g.shotCharge=0;g.shotDrift=0;g.shotWindow=0;g.specialArmed=false;}
