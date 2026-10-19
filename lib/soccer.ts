@@ -44,7 +44,10 @@ function prepareKick(g:Soccer,kind:'pass'|'shot',direction?:{x:number;z:number})
  const p=g.players[g.owner],human=g.owner===g.active||direction!==undefined;
  g.kickPower=g.owner===g.active?g.charge:Math.min(.85,g.cpuWait*.5);
  g.kickAimZ=(direction?.z?225+clamp(direction.z,-1,1)*58:human?g.aim.z:g.players[(1-p.team)*3].z>225?175:275)+(g.owner===g.active?aimDrift(g.charge,g.clock):0);
- g.kickTarget=kind==='pass'?passTarget(g,g.owner,direction):-1;g.pendingKick=kind;g.kickDelay=kind==='shot'?.075:.1;
+ g.kickTarget=kind==='pass'?passTarget(g,g.owner,direction):-1;
+ // The CPU keeps dribbling instead of passing into a defender standing on the lane (it used to hand over goals).
+ if(kind==='pass'&&g.owner!==g.active&&g.owner%3!==0&&direction===undefined&&g.kickTarget>=0&&g.cpuWait<1.5&&laneSpace(g,g.ball,g.players[g.kickTarget],p.team)<26){g.kickTarget=-1;return;}
+ g.pendingKick=kind;g.kickDelay=kind==='shot'?.075:.1;
  p.action='bump';p.windup=g.kickDelay;
 }
 function strikePass(g:Soccer,input:BeachInput){
@@ -54,7 +57,8 @@ function strikePass(g:Soccer,input:BeachInput){
  const handoff=!p.team&&g.autoSwitch&&g.active>=0,length=Math.max(1,Math.hypot(input.x,input.z)),vx=handoff?input.x/length*295:0,vz=handoff?input.z/length*295:0;
  const rx=target.x-g.ball.x,rz=target.z-g.ball.z,speed=660,a=speed*speed-vx*vx-vz*vz,dot=rx*vx+rz*vz,flight=(dot+Math.sqrt(dot*dot+a*(rx*rx+rz*rz)))/a;
  const dx=clamp(target.x+vx*flight+(target.vx-vx)*.04,45,955)-g.ball.x,dz=clamp(target.z+vz*flight+(target.vz-vz)*.04,35,415)-g.ball.z,d=Math.hypot(dx,dz)||1;
- g.specialShot=false;g.specialPlayer=-1;g.lastPower=0;g.ball.vx=dx/d*speed;g.ball.vz=dz/d*speed;g.ball.vy=-65;g.owner=-1;g.passReceiver=targetId;g.cooldown=.2;g.charge=0;p.action='bump';p.actionTime=.36;p.windup=0;
+ // Keepers distribute with a lofted ball over nearby attackers, which also breaks save-intercept-shoot loops.
+ g.specialShot=false;g.specialPlayer=-1;g.lastPower=0;g.ball.vx=dx/d*speed;g.ball.vz=dz/d*speed;g.ball.vy=i%3===0?-260:-65;if(i%3===0)g.ball.y=Math.min(g.ball.y,390);g.owner=-1;g.passReceiver=targetId;g.cooldown=.2;g.charge=0;p.action='bump';p.actionTime=.36;p.windup=0;
  impact(g,i,'PASSE');
  if(!p.team&&g.autoSwitch&&g.active>=0){g.active=targetId;g.autoSwitchSerial=g.contactSerial;}
 }
@@ -93,6 +97,8 @@ function restart(g:Soccer,team:number,message:string,x?:number,z?:number){
  g.specialShot=false;g.specialPlayer=-1;g.specialArmed=false;const active=g.active,fresh=createSoccer();g.players=fresh.players;
  if(x!==undefined){g.players[team*3+1].x=clamp(x,80,920);g.players[team*3+1].z=clamp(z??225,40,410);}
  const receiver=g.players[team*3+1];g.ball={x:receiver.x+(team?-18:18),z:receiver.z,y:437,vx:0,vz:0,vy:0};
+ // Opponents give the restart room (playtest 2026-10-19: the restart pass went straight to a waiting striker for a goal every 2 s).
+ for(const id of [(1-team)*3+1,(1-team)*3+2]){const q=g.players[id],dx=q.x-g.ball.x,dz=q.z-g.ball.z,d=Math.hypot(dx,dz)||1;if(d<150){q.x=clamp(g.ball.x+dx/d*150,45,955);q.z=clamp(g.ball.z+dz/d*150,35,415);}}
  possess(g,team*3+1);g.status='ready';g.restartDelay=1.2;g.message=message;g.active=active<0?-1:g.owner<3?g.owner:1;
 }
 export function stepSoccer(g:Soccer,dt:number,input:BeachInput,level:string){
