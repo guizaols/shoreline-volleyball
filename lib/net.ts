@@ -117,6 +117,8 @@ export function strikeNet(g:NetMatch,i:number,quality:number,ahead?:number){
  const b=g.ball,human=i===g.active,power=cover?.2:human?(g.shotWindow>0?g.shotCharge:g.charge):cpu?cpu.power:.5;
  const incomingSpecial=g.specialShot&&g.lastTeam!==p.team;
  const special=over&&!cover?takeSpecial(g,p.team,i):false;
+ // Two specials, as in Hyper V-Ball: A fires the signature shot, B the zigzag ball that weaves in the air.
+ if(special)g.specialKind=style==='power'?'signature':'zigzag';
  if(!over||cover){g.specialShot=false;g.specialPlayer=-1;}
  g.lastPower=power;g.timing=timed?timed.offset:null;g.lastPerfect=!!timed?.perfect;if(timed?.perfect)g.perfects++;if(special&&p.team===0)g.specials++;
  if(over){
@@ -141,7 +143,7 @@ export function strikeNet(g:NetMatch,i:number,quality:number,ahead?:number){
  if(incomingSpecial&&quality>=.7)g.energy[p.team]=Math.min(100,g.energy[p.team]+20);
  g.feedback=`${body} · ${timed?.perfect?'PERFEITO':timed?.early?'CEDO · DIAGONAL':timed?.late?'TARDE · PARALELA':quality>.7?'BOM':quality>.4?'REGULAR':'FORA DO TEMPO'}`;
  g.contactHint=quality>.7?'Contato equilibrado':Math.hypot(p.vx,p.vz)>170?'Chegue e freie antes do contato':'Prepare o golpe antes da bola chegar';
- if(special)g.feedback=specialName(g.sport)+'!';else if(incomingSpecial&&quality>=.7)g.feedback='CONTRA-ESPECIAL!';else if(human&&power>.85)g.feedback+=' · NO LIMITE';
+ if(special)g.feedback=g.specialKind==='zigzag'?'ZIGUE-ZAGUE!':specialName(g.sport)+'!';else if(incomingSpecial&&quality>=.7)g.feedback='CONTRA-ESPECIAL!';else if(human&&power>.85)g.feedback+=' · NO LIMITE';
  if(g.combo[p.team]>=3)g.contactHint=`COMBO ×${g.combo[p.team]} · +ESPECIAL`;
  if(cover)g.contactHint='Parceiro cobriu · retorne à posição';
  g.feedbackTime=1.6;p.preparation=0;if(cover)g.coverUsed=true;
@@ -206,7 +208,7 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
   const x=clamp(p.x,p.team?537:40,p.team?960:463),z=clamp(p.z,30,420);
   if(x!==p.x)p.vx=0;if(z!==p.z)p.vz=0;p.x=x;p.z=z;
  }
- const b=g.ball,old={...b};b.x+=b.vx*dt;b.z+=b.vz*dt;b.y+=b.vy*dt+310*dt*dt;b.vy+=620*dt;
+ const b=g.ball,old={...b};b.x+=b.vx*dt;b.z+=b.vz*dt+(g.specialShot&&g.specialKind==='zigzag'?Math.cos(g.contactAge*12)*520*dt:0);b.y+=b.vy*dt+310*dt*dt;b.vy+=620*dt;
  if(b.y>=(g.sport==='tennis'?316:274)&&((old.x<500&&b.x>=500)||(old.x>500&&b.x<=500))){netPoint(g,1-g.lastTeam,'Bola na rede');return;}
  if(!g.cooldown){
   let contact=-1,closest=Infinity,contactTime=0,contactDive=false;

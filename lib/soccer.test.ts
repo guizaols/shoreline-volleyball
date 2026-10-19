@@ -158,3 +158,16 @@ console.log('Passed: advancing one-twos, readable CPU tackles, quick directed sh
  assert.match(m.feedback,/DE PRIMEIRA/,'Chapéu then A is a first-time volley');
  console.log('Passed: chapéu lifts the ball for a first-time volley.');
 }
+
+{
+ const {trickSoccer}=await import('./soccer.ts');
+ const setup=(dz:number)=>{const m=createSoccer();m.status='playing';m.owner=2;m.active=2;const p=m.players[2];p.x=500;p.z=225;p.facingX=1;p.facingZ=0;m.ball={x:518,z:225,y:437,vx:0,vz:0,vy:0};
+  for(const q of m.players.slice(3)){q.x=900;q.z=60;}const d=m.players[4];d.x=dz?515:550;d.z=225+dz;return m;};
+ const nut=setup(0);assert.ok(trickSoccer(nut));assert.equal(nut.feedback,'CANETA!');assert.ok(nut.ball.x>nut.players[4].x,'The nutmeg puts the ball behind the defender');
+ const el=setup(50);assert.ok(trickSoccer(el));assert.equal(el.feedback,'ELÁSTICO!');assert.equal(el.owner,2);assert.ok(Math.abs(el.players[2].vz)>300,'The elastic cuts sideways');
+ el.players[4].tackleTime=.18;el.players[4].x=el.players[2].x;el.players[4].z=el.players[2].z;el.cooldown=0;
+ for(let i=0;i<5;i++)stepSoccer(el,1/120,{x:0,z:0,prepare:false,jump:false},'Club');
+ assert.notEqual(el.owner,4,'A tackle right after a trick whiffs');
+ const alone=setup(0);alone.players[4].x=900;assert.equal(trickSoccer(alone),false,'No defender near: the button jumps instead');
+ console.log('Passed: street dribbles (caneta, elástico) beat tackles.');
+}

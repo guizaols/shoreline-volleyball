@@ -257,3 +257,12 @@ console.log('Passed: timed human serve, late fallback and instant CPU serve.');
  assert.ok(Math.abs(runner.vx)<200,'After a dive the athlete stays down instead of running');
  console.log('Passed: shark attack, its net risk, and the beach tennis dive.');
 }
+
+{
+ const zig=createNetMatch('footvolley');zig.status='playing';zig.lastTeam=0;zig.lastHit=1;zig.touches=2;zig.energy[0]=100;zig.specialArmed=true;zig.attackStyle='tip';
+ const p=zig.players[0];p.x=400;p.z=225;zig.aim={x:800,z:225};zig.ball={...netContact(zig,0),vx:0,vz:0,vy:20};strikeNet(zig,0,1);
+ assert.equal(zig.feedback,'ZIGUE-ZAGUE!');const z0=zig.ball.z;let swing=0;
+ for(let i=0;i<40;i++){stepNet(zig,1/120,{x:0,z:0,prepare:false,jump:false},'Club');swing=Math.max(swing,Math.abs(zig.ball.z-z0-zig.ball.vz*(i+1)/120));}
+ assert.ok(swing>15,`The zigzag special weaves sideways, swing ${Math.round(swing)}`);
+ console.log('Passed: B fires the zigzag special.');
+}

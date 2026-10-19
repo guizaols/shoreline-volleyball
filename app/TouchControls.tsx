@@ -2,9 +2,9 @@
 import {useEffect,useRef} from 'react';
 import {stickDirection} from '../lib/controls';
 
-export default function TouchControls({onMove,onPress,onRelease,onAim,onAlternate,onJump,alternateLabel,label,charge,enabled,flat=false}:{
+export default function TouchControls({onMove,onPress,onRelease,onAim,onAlternate,onJump,alternateLabel,label,charge,enabled,flat=false,jumpLabel='SALTAR'}:{
   onMove:(x:number,z:number)=>void;onPress:()=>void;onRelease:(cancelled?:boolean)=>void;
-  onAim:()=>void;onAlternate:()=>void;onJump?:(held:boolean)=>void;alternateLabel:string;label:string;charge:number;enabled:boolean;flat?:boolean;
+  onAim:()=>void;onAlternate:()=>void;onJump?:(held:boolean)=>void;alternateLabel:string;label:string;charge:number;enabled:boolean;flat?:boolean;jumpLabel?:string;
 }){
   const stickPointer=useRef<number|null>(null),actionPointer=useRef<number|null>(null),jumpPointer=useRef<number|null>(null);
   const thumb=useRef<HTMLSpanElement>(null),geometry=useRef({x:0,y:0,radius:1});
@@ -56,7 +56,7 @@ export default function TouchControls({onMove,onPress,onRelease,onAim,onAlternat
         onPointerDown={e=>{if(jumpPointer.current!==null)return;e.preventDefault();jumpPointer.current=e.pointerId;e.currentTarget.setPointerCapture(e.pointerId);onJump(true);}}
         onPointerUp={endJump} onPointerCancel={endJump} onLostPointerCapture={endJump}
         onKeyDown={e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();e.stopPropagation();onJump(true);}}}
-        onKeyUp={e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();e.stopPropagation();onJump(false);}}} onBlur={()=>onJump(false)}>↑<small>SALTAR</small></button>}
+        onKeyUp={e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();e.stopPropagation();onJump(false);}}} onBlur={()=>onJump(false)}>↑<small>{jumpLabel}</small></button>}
     </div>
   </div>;
 }

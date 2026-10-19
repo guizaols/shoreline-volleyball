@@ -1,5 +1,5 @@
 export function createArcade(){
- return {charge:0,shotCharge:0,shotDrift:0,shotWindow:0,energy:[0,0],combo:[0,0],comboTime:[0,0],specialArmed:false,specialShot:false,specialPlayer:-1,lastPower:0,timing:null as number|null,perfects:0,specials:0,ballSkin:'classic' as string,pressEta:0,lastPerfect:false};
+ return {charge:0,shotCharge:0,shotDrift:0,shotWindow:0,energy:[0,0],combo:[0,0],comboTime:[0,0],specialArmed:false,specialShot:false,specialPlayer:-1,lastPower:0,timing:null as number|null,perfects:0,specials:0,ballSkin:'classic' as string,pressEta:0,lastPerfect:false,specialKind:'' as ''|'signature'|'zigzag'};
 }
 type Arcade=ReturnType<typeof createArcade>;
 export const powerRisk=(charge:number)=>Math.max(0,(charge-.65)/.35);

@@ -15,7 +15,7 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
   bodies:Phaser.GameObjects.Sprite[]=[];shadows:Phaser.GameObjects.Ellipse[]=[];labels:Phaser.GameObjects.Text[]=[];
   ball!:Phaser.GameObjects.Container;ballShadow!:Phaser.GameObjects.Ellipse;ring!:Phaser.GameObjects.Ellipse;aim!:Phaser.GameObjects.Ellipse;landing!:Phaser.GameObjects.Ellipse;impact!:Phaser.GameObjects.Arc;
   trail:Phaser.GameObjects.Arc[]=[];trailPoints:{x:number;y:number}[]=[];freeze=0;
-  accumulator=0;lastContact=0;lastScore='';lastView='';meter!:ReturnType<typeof timingMeter>;crowd!:ReturnType<typeof addCrowd>;cheer=0;previous!:{ball:NetMatch['ball'];players:Player[]};
+  accumulator=0;lastContact=0;lastScore='';lastView='';meter!:ReturnType<typeof timingMeter>;crowd!:ReturnType<typeof addCrowd>;cheer=0;dim!:Phaser.GameObjects.Rectangle;banner!:Phaser.GameObjects.Container;bannerText!:Phaser.GameObjects.Text;previous!:{ball:NetMatch['ball'];players:Player[]};
   preload(){this.load.image('beach','/art/beach.png');this.load.on('loaderror',()=>failed('Não foi possível carregar a praia. Recarregue a página.'));}
   create(){
    this.add.image(0,0,'beach').setOrigin(0).setDisplaySize(1000,620);
@@ -56,6 +56,11 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
    this.ball=this.add.container(0,0,[this.add.circle(0,0,10,skin?.[0]??(getGame().sport==='tennis'?0xffec68:0xfff5d9)).setStrokeStyle(2,0x153d4b),this.add.arc(0,0,7,-65,100,false,skin?.[1]??(getGame().sport==='tennis'?0xfff5d9:0x219ca4)),this.add.arc(0,0,6,140,270,false,skin?.[2]??0xe7b743)]);
    for(let i=0;i<7;i++)this.trail.push(this.add.circle(0,0,7-i*.7,0xffdc69).setVisible(false));
    this.impact=this.add.circle(0,0,12).setStrokeStyle(2,0xffffd9).setDepth(800);this.meter=timingMeter(this);
+   // Neo Geo style special cut-in: the screen dims and the move's name sweeps across.
+   const arcadeFont=(getComputedStyle(document.body).getPropertyValue('--font-arcade')||'monospace').trim();
+   this.dim=this.add.rectangle(500,310,1000,620,0x000000,.45).setDepth(950).setVisible(false);
+   this.bannerText=this.add.text(0,0,'',{fontFamily:arcadeFont,fontSize:'34px',color:'#ffdb00',stroke:'#db2400',strokeThickness:6}).setOrigin(.5);
+   this.banner=this.add.container(500,290,[this.add.rectangle(0,0,1000,84,0x1a1028,.92).setStrokeStyle(4,0xffdb00),this.bannerText]).setDepth(960).setVisible(false);
    this.input.on('pointerdown',(pointer:Phaser.Input.Pointer)=>{const sx=pointer.x-95,sy=pointer.y-245,x=(sx*.66-sy*.2)/(.77*.66+.2*.035),z=(sy*.77+sx*.035)/(.77*.66+.2*.035);if(x>535&&x<965&&z>25&&z<425){const g=getGame();g.aim=g.sport==='soccer'?{x:965,z:Math.max(165,Math.min(285,z))}:{x,z};}});
    this.previous=this.snapshot();ready();
   }
@@ -105,7 +110,13 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
     const kind=g.specialShot?'special':g.sport==='tennis'?'racket':g.sport==='soccer'?(/^(CHUTE|CANHÃO|DE PRIMEIRA|COBERTURA)/.test(f)?'kick':f.startsWith('DEFESA')?'hand':'foot'):f.startsWith('CABEÇA')?'head':f.startsWith('PEITO')?'chest':'foot';
     sound.play(kind,perfect);
     // Hitstop scales with the contact: specials and perfect touches freeze longest, then strong hits, then good ones.
-    if(!reduced){this.freeze=g.specialShot?.055:perfect?.04:g.lastPower>.6||kind==='kick'?.028:/BOM/.test(f)?.016:0;if(g.specialShot||perfect)this.cameras.main.shake(g.specialShot?90:70,g.specialShot?.003:.0018);}
+    const trick=/CANETA|ELÁSTICO|CHAPÉU/.test(f);
+    if(!reduced){this.freeze=g.specialShot?.3:perfect?.04:trick?.06:g.lastPower>.6||kind==='kick'?.028:/BOM/.test(f)?.016:0;if(g.specialShot||perfect||trick)this.cameras.main.shake(g.specialShot?160:70,g.specialShot?.004:.0018);}
+    if(g.specialShot){
+     this.bannerText.setText(f.replace(/!$/,'')+'!');this.banner.setVisible(true).setX(reduced?500:1500);this.dim.setVisible(true);
+     if(!reduced)this.tweens.add({targets:this.banner,x:500,duration:140,ease:'Cubic.easeOut'});
+     this.time.delayedCall(520,()=>{this.banner.setVisible(false);this.dim.setVisible(false);});
+    }
    }
    const score=g.score.join(',')+(g.sport==='soccer'?'':':'+g.points.join(','));
    this.cheer=Math.max(0,this.cheer-delta/1000);this.crowd(this.cheer>0,g.clock);

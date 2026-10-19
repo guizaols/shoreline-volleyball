@@ -6,7 +6,7 @@ const soccerHints:Record<string,string>={attack:'Chutam de longe. Feche o meio.'
 
 export function createSoccer(rival?:typeof rivals[number]){
  const base=createGame().players[0];
- const players=Array.from({length:6},(_,i)=>({...base,tackleTime:0,tackleReaction:0,tackleCooldown:0,touchDelay:0,keeperTargetZ:225,facingX:i<3?1:-1,facingZ:0,team:i<3?0:1,x:[85,300,390,915,700,610][i],z:[225,145,310,225,310,145][i]}));
+ const players=Array.from({length:6},(_,i)=>({...base,tackleTime:0,tackleReaction:0,tackleCooldown:0,dribbleTime:0,trickCooldown:0,touchDelay:0,keeperTargetZ:225,facingX:i<3?1:-1,facingZ:0,team:i<3?0:1,x:[85,300,390,915,700,610][i],z:[225,145,310,225,310,145][i]}));
  return {...createArcade(),sport:'soccer' as const,cpuStyle:rival?.style??'normal',rivalName:rival?.name.toUpperCase()??'PRAIA',rivalHint:rival?soccerHints[rival.style]??'':'',players,ball:{x:318,z:145,y:437,vx:0,vz:0,vy:0},owner:1,active:1,autoSwitch:true,autoSwitchSerial:-1,score:[0,0],status:'ready',resumeStatus:'playing',clock:0,cooldown:0,cpuWait:0,lastHit:1,contactSerial:0,impact:{x:0,z:0,y:0},hitFlash:0,feedback:'',feedbackTime:0,contactHint:'',aim:{x:965,z:225},aimPreset:1,attackStyle:'power',message:'Passe, avance e chute. Primeiro a cinco gols.',rally:0,touches:0,restartDelay:0,pendingKick:'' as ''|'pass'|'shot',kickDelay:0,shotAge:1,kickPower:0,kickAimZ:225,kickTarget:-1,passReceiver:-1,firstTimeEta:0};
 }
 export type Soccer=ReturnType<typeof createSoccer>;
@@ -93,6 +93,22 @@ function firstTimeShot(g:Soccer,i:number,timing:ReturnType<typeof shotTiming>){
  strikeShot(g);g.shotWindow=0;g.timing=timing.offset;if(timing.perfect)g.perfects++;
  if(g.feedback!=='CANHÃO!')g.feedback=`DE PRIMEIRA · ${timing.perfect?'PERFEITO':timing.early?'CEDO · ABRIU':'TARDE · NO GOLEIRO'}`;
 }
+// Street-style dribble with the ball at your feet (jump button): CANETA through a defender in front, ELÁSTICO past one beside.
+// A good trick beats the tackle (it whiffs), fills the special bar and briefly protects the ball.
+export function trickSoccer(g:Soccer,i=g.active){
+ const p=g.players[i];if(g.status!=='playing'||g.owner!==i||p.y<FLOOR||p.trickCooldown>0||g.pendingKick)return false;
+ const near=g.players.map((q,id)=>({q,id,d:Math.hypot(q.x-p.x,q.z-p.z)})).filter(o=>o.q.team!==p.team&&o.id%3!==0&&o.d<80).sort((a,b)=>a.d-b.d)[0];
+ if(!near)return false;
+ const fx=p.facingX||(p.team?-1:1),fz=p.facingZ,dx=(near.q.x-p.x)/near.d,dz=(near.q.z-p.z)/near.d,ahead=fx*dx+fz*dz>.55;
+ if(ahead){p.vx=fx*430;p.vz=fz*430;g.ball.x=clamp(near.q.x+fx*34,45,955);g.ball.z=clamp(near.q.z+fz*34,35,415);}
+ else{const side=fx*dz-fz*dx>0?-1:1;p.vx=-fz*side*420;p.vz=fx*side*420;}
+ near.q.tackleTime=0;near.q.tackleReaction=0;near.q.tackleCooldown=Math.max(near.q.tackleCooldown,.7);
+ p.dribbleTime=.5;p.trickCooldown=.9;p.action='bump';p.actionTime=.3;p.touchDelay=0;
+ impact(g,i,ahead?'CANETA!':'ELÁSTICO!');
+ // The nutmeg sends the ball rolling on behind the defender; the elastic keeps it at your feet.
+ if(ahead){g.owner=-1;g.passReceiver=-1;g.ball.vx=fx*260;g.ball.vz=fz*260;g.ball.vy=0;}else g.owner=i;rewardArcade(g,p.team,1);g.energy[p.team]=Math.min(100,g.energy[p.team]+10);
+ return true;
+}
 function restart(g:Soccer,team:number,message:string,x?:number,z?:number){
  g.specialShot=false;g.specialPlayer=-1;g.specialArmed=false;const active=g.active,fresh=createSoccer();g.players=fresh.players;
  if(x!==undefined){g.players[team*3+1].x=clamp(x,80,920);g.players[team*3+1].z=clamp(z??225,40,410);}
@@ -116,7 +132,7 @@ export function stepSoccer(g:Soccer,dt:number,input:BeachInput,level:string){
  for(let i=0;i<6;i++){
   const p=g.players[i],human=i===g.active,keeper=i%3===0,direction=p.team?-1:1,own=g.owner===i;
   p.windup=own&&g.pendingKick?g.kickDelay:0;
-  p.tackleCooldown=Math.max(0,p.tackleCooldown-dt);p.touchDelay=Math.max(0,p.touchDelay-dt);
+  p.tackleCooldown=Math.max(0,p.tackleCooldown-dt);p.dribbleTime=Math.max(0,p.dribbleTime-dt);p.trickCooldown=Math.max(0,p.trickCooldown-dt);p.touchDelay=Math.max(0,p.touchDelay-dt);
   if(p.tackleTime>0){p.tackleTime=Math.max(0,p.tackleTime-dt);if(!p.tackleTime&&human&&g.owner!==i){g.feedback='ERROU O BOTE';g.feedbackTime=.7;g.contactHint='Recupere a posição antes de tentar de novo';}}
   const distance=Math.hypot(p.x-g.ball.x,p.z-g.ball.z),reaction=p.team&&level==='Chill'?.3:p.team&&level==='Pro'?.16:.22;
   const threat=!human&&g.owner>=0&&g.players[g.owner].team!==p.team&&(keeper||nearest[p.team]===i)&&!p.tackleCooldown&&distance<70;
@@ -138,7 +154,7 @@ export function stepSoccer(g:Soccer,dt:number,input:BeachInput,level:string){
   let dx=human?input.x:clamp((targetX-p.x)/45,-1,1),dz=human?input.z:clamp((targetZ-p.z)/45,-1,1);
   if(own&&g.pendingKick){dx*=.25;dz*=.25;}
   if(own)p.preparation=human?g.charge:Math.min(.85,g.cpuWait*.5);else p.preparation=0;
-  if(human&&input.jump&&!p.jumpHeld&&p.y===FLOOR&&p.action!=='dive')p.vy=-390;p.jumpHeld=human&&input.jump;
+  if(human&&input.jump&&!p.jumpHeld&&p.y===FLOOR&&p.action!=='dive'&&!(own&&trickSoccer(g,i)))p.vy=-390;p.jumpHeld=human&&input.jump;
   // Rival style: defenders run more, a blocking side has a quicker keeper.
   const speedLimit=human?295:keeper?(p.team&&g.cpuStyle==='block'?195:155):(level==='Chill'&&p.team?205:270)*(p.team&&g.cpuStyle==='defense'?1.1:1);
   if(p.tackleTime>0){dx=p.diveX;dz=p.diveZ;}
@@ -167,11 +183,12 @@ export function stepSoccer(g:Soccer,dt:number,input:BeachInput,level:string){
   else{
    g.cpuWait+=dt;g.charge=0;
    const pressure=g.players.some(q=>q.team!==p.team&&Math.hypot(q.x-p.x,q.z-p.z)<65);
-   if(g.cpuWait>.8||pressure&&g.cpuWait>.3){if(g.owner%3===0)passSoccer(g);else if((p.team?p.x<(g.cpuStyle==='attack'?560:470):p.x>530)||g.cpuWait>2){shootSoccer(g);}else if(pressure||g.cpuWait>1.2){passSoccer(g);}}
+   if(pressure&&g.cpuWait>.35&&g.contactSerial%5===0&&trickSoccer(g,g.owner)){/* The CPU shows off too. */}
+   else if(g.cpuWait>.8||pressure&&g.cpuWait>.3){if(g.owner%3===0)passSoccer(g);else if((p.team?p.x<(g.cpuStyle==='attack'?560:470):p.x>530)||g.cpuWait>2){shootSoccer(g);}else if(pressure||g.cpuWait>1.2){passSoccer(g);}}
   }
   if(g.owner>=0&&!g.cooldown){
    const owner=g.owner,carrier=g.players[owner];
-   const tackler=g.players.findIndex(q=>q.team!==carrier.team&&q.tackleTime>0&&Math.hypot(q.x-g.ball.x,q.z-g.ball.z)<30&&g.ball.y>FLOOR-45);
+   const tackler=carrier.dribbleTime>0?-1:g.players.findIndex(q=>q.team!==carrier.team&&q.tackleTime>0&&Math.hypot(q.x-g.ball.x,q.z-g.ball.z)<30&&g.ball.y>FLOOR-45);
    if(tackler>=0){carrier.tackleCooldown=.9;possess(g,tackler);g.players[tackler].tackleTime=0;g.players[tackler].action='dive';g.players[tackler].actionTime=.42;rewardArcade(g,g.players[tackler].team);g.combo[carrier.team]=0;g.comboTime[carrier.team]=0;g.specialShot=false;impact(g,tackler,'DESARME');}
   }
   if(g.owner>=0&&Math.hypot(g.ball.x-g.players[g.owner].x,g.ball.z-g.players[g.owner].z)>75){g.owner=-1;g.pendingKick='';}
