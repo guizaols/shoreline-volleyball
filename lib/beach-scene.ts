@@ -43,7 +43,7 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
    }
    const athleteTexture=bakeAthletes(this,getGame().sport);
    for(let i=0;i<getGame().players.length;i++){
-    this.shadows.push(this.add.ellipse(0,0,36,12,0x593e24,.23));this.bodies.push(this.add.sprite(0,0,athleteTexture,`${getGame().players[i].team}-idle-0`).setOrigin(.5,ATHLETE_FEET/ATHLETE_SIZE).setFlipX(getGame().players[i].team===1));
+    this.shadows.push(this.add.ellipse(0,0,36,12,0x593e24,.23));this.bodies.push(this.add.sprite(0,0,athleteTexture,`${getGame().sport==='soccer'&&i%3===0?getGame().players[i].team+2:getGame().players[i].team}-idle-0`).setOrigin(.5,ATHLETE_FEET/ATHLETE_SIZE).setFlipX(getGame().players[i].team===1));
     this.labels.push(this.add.text(0,0,`${getGame().players[i].team?'PRAIA':'VOCÊ'} ${getGame().sport==='soccer'?i%3===0?'GOL':i%3:i%2+1}`,{fontFamily:'sans-serif',fontSize:'10px',color:'#fff4d6',backgroundColor:getGame().players[i].team?'#874536':'#14565b',padding:{x:5,y:3}}).setOrigin(.5));
    }
    this.ring=this.add.ellipse(0,0,47,18).setStrokeStyle(2,0x4ce3cf).setDepth(2);
@@ -69,10 +69,10 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
     let frame=pose==='run'||pose==='dribble'?Math.floor(p.stride/Math.PI/2*ATHLETE_FRAMES)%ATHLETE_FRAMES:pose==='land'?Math.round((1-p.landing/.18)*11):pose==='jump'?Math.max(0,Math.min(11,Math.round((p.vy+430)/860*11))):reduced?0:Math.floor(g.clock*2+i*3)%ATHLETE_FRAMES;
     if(striking){
      const action=queued?g.sport==='tennis'||g.lastTeam===p.team&&g.touches>=2?'spike':g.lastTeam===p.team?'set':'bump':p.action;
-     pose=action==='dive'?(g.sport==='soccer'&&i%3!==0?'slide':'save'):g.sport==='tennis'?(p.y<FLOOR?'smash':g.attackStyle==='roll'&&(p.windup>0||queued)||g.lastHit===i&&g.feedback.startsWith('LOB')?'lob':'forehand'):action==='bump'?'kick':action==='set'?'chest':'header';
+     pose=action==='dive'?(g.sport==='tennis'?'dive':g.sport==='soccer'&&i%3!==0?'slide':'save'):g.sport==='tennis'?(p.y<FLOOR?'smash':g.attackStyle==='roll'&&(p.windup>0||queued)||g.lastHit===i&&g.feedback.startsWith('LOB')?'lob':'forehand'):action==='shark'?'shark':action==='bump'?'kick':action==='set'?'chest':'header';
      if(g.sport==='soccer'&&p.action!=='dive')pose='kick';
      if(g.sport==='footvolley'&&(g.specialShot&&g.specialPlayer===i||p.team===0&&g.specialArmed&&p.windup>0&&p.action==='spike'))pose='bicycle';
-     const progress=queued?.4+.6*(1-g.shotWindow/.32):p.windup>0?.4*(1-Math.min(1,p.windup/(g.sport==='soccer'?.1:.3))):pose==='save'||pose==='slide'?1-p.actionTime/(pose==='save'?.5:.42):.4+.6*(1-p.actionTime/.36);
+     const progress=queued?.4+.6*(1-g.shotWindow/.32):p.windup>0?.4*(1-Math.min(1,p.windup/(g.sport==='soccer'?.1:.3))):pose==='save'||pose==='slide'||pose==='dive'?1-p.actionTime/(pose==='save'?.5:pose==='dive'?.7:.42):.4+.6*(1-p.actionTime/.36);
      frame=Math.max(0,Math.min(11,Math.round(progress*11)));
     }
     const sprite=this.bodies[i],ballSide=(g.ball.x-p.x)*.77+(g.ball.z-p.z)*.2,moveSide=p.vx*.77+p.vz*.2;
@@ -84,7 +84,7 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
     }
     else if(speed>45)sprite.setFlipX(moveSide<0);else if(p.preparation>.1&&g.sport!=='soccer')sprite.setFlipX(ballSide<0);
     const squash=reduced?0:Math.sin(p.landing/.18*Math.PI)*.08;
-    sprite.setFrame(`${p.team}-${pose}-${frame}`).setPosition(pos.x,pos.y).setScale(1+squash*.4,1-squash).setDepth(z+20);
+    sprite.setFrame(`${g.sport==='soccer'&&i%3===0?p.team+2:p.team}-${pose}-${frame}`).setPosition(pos.x,pos.y).setScale(1+squash*.4,1-squash).setDepth(z+20);
     sprite.setRotation(reduced?0:p.action==='dive'&&pose==='save'?Math.sin(p.actionTime/.5*Math.PI)*p.diveZ*.4:Math.max(-.04,Math.min(.04,p.vx/7000)));
     this.shadows[i].setPosition(ground.x,ground.y).setScale(y<FLOOR?.72:striking&&p.action==='dive'?1.35:1).setAlpha(y<FLOOR?.14:.23).setDepth(1);
     this.labels[i].setPosition(ground.x,ground.y+19).setDepth(z+21).setVisible(g.active===i);

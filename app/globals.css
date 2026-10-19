@@ -261,3 +261,17 @@
  .virtual-jump{width:48px;height:48px;border-radius:50%;background:#346878;font-size:20px;grid-column:2;grid-row:1;justify-self:center}
  .virtual-jump small{font-size:8px}.virtual-actions:has(.virtual-jump) .virtual-aim{grid-column:1;grid-row:1}
 }
+/* Arcade HUD from the approved design (Neo Geo look): pixel font, square boxes, white borders, hard offset shadows. */
+.game-shell .scoreboard{font-family:var(--font-arcade),monospace;background:#1a1028;color:#fff;border:4px solid #fff;border-radius:0;box-shadow:6px 6px 0 #2449b6;font-size:9px;letter-spacing:0}
+.game-shell .scoreboard b{color:#ffdb00;text-shadow:3px 3px 0 #db2400;font-weight:400}
+.game-shell .scoreboard small{color:#92b6db;font-size:7px;letter-spacing:0}
+.game-shell .contact-feedback,.game-shell .restart-feedback{font-family:var(--font-arcade),monospace;font-size:11px;line-height:1.6;background:#1a1028;color:#fff;border:4px solid #fff;border-radius:0;box-shadow:5px 5px 0 #db2400;letter-spacing:0}
+.game-shell .contact-feedback small,.game-shell .restart-feedback small{font-family:var(--font-arcade),monospace;font-size:7px;color:#92b6db}
+.game-shell .contact-feedback.is-perfect{background:none;border:0;box-shadow:none;color:#ffdb00;font-size:20px;text-shadow:-3px 0 #1a1028,3px 0 #1a1028,0 -3px #1a1028,0 3px #1a1028,5px 5px 0 #db2400}
+.game-shell .arcade-hud{font-family:var(--font-arcade),monospace;font-size:8px;background:#1a1028;color:#fff;border:4px solid #fff;border-radius:0;box-shadow:6px 6px 0 #2449b6}
+.game-shell .arcade-hud small,.game-shell .arcade-hud b{font-family:var(--font-arcade),monospace;font-weight:400}
+.game-shell .arcade-special{border-radius:0;border:3px solid #ffdb00}
+.game-shell .start-card{border-radius:0;border:4px solid #fff;box-shadow:8px 8px 0 #db2400;background:#1a1028;color:#fff}
+.game-shell .start-card h2{font-family:var(--font-arcade),monospace;font-size:16px;line-height:1.6;color:#ffdb00;text-shadow:3px 3px 0 #db2400}
+.game-shell .start-card .mini-label{font-family:var(--font-arcade),monospace;font-size:8px;color:#92b6db}
+.game-shell .start-card .primary{font-family:var(--font-arcade),monospace;font-size:11px;border-radius:0;background:#ffdb00;color:#1a1028;border:3px solid #1a1028;box-shadow:4px 4px 0 #db2400}

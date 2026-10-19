@@ -238,3 +238,21 @@ console.log('Passed: timed human serve, late fallback and instant CPU serve.');
  const named=createNetMatch('tennis',rivals[1]);assert.equal(named.rivalName,rivals[1].name.toUpperCase());assert.equal(named.cpuStyle,rivals[1].style);
  console.log('Passed: rival styles change CPU shots and the rival is named.');
 }
+
+{
+ const shark=(quality:number)=>{
+  const m=createNetMatch('footvolley');m.status='playing';m.lastTeam=0;m.lastHit=1;m.touches=2;
+  const p=m.players[0];p.x=455;p.z=225;p.y=360;m.aim={x:850,z:225};
+  m.ball={...netContact(m,0),vx:0,vz:0,vy:80};strikeNet(m,0,quality);return m;
+ };
+ const hit=shark(1);assert.match(hit.feedback,/SHARK ATTACK/);assert.equal(hit.players[0].action,'shark');assert.ok(hit.ball.vx>0&&landingX(hit,437)<800,'A shark attack drives short and steep');
+ assert.equal(shark(.2).score[1],1,'A mistimed shark attack goes into the net');
+ const dive=createNetMatch('tennis');dive.status='playing';dive.autoSwitch=false;dive.lastTeam=1;dive.lastHit=2;dive.active=0;
+ const runner=dive.players[0];runner.x=200;runner.z=225;
+ const reachPoint=netContact(dive,0);dive.ball={x:reachPoint.x+40,z:reachPoint.z+40,y:reachPoint.y,vx:-60,vz:0,vy:30};dive.shotWindow=.3;dive.cooldown=0;dive.contactAge=1;
+ stepNet(dive,1/120,{x:0,z:0,prepare:false,jump:false},'Club');
+ assert.equal(runner.action,'dive','Out of reach, the tennis player dives');assert.match(dive.feedback,/MERGULHO/);
+ for(let i=0;i<20;i++)stepNet(dive,1/120,{x:1,z:0,prepare:false,jump:false},'Club');
+ assert.ok(Math.abs(runner.vx)<200,'After a dive the athlete stays down instead of running');
+ console.log('Passed: shark attack, its net risk, and the beach tennis dive.');
+}

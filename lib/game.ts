@@ -6,7 +6,7 @@ const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n
 export type AttackStyle = 'power' | 'roll' | 'tip';
 export type ServeStyle = 'underhand' | 'float' | 'jump';
 export const DIVE_DURATION=.85;
-export type Action = 'idle' | 'bump' | 'set' | 'spike' | 'dive';
+export type Action = 'idle' | 'bump' | 'set' | 'spike' | 'dive' | 'shark';
 export type Player = {
   x: number; z: number; y: number; vx: number; vz: number; vy: number; team: number;
   action: Action; actionTime: number; stride: number; landing: number;

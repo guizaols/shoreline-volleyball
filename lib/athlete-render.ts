@@ -27,6 +27,8 @@ const poses:Record<string,Pose>={
  lob:{head:[14,8],neck:[14,13],hip:[14,23],eF:[18,19],hF:[21,23],racket:[25,19],eB:[10,17],hB:[8,20],kF:[19,30],fF:[22,37],kB:[11,30],fB:[9,37],fx:[['line',27,22,29,17]]},
  smash:{head:[15,6],neck:[15,11],hip:[14,21],eF:[17,4],hF:[19,0],racket:[22,-4],eB:[19,12],hB:[22,9],kF:[17,27],fF:[15,33],kB:[11,27],fB:[9,33],fx:[['star',26,-3],['line',4,28,8,24]]},
  save:{head:[22,14],neck:[18,16],hip:[10,20],eF:[25,11],hF:[29,8],eB:[24,14],hB:[28,12],kF:[5,18],fF:[1,15],kB:[6,22],fB:[1,22],fx:[['line',4,27,12,26],['line',6,31,14,30]]},
+ shark:{head:[10,8],neck:[11,13],hip:[13,23],kF:[19,15],fF:[25,8],kB:[11,30],fB:[9,35],eF:[7,15],hF:[4,18],eB:[15,15],hB:[17,12],fx:[['line',18,22,22,15],['line',21,24,25,17],['star',29,4]]},
+ tennisDive:{head:[23,27],neck:[19,29],hip:[10,31],eF:[24,30],hF:[27,31],racket:[31,27],eB:[18,33],hB:[21,35],kF:[5,30],fF:[1,28],kB:[6,33],fB:[1,33],fx:[['dust',9,37,2],['dust',15,37,2.2],['dust',21,37,1.6]]},
  slide:{head:[8,29],neck:[11,31],hip:[17,33],kF:[24,33],fF:[30,35],kB:[21,36],fB:[26,37],eF:[6,34],hF:[4,36],eB:[13,29],hB:[10,27],fx:[['dust',3,37,2],['dust',9,37,2.4],['dust',15,38,2],['dust',1,35,1.4]]},
 };
 const joints=['head','neck','hip','eF','hF','eB','hB','kF','fF','kB','fB'] as const;
@@ -46,7 +48,7 @@ function frame(pose:string,t:number):Pose{
  if(pose==='jump')return mixPose(poses.ready,poses.jump,Math.sin(Math.min(1,t)*Math.PI*.5+.2));
  if(pose==='land')return {...mixPose(poses.land,poses.ready,t),fx:t<.4?poses.land.fx:undefined};
  const key=poses[pose]??poses.ready;
- if(pose==='dive'||pose==='save'||pose==='slide'){
+ if(pose==='dive'||pose==='save'||pose==='slide'||pose==='tennisDive'){
   const flight=t<.2?ease(t/.2):t<.7?1:1-ease((t-.7)/.3)*.6;
   return {...mixPose(poses.ready,key,flight),fx:t>=.15&&t<.75?key.fx:undefined};
  }
@@ -60,9 +62,11 @@ const shade=(hex:number,f:number)=>{
 };
 type Look={skin:number;shirt:number;shorts:number;hair:number};
 // Team colours per sport, as in the design: your side in the sport colour, the rival in red (blue when the sport colour is red).
+// Goalkeepers (soccer teams 2 and 3) wear green and yellow.
 const sportShirt:Record<string,number>={volleyball:0x2c6fd6,footvolley:0xff8a1e,tennis:0x14b8a6,soccer:0xe2331e};
 function look(sport:string,team:number):Look{
  const shirt=sportShirt[sport]??0xff8a1e;
+ if(team>1)return {skin:team===2?0xb87348:0x8a5232,shirt:team===2?0x2fb65a:0xffdb00,shorts:0x1a1028,hair:0x1a1028};
  return team?{skin:0x8a5232,shirt:shirt===0xe2331e?0x2c6fd6:0xe2331e,shorts:0x1a1028,hair:0x1a1028}:{skin:0xb87348,shirt,shorts:sport==='volleyball'?0x1b2a55:0xffffff,hair:0x1a1028};
 }
 
@@ -113,19 +117,19 @@ function paint(p:Pose,l:Look,racket:boolean){
 
 // One atlas per match; animation only selects frames and moves the feet anchor.
 export function bakeAthletes(scene:Phaser.Scene,sport:string){
- const key=`athletes-${sport}`,names=['idle','ready','run','brake','jump','land',...(sport==='volleyball'?['bump','set','spike','block','dive']:sport==='tennis'?['forehand','lob','smash']:sport==='soccer'?['kick','save','dribble','slide']:['kick','chest','header','bicycle'])];
+ const key=`athletes-${sport}`,names=['idle','ready','run','brake','jump','land',...(sport==='volleyball'?['bump','set','spike','block','dive']:sport==='tennis'?['forehand','lob','smash','dive']:sport==='soccer'?['kick','save','dribble','slide']:['kick','chest','header','bicycle','shark'])],teams=sport==='soccer'?[0,1,2,3]:[0,1];
  if(scene.textures.exists(key))return key;
- const canvas=document.createElement('canvas');canvas.width=ATHLETE_SIZE*ATHLETE_FRAMES;canvas.height=ATHLETE_SIZE*names.length*2;
+ const canvas=document.createElement('canvas');canvas.width=ATHLETE_SIZE*ATHLETE_FRAMES;canvas.height=ATHLETE_SIZE*names.length*teams.length;
  const ctx=canvas.getContext('2d');if(!ctx)return key;
  // The grid's ground row (37+OY) lands on the shared feet anchor.
  const ox=ATHLETE_SIZE/2-16*PX,oy=ATHLETE_FEET-(37+OY+1)*PX;
- for(const team of [0,1])for(const [row,name] of names.entries())for(let i=0;i<ATHLETE_FRAMES;i++){
+ for(const team of teams)for(const [row,name] of names.entries())for(let i=0;i<ATHLETE_FRAMES;i++){
   const t=name==='run'||name==='dribble'||name==='idle'?i/ATHLETE_FRAMES:i/(ATHLETE_FRAMES-1);
   const x0=i*ATHLETE_SIZE+ox,y0=(team*names.length+row)*ATHLETE_SIZE+oy;
-  for(const [x,y,c] of paint(frame(name,t),look(sport,team),sport==='tennis')){ctx.fillStyle=`#${c.toString(16).padStart(6,'0')}`;ctx.fillRect(x0+x*PX,y0+y*PX,PX,PX);}
+  for(const [x,y,c] of paint(frame(sport==='tennis'&&name==='dive'?'tennisDive':name,t),look(sport,team),sport==='tennis')){ctx.fillStyle=`#${c.toString(16).padStart(6,'0')}`;ctx.fillRect(x0+x*PX,y0+y*PX,PX,PX);}
  }
  scene.textures.addCanvas(key,canvas);
  const texture=scene.textures.get(key);texture.setFilter(1);// 1 = Phaser.Textures.FilterMode.NEAREST
- for(const team of [0,1])for(const [row,name] of names.entries())for(let i=0;i<ATHLETE_FRAMES;i++)texture.add(`${team}-${name}-${i}`,0,i*ATHLETE_SIZE,(team*names.length+row)*ATHLETE_SIZE,ATHLETE_SIZE,ATHLETE_SIZE);
+ for(const team of teams)for(const [row,name] of names.entries())for(let i=0;i<ATHLETE_FRAMES;i++)texture.add(`${team}-${name}-${i}`,0,i*ATHLETE_SIZE,(team*names.length+row)*ATHLETE_SIZE,ATHLETE_SIZE,ATHLETE_SIZE);
  return key;
 }

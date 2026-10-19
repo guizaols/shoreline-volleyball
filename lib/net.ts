@@ -102,10 +102,13 @@ export function strikeNet(g:NetMatch,i:number,quality:number,ahead?:number){
  if(same&&g.lastHit===i){netPoint(g,1-p.team,'Dois contatos seguidos do mesmo atleta');return;}
  g.touches=same?g.touches+1:1;
  if(g.touches>(g.sport==='tennis'?1:3)){netPoint(g,1-p.team,g.sport==='tennis'?'Segundo contato':'Quarto contato');return;}
- const over=g.sport==='tennis'||g.touches===3,body=g.sport==='tennis'?(cover?'LOB · COBERTURA':style==='roll'?'LOB':style==='tip'?'CURTA':p.y<FLOOR?'SMASH':'VOLEIO'):over?'CABEÇA':g.touches===1?'PÉ':'PEITO';
- p.action=over?'spike':g.touches===1?'bump':'set';p.actionTime=.36;p.windup=0;
+ // Shark attack: a futevôlei attack from the air right at the net, steep and fast; a mistimed one goes into the net.
+ const shark=g.sport==='footvolley'&&g.touches===3&&!cover&&p.y<FLOOR&&Math.abs(p.x-500)<70;
+ const over=g.sport==='tennis'||g.touches===3,body=g.sport==='tennis'?(cover?'LOB · COBERTURA':style==='roll'?'LOB':style==='tip'?'CURTA':p.y<FLOOR?'SMASH':'VOLEIO'):over?(shark?'SHARK ATTACK':'CABEÇA'):g.touches===1?'PÉ':'PEITO';
+ p.action=shark?'shark':over?'spike':g.touches===1?'bump':'set';p.actionTime=.36;p.windup=0;
  const timed=i===g.active&&ahead!==undefined&&over&&!cover?shotTiming(ahead):null;
  if(timed)quality=timed.perfect?Math.min(1,quality+.15):timed.late?quality*.85:quality;
+ if(shark&&quality<.45){netPoint(g,1-p.team,'Shark attack na rede');return;}
  const b=g.ball,human=i===g.active,power=cover?.2:human?(g.shotWindow>0?g.shotCharge:g.charge):cpu?cpu.power:.5;
  const incomingSpecial=g.specialShot&&g.lastTeam!==p.team;
  const special=over&&!cover?takeSpecial(g,p.team,i):false;
@@ -118,7 +121,8 @@ export function strikeNet(g:NetMatch,i:number,quality:number,ahead?:number){
   const error=(1-quality)*35,drift=human?(g.shotWindow>0?g.shotDrift:aimDrift(power,g.clock)):0;
   target.z=target.z+(p.z>225?error:-error)+drift;
   if(style==='tip'&&!special)target.x=p.team?400:600;
-  const flight=special?.62:style==='roll'?1.9-power*.2:style==='tip'?1.25-power*.2:(g.sport==='tennis'?1.15:1.45)-power*.7;
+  if(shark&&!special)target.x=p.team?300:700;
+  const flight=special?.62:shark?.5:style==='roll'?1.9-power*.2:style==='tip'?1.25-power*.2:(g.sport==='tennis'?1.15:1.45)-power*.7;
   launch(g,target,flight/(special?1:.72+quality*.28),g.sport==='tennis'?(special?309:298):(special?260:248));
  }else{
   const partner=g.players[i^1];
@@ -173,9 +177,10 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
   const prediction=Math.min(reaction*.4,guide.time*.3);
   const receiveX=clamp((aerial?airX+(p.team?1:-1)*(g.sport==='tennis'?56:12):guide.x)-g.ball.vx*prediction,p.team?550:50,p.team?950:450);
   const receiveZ=clamp((aerial?landingZ(g,guide.height-65):guide.z)-g.ball.vz*prediction,35,415);
-  let dx=human?clamp(input.x,-1,1):clamp(((onBall&&g.contactAge>=reaction?receiveX:homeX)-p.x)/35,-1,1);
-  let dz=human?clamp(input.z,-1,1):clamp(((onBall&&g.contactAge>=reaction?receiveZ:homeZ)-p.z)/35,-1,1);
-  if(human&&level==='Chill'&&g.assist&&g.shotWindow>0&&!dx&&!dz&&onBall&&Math.hypot(guide.x-p.x,guide.z-p.z)<90){
+  const down=p.action==='dive'&&p.actionTime>0;
+  let dx=down?0:human?clamp(input.x,-1,1):clamp(((onBall&&g.contactAge>=reaction?receiveX:homeX)-p.x)/35,-1,1);
+  let dz=down?0:human?clamp(input.z,-1,1):clamp(((onBall&&g.contactAge>=reaction?receiveZ:homeZ)-p.z)/35,-1,1);
+  if(human&&!down&&level==='Chill'&&g.assist&&g.shotWindow>0&&!dx&&!dz&&onBall&&Math.hypot(guide.x-p.x,guide.z-p.z)<90){
    dx=clamp((guide.x-p.x)/40,-.65,.65);dz=clamp((guide.z-p.z)/40,-.65,.65);
   }
   p.preparation=(!human||input.prepare||g.shotWindow>0)?Math.min(1,p.preparation+dt):Math.max(0,p.preparation-dt*2);
@@ -193,7 +198,7 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
  const b=g.ball,old={...b};b.x+=b.vx*dt;b.z+=b.vz*dt;b.y+=b.vy*dt+310*dt*dt;b.vy+=620*dt;
  if(b.y>=(g.sport==='tennis'?316:274)&&((old.x<500&&b.x>=500)||(old.x>500&&b.x<=500))){netPoint(g,1-g.lastTeam,'Bola na rede');return;}
  if(!g.cooldown){
-  let contact=-1,closest=Infinity,contactTime=0,contactAhead=0;
+  let contact=-1,closest=Infinity,contactTime=0,contactAhead=0,contactDive=false;
   for(let i=0;i<4;i++){
    const p=g.players[i];
    if(g.lastHit===i||i===g.active&&!g.shotWindow)continue;
@@ -204,11 +209,14 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
    const t=clamp(((target.x-old.x)*dx+(target.y-old.y)*dy+(target.z-old.z)*dz)/(dx*dx+dy*dy+dz*dz||1),0,1);
    const distance=Math.hypot(old.x+dx*t-target.x,old.y+dy*t-target.y,old.z+dz*t-target.z);
    const reach=(i===g.active?(level==='Chill'?48:level==='Pro'?28:38):35)+(g.sport==='tennis'&&p.team===0&&g.specialArmed&&g.energy[0]>=100?18:0);
-   if(distance<reach&&(contact<0||i===g.active||contact!==g.active&&distance<closest)&&(p.team?old.x+dx*t>=500:old.x+dx*t<=500)){contact=i;closest=distance;contactTime=t;contactAhead=((target.x-old.x-dx*t)*dx+(target.y-old.y-dy*t)*dy+(target.z-old.z-dz*t)*dz)/(Math.hypot(dx,dy,dz)||1)/reach;}
+   // Beach tennis dive: the human can stretch 50 further by diving, but stays down on the sand afterwards.
+   const dive=g.sport==='tennis'&&i===g.active&&p.y===FLOOR&&p.action!=='dive'&&distance>=reach&&distance<reach+50;
+   if((distance<reach||dive)&&(contact<0||i===g.active||contact!==g.active&&distance<closest)&&(p.team?old.x+dx*t>=500:old.x+dx*t<=500)){contact=i;closest=distance;contactTime=t;contactDive=dive;contactAhead=((target.x-old.x-dx*t)*dx+(target.y-old.y-dy*t)*dy+(target.z-old.z-dz*t)*dz)/(Math.hypot(dx,dy,dz)||1)/reach;}
   }
   if(contact>=0){
    const p=g.players[contact];b.x=old.x+(b.x-old.x)*contactTime;b.y=old.y+(b.y-old.y)*contactTime;b.z=old.z+(b.z-old.z)*contactTime;
-   strikeNet(g,contact,strokeQuality(closest,Math.max(p.preparation,contact===g.active?.55:0),Math.hypot(p.vx,p.vz)),contact===g.active?contactAhead:undefined);
+   strikeNet(g,contact,contactDive?.55:strokeQuality(closest,Math.max(p.preparation,contact===g.active?.55:0),Math.hypot(p.vx,p.vz)),contact===g.active&&!contactDive?contactAhead:undefined);
+   if(contactDive&&g.lastHit===contact){const d=Math.hypot(b.x-p.x,b.z-p.z)||1;p.action='dive';p.actionTime=.7;p.diveX=(b.x-p.x)/d;p.diveZ=(b.z-p.z)/d;p.vx=p.diveX*320;p.vz=p.diveZ*320;g.feedback=`MERGULHO · ${g.feedback.split(' · ').slice(1).join(' · ')}`;}
    if(g.status==='playing'&&g.sport==='tennis'&&p.team===1&&g.autoSwitch&&g.active>=0){
     const next=netGuide(g),active=g.players[g.active],partner=g.players[g.active^1];
     if(!input.x&&!input.z&&!input.jump&&!g.shotWindow&&Math.hypot(partner.x-next.x,partner.z-next.z)+45<Math.hypot(active.x-next.x,active.z-next.z))g.active^=1;

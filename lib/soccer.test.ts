@@ -146,3 +146,15 @@ console.log('Passed: advancing one-twos, readable CPU tackles, quick directed sh
  assert.equal(firstTimeSoccer(noPass),false,'Without an incoming pass A still tackles');
  console.log('Passed: first-time strike on an incoming pass.');
 }
+
+{
+ const {chapeuSoccer,firstTimeSoccer}=await import('./soccer.ts');
+ const m=createSoccer();m.status='playing';m.owner=2;m.active=2;const p=m.players[2];p.x=600;p.z=225;p.vx=0;p.vz=0;m.ball={x:618,z:225,y:437,vx:0,vz:0,vy:0};
+ for(const q of m.players.slice(3)){q.x=900;q.z=60;}
+ assert.ok(chapeuSoccer(m),'Standing still with the ball, B lifts it');assert.equal(m.owner,-1);assert.ok(m.ball.vy<0);assert.equal(m.feedback,'CHAPÉU');
+ for(let i=0;i<80;i++)stepSoccer(m,1/120,{x:0,z:0,prepare:false,jump:false},'Club');
+ assert.ok(firstTimeSoccer(m),'The lifted ball can be volleyed first time');
+ for(let i=0;i<60&&m.lastHit===2&&m.feedback==='CHAPÉU';i++)stepSoccer(m,1/120,{x:0,z:0,prepare:false,jump:false},'Club');
+ assert.match(m.feedback,/DE PRIMEIRA/,'Chapéu then A is a first-time volley');
+ console.log('Passed: chapéu lifts the ball for a first-time volley.');
+}

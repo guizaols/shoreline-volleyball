@@ -68,8 +68,17 @@ function strikeShot(g:Soccer){
 // A pass arriving at the human's receiver can be struck first time. Pressing ~0.16 s before the ball arrives is perfect; sooner opens the shot, later hits the keeper.
 export function firstTimeSoccer(g:Soccer,direction?:{x:number;z:number}){
  if(g.status!=='playing'||g.owner>=0||g.active<0||g.passReceiver!==g.active)return false;
- const p=g.players[g.active],b=g.ball,v2=b.vx*b.vx+b.vz*b.vz;g.firstTimeEta=v2?((p.x-b.x)*b.vx+(p.z-b.z)*b.vz)/v2:1;
+ const p=g.players[g.active],b=g.ball,v2=b.vx*b.vx+b.vz*b.vz,falling=b.y<FLOOR-30||b.vy<-50;
+ // A lifted ball (chapéu) is timed by its fall to kicking height; a rolling pass by its arrival.
+ g.firstTimeEta=falling?(-b.vy+Math.sqrt(b.vy*b.vy+4*310*Math.max(0,412-b.y)))/620:v2?((p.x-b.x)*b.vx+(p.z-b.z)*b.vz)/v2:1;
  g.shotWindow=.45;g.kickAimZ=direction?.z?225+clamp(direction.z,-1,1)*58:g.aim.z;return true;
+}
+// Chapéu: standing still with the ball, B flicks it up to yourself so A can volley it first time.
+export function chapeuSoccer(g:Soccer){
+ if(g.status!=='playing'||g.owner<0||g.owner!==g.active||g.pendingKick)return false;
+ const i=g.owner,p=g.players[i];if(Math.hypot(p.vx,p.vz)>60)return false;
+ g.ball={x:p.x+p.facingX*8,z:p.z+p.facingZ*8,y:Math.min(g.ball.y,430),vx:p.facingX*6,vz:p.facingZ*6,vy:-330};
+ g.owner=-1;g.passReceiver=i;g.cooldown=.35;p.action='bump';p.actionTime=.36;impact(g,i,'CHAPÉU');return true;
 }
 function firstTimeShot(g:Soccer,i:number,timing:ReturnType<typeof shotTiming>){
  g.owner=i;g.kickPower=timing.perfect?1:.45;

@@ -20,8 +20,10 @@ Fase 1 fechada em 2026-10-19: testes, testes online, tipos, lint e build passam;
 - [x] Barra de tempo sobre o atleta logo após o toque: mostra onde o contato caiu (CEDO / PERFEITO / TARDE). `lib/timing-meter.ts`.
 
 ## Fase 3 — Movimentos e desenho
-- [ ] Protótipo do novo atleta (maior, contorno, 3 tons) só no futevôlei. `lib/athlete-render.ts`.
-- [ ] Os 16 movimentos, cada um com risco: vôlei (manchete, levantamento, cortada, peixinho), futevôlei (peito, cabeçada, shark attack, bicicleta), beach tennis (voleio, lob, smash, mergulho), futebol (chapéu, voleio de primeira, carrinho, defesa voadora).
+- [x] Atletas do design aprovado (grade de pixel 34×44, contorno, 3 tons, efeitos de areia/rastro/estrela) nos 4 esportes, com cores por esporte e goleiros verde/amarelo. `lib/athlete-render.ts`.
+- [x] Placar, textos e tela de início no estilo Neo Geo (fonte Press Start 2P, caixas com borda branca e sombra dura, "PERFEITO!" grande). `app/globals.css`, `app/layout.tsx`.
+- [x] Movimentos novos como jogadas: shark attack no futevôlei (ataque no ar colado à rede; errado vai na rede), mergulho no beach tennis (alcance maior, fica no chão), chapéu no futebol (B parado levanta a bola; A em seguida = voleio de primeira). Os outros já existiam e ganharam o desenho novo. `lib/net.ts`, `lib/soccer.ts`.
+- Lista completa dos 16 movimentos, cada um com risco: vôlei (manchete, levantamento, cortada, peixinho), futevôlei (peito, cabeçada, shark attack, bicicleta), beach tennis (voleio, lob, smash, mergulho), futebol (chapéu, voleio de primeira, carrinho, defesa voadora).
 
 ## Fase 4 — Motivo para voltar
 - [ ] Recordes e desbloqueios salvos nos 3 esportes novos, no padrão de `lib/gol.ts`.
