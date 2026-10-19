@@ -13,6 +13,11 @@ const poses:Record<string,Pose>={
  runA:{head:[17,8],neck:[16,13],hip:[14,23],eF:[20,17],hF:[22,13],eB:[10,17],hB:[8,21],kF:[19,28],fF:[22,33],kB:[11,30],fB:[7,35]},
  runB:{head:[17,8],neck:[16,13],hip:[14,23],eF:[12,17],hF:[10,21],eB:[19,17],hB:[21,13],kF:[12,30],fF:[8,35],kB:[18,28],fB:[21,33]},
  jump:{head:[16,8],neck:[16,13],hip:[16,23],eF:[19,7],hF:[20,2],eB:[13,7],hB:[12,2],kF:[18,29],fF:[16,34],kB:[13,29],fB:[11,34]},
+ // Extra keys for hand-made-feeling motion: run passing positions (support leg straight, other knee high) and jump phases.
+ passA:{head:[17,7],neck:[16,12],hip:[15,22],eF:[18,16],hF:[19,20],eB:[13,16],hB:[12,20],kF:[19,27],fF:[17,32],kB:[15,30],fB:[15,37]},
+ passB:{head:[17,7],neck:[16,12],hip:[15,22],eF:[13,16],hF:[12,20],eB:[18,16],hB:[19,20],kF:[15,30],fF:[15,37],kB:[19,27],fB:[17,32]},
+ jumpUp:{head:[16,5],neck:[16,10],hip:[16,21],eF:[18,4],hF:[19,-1],eB:[14,4],hB:[13,-1],kF:[17,29],fF:[17,36],kB:[14,29],fB:[13,36]},
+ jumpDown:{head:[15,7],neck:[15,12],hip:[15,22],eF:[20,14],hF:[24,12],eB:[10,14],hB:[6,12],kF:[18,29],fF:[19,36],kB:[12,29],fB:[11,36]},
  land:{head:[15,12],neck:[15,17],hip:[14,27],eF:[19,21],hF:[22,24],eB:[11,21],hB:[9,24],kF:[19,31],fF:[21,37],kB:[10,32],fB:[8,37],fx:[['dust',6,38,1.6],['dust',24,38,1.6]]},
  bump:{head:[14,10],neck:[14,15],hip:[12,24],eF:[18,20],hF:[22,22],eB:[17,21],hB:[21,23],kF:[17,30],fF:[20,37],kB:[9,31],fB:[7,37],fx:[['dust',8,38,1.5],['dust',21,38,1.2]]},
  set:{head:[16,8],neck:[16,13],hip:[16,23],eF:[19,7],hF:[19,2],eB:[13,7],hB:[15,2],kF:[18,30],fF:[19,37],kB:[13,30],fB:[12,37]},
@@ -40,20 +45,32 @@ const mixPose=(a:Pose,b:Pose,t:number):Pose=>{
 };
 const ease=(t:number)=>t*t*(3-2*t);
 
-// Frame t of a pose name: strikes reach the key pose at t=.4 (the contact frame the scenes use); dives fly in, hold, recover.
+// Through a list of key poses, evenly spaced over t (0..1), easing between neighbours.
+function through(keys:Pose[],t:number,loop=false){
+ const n=loop?keys.length:keys.length-1,at=Math.min(n-.0001,Math.max(0,t*n)),i=Math.floor(at);
+ return mixPose(keys[i%keys.length],keys[(i+1)%keys.length],ease(at-i));
+}
+// Wind-up before a strike: arms pulled back and the body loaded, so the hit has anticipation.
+function windup(key:Pose):Pose{
+ const out={...key,fx:undefined} as Pose,back=(p:Point,dx:number,dy=1):Point=>[p[0]-dx,p[1]+dy];
+ out.eF=back(key.eF,5);out.hF=back(key.hF,8);out.eB=back(key.eB,3);out.hB=back(key.hB,4);out.head=back(key.head,1.5);out.neck=back(key.neck,1);
+ if(key.racket)out.racket=back(key.racket,12,4);return mixPose(poses.ready,out,.7);
+}
+// Frame t of a pose name. Strikes: load (0–.22), snap to the key pose at .4 (the contact frame the scenes use), hold the impact, follow through.
 function frame(pose:string,t:number):Pose{
- if(pose==='run'||pose==='dribble'){const p=mixPose(poses.runA,poses.runB,(1-Math.cos(t*Math.PI*2))/2),bob=Math.abs(Math.sin(t*Math.PI*2))*-1;for(const k of joints)p[k]=[p[k][0],p[k][1]+bob];return p;}
- if(pose==='idle'){const p=mixPose(poses.idle,poses.idle,0),bob=Math.sin(t*Math.PI*2)*.4;for(const k of ['head','neck','eF','hF','eB','hB'] as const)p[k]=[p[k][0],p[k][1]+bob];return p;}
+ if(pose==='run'||pose==='dribble')return through([poses.runA,poses.passA,poses.runB,poses.passB],t,true);
+ if(pose==='idle'){const p=mixPose(poses.idle,poses.idle,0),bob=Math.sin(t*Math.PI*2)*.5;for(const k of ['head','neck','eF','hF','eB','hB'] as const)p[k]=[p[k][0],p[k][1]+bob];return p;}
  if(pose==='ready'||pose==='brake')return {...poses[pose]};
- if(pose==='jump')return mixPose(poses.ready,poses.jump,Math.sin(Math.min(1,t)*Math.PI*.5+.2));
- if(pose==='land')return {...mixPose(poses.land,poses.ready,t),fx:t<.4?poses.land.fx:undefined};
+ if(pose==='jump')return through([poses.jumpUp,poses.jump,poses.jumpDown],t);
+ if(pose==='land')return {...through([poses.land,poses.land,poses.ready],t),fx:t<.4?poses.land.fx:undefined};
  const key=poses[pose]??poses.ready;
  if(pose==='dive'||pose==='save'||pose==='slide'||pose==='tennisDive'){
   const flight=t<.2?ease(t/.2):t<.7?1:1-ease((t-.7)/.3)*.6;
   return {...mixPose(poses.ready,key,flight),fx:t>=.15&&t<.75?key.fx:undefined};
  }
- const amount=t<.4?ease(t/.4):1-ease((t-.4)/.6)*.6;
- return {...mixPose(poses.ready,key,amount),fx:Math.abs(t-.4)<.16?key.fx:undefined};
+ const loaded=windup(key);
+ const p=t<.22?mixPose(poses.ready,loaded,ease(t/.22)):t<.4?mixPose(loaded,key,((t-.22)/.18)**2):t<.55?{...key}:mixPose(key,poses.ready,ease((t-.55)/.45)*.7);
+ return {...p,fx:t>=.36&&t<.6?key.fx:undefined};
 }
 
 const shade=(hex:number,f:number)=>{
