@@ -1,4 +1,4 @@
-import {bakeAthletes,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
+import {bakeAthletes,addCrowd,addReferee,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
 import {drills} from './training';
 import * as Phaser from 'phaser';
 import {matchAudio} from './match-audio';
@@ -13,7 +13,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
   const sound=matchAudio(parent.closest<HTMLElement>('.game-shell')||parent);
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   class Court extends Phaser.Scene {
-    lastFlash=0;freeze=0;lastScore='';meter!:ReturnType<typeof timingMeter>;
+    lastFlash=0;freeze=0;lastScore='';crowd!:ReturnType<typeof addCrowd>;cheer=0;meter!:ReturnType<typeof timingMeter>;
     impactPosition={x:0,y:0};
     athletes: Phaser.GameObjects.Sprite[] = [];
     shadows: Phaser.GameObjects.Ellipse[] = [];
@@ -53,10 +53,11 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       for(let h=0;h<=176;h+=14){const a=project(500,25,450-h),b=project(500,425,450-h);net.lineBetween(a.x,a.y,b.x,b.y);}
       net.lineStyle(5,0xfff3d5);net.lineBetween(topBack.x,topBack.y,topFront.x,topFront.y);
       [25,425].forEach((z,i)=>{const a=project(500,z),b=project(500,z,260);const post=this.add.graphics().setDepth(i?600:25);post.lineStyle(7,0x283f4e);post.lineBetween(a.x,a.y,b.x,b.y);post.lineStyle(2,0x829da0);post.lineBetween(a.x-2,a.y,b.x-2,b.y);});
-      const athleteTexture=bakeAthletes(this,'volleyball');
+      const athleteKeys=bakeAthletes(this,'volleyball',[0,0,1,1].map(team=>({team})));
+      this.crowd=addCrowd(this,project);addReferee(this,'volleyball',project);
       for(let i=0;i<4;i++){
         this.shadows.push(this.add.ellipse(0,0,35,11,0x593e24,.24).setDepth(1));
-        this.athletes.push(this.add.sprite(0,0,athleteTexture,`${i<2?0:1}-idle-0`).setOrigin(.5,ATHLETE_FEET/ATHLETE_SIZE).setFlipX(i>=2));
+        this.athletes.push(this.add.sprite(0,0,athleteKeys[i],'idle-0').setOrigin(.5,ATHLETE_FEET/ATHLETE_SIZE).setFlipX(i>=2));
         this.labels.push(this.add.text(0,0,`${i<2?'YOU':'COAST'} ${i%2+1}`,{fontFamily:'monospace',fontSize:'9px',color:i<2?'#164b48':'#852d2e',backgroundColor:'#fff0cc',padding:{x:4,y:2}}).setOrigin(.5,0));
       }
       this.ring=this.add.ellipse(0,0,44,15).setStrokeStyle(2,0x1eac90).setDepth(2);
@@ -111,7 +112,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         const direction=p.vx*.77+p.vz*.2;
         if(p.action!=='idle'||p.y<FLOOR)sprite.setFlipX(p.action==='dive'?p.diveX*.77+p.diveZ*.2<0:p.team===1);
         else if(speed>40)sprite.setFlipX(direction<0);else if(p.preparation>.1)sprite.setFlipX(p.team===1);
-        sprite.setPosition(pos.x,pos.y).setFrame(`${p.team}-${pose}-${frame}`).setScale(1).setDepth(z+20).setTint(i<2&&g.gold?0xffe194:0xffffff);
+        sprite.setPosition(pos.x,pos.y).setFrame(`${pose}-${frame}`).setScale(1).setDepth(z+20).setTint(i<2&&g.gold?0xffe194:0xffffff);
         sprite.setRotation(0);
         this.shadows[i].setPosition(ground.x,ground.y-1).setScale(y<FLOOR?.72:p.action==='dive'?1.35:1).setAlpha(y<FLOOR?.14:.24);
         this.labels[i].setText((i<2?g.names[i]:g.opponentPlayers[i-2])+((i<2?g.genders[i]:g.opponentGenders[i-2])==='female'?' ♀':(i<2?g.genders[i]:g.opponentGenders[i-2])==='male'?' ♂':'')).setPosition(ground.x,ground.y+9).setDepth(z+21).setAlpha(i===g.active?1:.65);
@@ -148,7 +149,8 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         // Hitstop scales with the contact, as in the beach sports.
         if(!reduced){this.freeze=perfect?.04:attack?.028:/BOM/.test(g.feedback)?.016:0;if(perfect)this.cameras.main.shake(70,.0018);}
       }
-      const score=g.score.join(',');if(score!==this.lastScore){if(this.lastScore&&score!=='0,0')sound.play('point');this.lastScore=score;}
+      this.cheer=Math.max(0,this.cheer-delta/1000);this.crowd(this.cheer>0,g.clock);
+      const score=g.score.join(',');if(score!==this.lastScore){if(this.lastScore&&score!=='0,0'){sound.play('point');this.cheer=1.4;}this.lastScore=score;}
       const hitter=g.players[g.lastHit],above=hitter&&project(hitter.x,hitter.z,hitter.y-150);
       this.meter(above?.x??0,above?.y??0,g.timing!==null&&g.feedbackTime>1.1&&hitter?.team===0?g.timing:null);
       this.lastFlash=g.hitFlash;

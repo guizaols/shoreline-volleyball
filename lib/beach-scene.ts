@@ -6,7 +6,7 @@ import {stepSoccer,type Soccer} from './soccer';
 import {aimDrift,powerRisk} from './arcade';
 import {matchAudio} from './match-audio';
 import {timingMeter} from './timing-meter';
-import {bakeAthletes,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
+import {bakeAthletes,addCrowd,addReferee,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
 
 export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:()=>BeachInput,level:()=>string,changed:()=>void,ready:()=>void,failed:(message:string)=>void){
  const sound=matchAudio(parent.closest<HTMLElement>('.game-shell')||parent);
@@ -15,7 +15,7 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
   bodies:Phaser.GameObjects.Sprite[]=[];shadows:Phaser.GameObjects.Ellipse[]=[];labels:Phaser.GameObjects.Text[]=[];
   ball!:Phaser.GameObjects.Container;ballShadow!:Phaser.GameObjects.Ellipse;ring!:Phaser.GameObjects.Ellipse;aim!:Phaser.GameObjects.Ellipse;landing!:Phaser.GameObjects.Ellipse;impact!:Phaser.GameObjects.Arc;
   trail:Phaser.GameObjects.Arc[]=[];trailPoints:{x:number;y:number}[]=[];freeze=0;
-  accumulator=0;lastContact=0;lastScore='';lastView='';meter!:ReturnType<typeof timingMeter>;previous!:{ball:NetMatch['ball'];players:Player[]};
+  accumulator=0;lastContact=0;lastScore='';lastView='';meter!:ReturnType<typeof timingMeter>;crowd!:ReturnType<typeof addCrowd>;cheer=0;previous!:{ball:NetMatch['ball'];players:Player[]};
   preload(){this.load.image('beach','/art/beach.png');this.load.on('loaderror',()=>failed('Não foi possível carregar a praia. Recarregue a página.'));}
   create(){
    this.add.image(0,0,'beach').setOrigin(0).setDisplaySize(1000,620);
@@ -41,9 +41,10 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
      const edge=x===35?155:845;ground.lineStyle(2,0xfff1d5,.7);ground.strokePoints([project(x,115),project(edge,115),project(edge,335),project(x,335)],false);
     }
    }
-   const athleteTexture=bakeAthletes(this,getGame().sport);
+   const athleteKeys=bakeAthletes(this,getGame().sport,getGame().players.map((p,i)=>({team:p.team,keeper:getGame().sport==='soccer'&&i%3===0})));
+   this.crowd=addCrowd(this,project);if(getGame().sport!=='soccer')addReferee(this,getGame().sport,project);
    for(let i=0;i<getGame().players.length;i++){
-    this.shadows.push(this.add.ellipse(0,0,36,12,0x593e24,.23));this.bodies.push(this.add.sprite(0,0,athleteTexture,`${getGame().sport==='soccer'&&i%3===0?getGame().players[i].team+2:getGame().players[i].team}-idle-0`).setOrigin(.5,ATHLETE_FEET/ATHLETE_SIZE).setFlipX(getGame().players[i].team===1));
+    this.shadows.push(this.add.ellipse(0,0,36,12,0x593e24,.23));this.bodies.push(this.add.sprite(0,0,athleteKeys[i],'idle-0').setOrigin(.5,ATHLETE_FEET/ATHLETE_SIZE).setFlipX(getGame().players[i].team===1));
     this.labels.push(this.add.text(0,0,`${getGame().players[i].team?'PRAIA':'VOCÊ'} ${getGame().sport==='soccer'?i%3===0?'GOL':i%3:i%2+1}`,{fontFamily:'sans-serif',fontSize:'10px',color:'#fff4d6',backgroundColor:getGame().players[i].team?'#874536':'#14565b',padding:{x:5,y:3}}).setOrigin(.5));
    }
    this.ring=this.add.ellipse(0,0,47,18).setStrokeStyle(2,0x4ce3cf).setDepth(2);
@@ -85,7 +86,7 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
      sprite.setFlipX(p.action==='dive'&&pose==='slide'?p.diveX*.77+p.diveZ*.2<0:g.sport==='soccer'&&p.action!=='dive'?kickSide<0:p.team===1);
     }
     else if(speed>45)sprite.setFlipX(moveSide<0);else if(p.preparation>.1&&g.sport!=='soccer')sprite.setFlipX(ballSide<0);
-    sprite.setFrame(`${g.sport==='soccer'&&i%3===0?p.team+2:p.team}-${pose}-${frame}`).setPosition(pos.x,pos.y).setScale(1).setDepth(z+20);
+    sprite.setFrame(`${pose}-${frame}`).setPosition(pos.x,pos.y).setScale(1).setDepth(z+20);
     this.shadows[i].setPosition(ground.x,ground.y).setScale(y<FLOOR?.72:striking&&p.action==='dive'?1.35:1).setAlpha(y<FLOOR?.14:.23).setDepth(1);
     this.labels[i].setPosition(ground.x,ground.y+19).setDepth(z+21).setVisible(g.active===i);
     if(g.active===i)this.ring.setPosition(ground.x,ground.y).setStrokeStyle(g.specialArmed?3:2,g.specialArmed?0xffdc69:0x4ce3cf);
@@ -107,7 +108,8 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
     if(!reduced){this.freeze=g.specialShot?.055:perfect?.04:g.lastPower>.6||kind==='kick'?.028:/BOM/.test(f)?.016:0;if(g.specialShot||perfect)this.cameras.main.shake(g.specialShot?90:70,g.specialShot?.003:.0018);}
    }
    const score=g.score.join(',')+(g.sport==='soccer'?'':':'+g.points.join(','));
-   if(score!==this.lastScore){if(this.lastScore){sound.play('point');if(g.sport==='soccer'&&!reduced)this.cameras.main.shake(140,.004);}this.lastScore=score;}
+   this.cheer=Math.max(0,this.cheer-delta/1000);this.crowd(this.cheer>0,g.clock);
+   if(score!==this.lastScore){if(this.lastScore){sound.play('point');this.cheer=1.4;if(g.sport==='soccer'&&!reduced)this.cameras.main.shake(140,.004);}this.lastScore=score;}
    const hitter=g.players[g.lastHit],above=hitter&&project(hitter.x,hitter.z,hitter.y-150);
    this.meter(above?.x??0,above?.y??0,g.timing!==null&&g.feedbackTime>.8&&hitter?.team===0?g.timing:null);
    if(g.status==='playing'&&(g.specialShot||Math.hypot(b.vx,b.vz)>430)&&!reduced)this.trailPoints.unshift({x:pos.x,y:pos.y});else this.trailPoints=[];

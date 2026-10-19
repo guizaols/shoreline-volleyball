@@ -7,7 +7,7 @@ type Pose={head:Point;neck:Point;hip:Point;eF:Point;hF:Point;eB:Point;hB:Point;k
 
 // Key poses from the approved "Movimentos por esporte" design: a 34×44 pixel grid, facing right, ground at y=37.
 const poses:Record<string,Pose>={
- idle:{head:[15,7],neck:[15,12],hip:[15,23],eF:[20,17],hF:[21,22],eB:[10,17],hB:[9,22],kF:[19,30],fF:[21,37],kB:[12,30],fB:[10,37]},
+ idle:{head:[15,8],neck:[15,13],hip:[14,24],eF:[19,17],hF:[21,20],eB:[10,17],hB:[10,21],kF:[18,30],fF:[21,37],kB:[11,31],fB:[9,37]},
  ready:{head:[15,9],neck:[15,14],hip:[14,24],eF:[19,18],hF:[21,21],eB:[11,18],hB:[12,22],kF:[18,30],fF:[20,37],kB:[11,31],fB:[9,37]},
  brake:{head:[13,10],neck:[14,15],hip:[15,25],eF:[19,18],hF:[22,20],eB:[10,18],hB:[8,21],kF:[20,31],fF:[24,37],kB:[12,31],fB:[10,37],fx:[['dust',25,38,1.6],['dust',21,38,1.2]]},
  runA:{head:[17,8],neck:[16,13],hip:[14,23],eF:[20,17],hF:[22,13],eB:[10,17],hB:[8,21],kF:[19,28],fF:[22,33],kB:[11,30],fB:[7,35]},
@@ -60,14 +60,17 @@ const shade=(hex:number,f:number)=>{
  const t=f>0?255:0,a=Math.abs(f),c=(v:number)=>Math.round(v+(t-v)*a);
  return (c(hex>>16)<<16)|(c((hex>>8)&255)<<8)|c(hex&255);
 };
-type Look={skin:number;shirt:number;shorts:number;hair:number};
+type Look={skin:number;shirt:number;shorts:number;hair:number;glasses?:boolean;band?:number};
 // Team colours per sport, as in the design: your side in the sport colour, the rival in red (blue when the sport colour is red).
-// Goalkeepers (soccer teams 2 and 3) wear green and yellow.
+// Every athlete also gets their own skin, hair and accessory (sunglasses or headband), like the players in Kings of the Beach.
 const sportShirt:Record<string,number>={volleyball:0x2c6fd6,footvolley:0xff8a1e,tennis:0x14b8a6,soccer:0xe2331e};
-function look(sport:string,team:number):Look{
- const shirt=sportShirt[sport]??0xff8a1e;
- if(team>1)return {skin:team===2?0xb87348:0x8a5232,shirt:team===2?0x2fb65a:0xffdb00,shorts:0x1a1028,hair:0x1a1028};
- return team?{skin:0x8a5232,shirt:shirt===0xe2331e?0x2c6fd6:0xe2331e,shorts:0x1a1028,hair:0x1a1028}:{skin:0xb87348,shirt,shorts:sport==='volleyball'?0x1b2a55:0xffffff,hair:0x1a1028};
+const skins=[0xe0a070,0x8a5232,0xb87348,0xf2c29a,0x6d4924,0xc98a5a],hairs=[0x1a1028,0xc9852e,0x6d2400,0x1a1028,0xffdb49,0x3a2010];
+export type AthleteRole={team:number;keeper?:boolean;referee?:boolean};
+function look(sport:string,role:AthleteRole,index:number):Look{
+ const shirt=sportShirt[sport]??0xff8a1e,skin=skins[index%skins.length],hair=hairs[(index*5+1)%hairs.length],glasses=index%2===0,band=index%2?0xffffff:undefined;
+ if(role.referee)return {skin:0xe0a070,shirt:0x1a1028,shorts:0xffffff,hair:0x6d6d6d,glasses:true};
+ if(role.keeper)return {skin,shirt:role.team?0xffdb00:0x2fb65a,shorts:0x1a1028,hair,glasses};
+ return role.team?{skin,shirt:shirt===0xe2331e?0x2c6fd6:0xe2331e,shorts:0x1a1028,hair,glasses,band}:{skin,shirt,shorts:sport==='volleyball'?0x1b2a55:0xffffff,hair,glasses,band};
 }
 
 const W=34,H=44,OY=5,PX=3,INK=0x1a1028;
@@ -95,7 +98,9 @@ function paint(p:Pose,l:Look,racket:boolean){
  if(racket){const tip=p.racket??[p.hF[0]+3,p.hF[1]-6];seg(p.hF,mid(p.hF,tip,.5),.6,'K');disc(tip[0],tip[1],2.4,'R');}
  const dir=p.face??1;
  disc(p.head[0],p.head[1],4,'H');disc(p.head[0]+dir*1.1,p.head[1]+1,3.2,'S');put(p.head[0]+dir*2.5,p.head[1]+OY+.5,'E',g);put(p.head[0]+dir*2.5,p.head[1]+OY-.5,'E',g);
- const pal:Record<string,number>={S:l.skin,s:shade(l.skin,-.18),T:l.shirt,P:l.shorts,p:shade(l.shorts,-.25),H:l.hair,E:INK,R:0xff6d00,K:0x6d4924,D:0xf2dca8,W:0xffffff,Y:0xffdb00};
+ if(l.glasses)for(let k=0;k<4;k++)put(p.head[0]+dir*(k),p.head[1]+OY,'E',g);
+ if(l.band)seg([p.head[0]-3,p.head[1]-2],[p.head[0]+3,p.head[1]-2],.6,'B');
+ const pal:Record<string,number>={S:l.skin,s:shade(l.skin,-.18),T:l.shirt,P:l.shorts,p:shade(l.shorts,-.25),H:l.hair,E:INK,R:0xff6d00,K:0x6d4924,B:l.band??0xffffff,D:0xf2dca8,W:0xffffff,Y:0xffdb00};
  const has=(x:number,y:number)=>x>=0&&y>=0&&x<W&&y<H&&g[y*W+x]!==null;
  const cells:[number,number,number][]=[];
  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
@@ -116,21 +121,56 @@ function paint(p:Pose,l:Look,racket:boolean){
  return cells;
 }
 
-// One atlas per match; animation only selects frames and moves the feet anchor.
-export function bakeAthletes(scene:Phaser.Scene,sport:string){
- const key=`athletes-${sport}`,names=['idle','ready','run','brake','jump','land',...(sport==='volleyball'?['bump','set','spike','block','dive']:sport==='tennis'?['forehand','lob','smash','dive']:sport==='soccer'?['kick','save','dribble','slide']:['kick','chest','header','bicycle','shark'])],teams=sport==='soccer'?[0,1,2,3]:[0,1];
- if(scene.textures.exists(key))return key;
- const canvas=document.createElement('canvas');canvas.width=ATHLETE_SIZE*ATHLETE_FRAMES;canvas.height=ATHLETE_SIZE*names.length*teams.length;
- const ctx=canvas.getContext('2d');if(!ctx)return key;
- // The grid's ground row (37+OY) lands on the shared feet anchor.
- const ox=ATHLETE_SIZE/2-16*PX,oy=ATHLETE_FEET-(37+OY+1)*PX;
- for(const team of teams)for(const [row,name] of names.entries())for(let i=0;i<ATHLETE_FRAMES;i++){
+const poseNames=(sport:string)=>['idle','ready','run','brake','jump','land',...(sport==='volleyball'?['bump','set','spike','block','dive']:sport==='tennis'?['forehand','lob','smash','dive']:sport==='soccer'?['kick','save','dribble','slide']:['kick','chest','header','bicycle','shark'])];
+// One sheet per athlete: rows are poses, columns the 12 frames; the grid's ground row lands on the shared feet anchor.
+export function athleteSheet(sport:string,role:AthleteRole,index:number,px=PX){
+ const names=poseNames(sport),canvas=document.createElement('canvas');canvas.width=ATHLETE_SIZE*ATHLETE_FRAMES;canvas.height=ATHLETE_SIZE*names.length;
+ const ctx=canvas.getContext('2d');if(!ctx)return {canvas,names};
+ const ox=ATHLETE_SIZE/2-16*px,oy=ATHLETE_FEET-(37+OY+1)*px;
+ for(const [row,name] of names.entries())for(let i=0;i<ATHLETE_FRAMES;i++){
   const t=name==='run'||name==='dribble'||name==='idle'?i/ATHLETE_FRAMES:i/(ATHLETE_FRAMES-1);
-  const x0=i*ATHLETE_SIZE+ox,y0=(team*names.length+row)*ATHLETE_SIZE+oy;
-  for(const [x,y,c] of paint(frame(sport==='tennis'&&name==='dive'?'tennisDive':name,t),look(sport,team),sport==='tennis')){ctx.fillStyle=`#${c.toString(16).padStart(6,'0')}`;ctx.fillRect(x0+x*PX,y0+y*PX,PX,PX);}
+  for(const [x,y,c] of paint(frame(sport==='tennis'&&name==='dive'?'tennisDive':name,t),look(sport,role,index),sport==='tennis'&&!role.referee)){ctx.fillStyle=`#${c.toString(16).padStart(6,'0')}`;ctx.fillRect(i*ATHLETE_SIZE+ox+x*px,row*ATHLETE_SIZE+oy+y*px,px,px);}
  }
- scene.textures.addCanvas(key,canvas);
- const texture=scene.textures.get(key);texture.setFilter(1);// 1 = Phaser.Textures.FilterMode.NEAREST
- for(const team of teams)for(const [row,name] of names.entries())for(let i=0;i<ATHLETE_FRAMES;i++)texture.add(`${team}-${name}-${i}`,0,i*ATHLETE_SIZE,(team*names.length+row)*ATHLETE_SIZE,ATHLETE_SIZE,ATHLETE_SIZE);
+ return {canvas,names};
+}
+// Phaser textures, one per athlete; frames are named `${pose}-${frame}`.
+export function bakeAthletes(scene:Phaser.Scene,sport:string,roles:AthleteRole[],px=PX){
+ return roles.map((role,index)=>{
+  const key=`athletes-${sport}-${index}-${px}`;if(scene.textures.exists(key))return key;
+  const {canvas,names}=athleteSheet(sport,role,index,px);
+  scene.textures.addCanvas(key,canvas);const texture=scene.textures.get(key);texture.setFilter(1);// 1 = Phaser.Textures.FilterMode.NEAREST
+  for(const [row,name] of names.entries())for(let i=0;i<ATHLETE_FRAMES;i++)texture.add(`${name}-${i}`,0,i*ATHLETE_SIZE,row*ATHLETE_SIZE,ATHLETE_SIZE,ATHLETE_SIZE);
+  return key;
+ });
+}
+// A crowd behind the court, as in Kings of the Beach: small spectators, two frames (sitting / arms up to cheer).
+const cheer:Pose={head:[15,10],neck:[15,15],hip:[15,25],eF:[19,10],hF:[20,4],eB:[11,10],hB:[10,4],kF:[19,30],fF:[20,37],kB:[11,30],fB:[10,37]};
+export function bakeCrowd(scene:Phaser.Scene,variants=8){
+ const key='crowd';if(scene.textures.exists(key))return key;
+ const shirts=[0xff6d00,0x2c6fd6,0xffdb00,0xe2331e,0x14b8a6,0xffffff,0xff6db6,0x2fb65a],canvas=document.createElement('canvas'),cell=48;
+ canvas.width=cell*2;canvas.height=cell*variants;const ctx=canvas.getContext('2d');if(!ctx)return key;
+ for(let v=0;v<variants;v++)for(const [f,pose] of [poses.idle,cheer].entries()){
+  const l={skin:skins[v%skins.length],shirt:shirts[v],shorts:0x1b2a55,hair:hairs[(v*3)%hairs.length],glasses:v%3===0};
+  for(const [x,y,c] of paint(pose,l,false)){ctx.fillStyle=`#${c.toString(16).padStart(6,'0')}`;ctx.fillRect(f*cell+x+7,v*cell+y,1,1);}
+ }
+ scene.textures.addCanvas(key,canvas);const texture=scene.textures.get(key);texture.setFilter(1);
+ for(let v=0;v<variants;v++)for(const f of [0,1])texture.add(`c${v}-${f}`,0,f*cell,v*cell,cell,cell);
  return key;
+}
+// Two rows of fans on the sand behind the far line; they cheer after a point and fidget otherwise.
+export function addCrowd(scene:Phaser.Scene,place:(x:number,z:number)=>{x:number;y:number}){
+ const key=bakeCrowd(scene),fans:{image:Phaser.GameObjects.Image;variant:number}[]=[];
+ for(let row=0;row<2;row++)for(let k=0;k<18;k++){
+  const at=place(60+k*50+(row?25:0)+(k*37)%11,row?-14:4),variant=(k*3+row*5)%8;
+  fans.push({image:scene.add.image(Math.round(at.x),Math.round(at.y),key,`c${variant}-0`).setOrigin(.5,1).setDepth(row?.5:.6),variant});
+ }
+ return (cheering:boolean,clock:number)=>fans.forEach((fan,i)=>fan.image.setFrame(`c${fan.variant}-${cheering?Math.floor(clock*6+i)%2:Math.sin(clock*.7+i*1.7)>.97?1:0}`));
+}
+// The umpire on a high chair beside the net (net sports only).
+export function addReferee(scene:Phaser.Scene,sport:string,place:(x:number,z:number,y?:number)=>{x:number;y:number}){
+ const foot=place(500,-12),seat=place(500,-12,385),chair=scene.add.graphics().setDepth(.7);
+ chair.lineStyle(4,0x6d4924);chair.lineBetween(foot.x-10,foot.y,seat.x-6,seat.y);chair.lineBetween(foot.x+10,foot.y,seat.x+6,seat.y);
+ chair.lineStyle(3,0x6d4924);chair.lineBetween(seat.x-10,seat.y,seat.x+10,seat.y);chair.lineBetween(foot.x-8,foot.y-22,foot.x+8,foot.y-22);
+ const [key]=bakeAthletes(scene,sport,[{team:0,referee:true}],2);
+ return scene.add.sprite(Math.round(seat.x),Math.round(seat.y)+6,key,'idle-0').setOrigin(.5,ATHLETE_FEET/ATHLETE_SIZE).setDepth(.8);
 }

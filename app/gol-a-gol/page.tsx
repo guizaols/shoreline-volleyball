@@ -4,8 +4,10 @@ import {useOnline} from './useOnline';
 import AchievementToast from '../AchievementToast';
 import TouchControls from '../TouchControls';
 import {readProgress} from '../../lib/cup';
+import {athleteSheet,ATHLETE_SIZE,ATHLETE_FEET} from '../../lib/athlete-render';
 import {footballEffects,effectUnlocked,newFootballProgress,readFootballProgress,recordFootball,armFootballSpecial,goal,newFootball,startFootball,shootFootball,diveFootball,jumpFootball,stepFootball,type Football} from '../../lib/gol';
 
+let sheets:ReturnType<typeof athleteSheet>[]|undefined;
 function draw(ctx:CanvasRenderingContext2D,g:Football,beach:HTMLImageElement,name:string,trail:{x:number;y:number}[],reduced=false){
  ctx.clearRect(0,0,1000,620);
  if(beach.complete&&beach.naturalWidth)ctx.drawImage(beach,0,0,1000,620);
@@ -38,53 +40,18 @@ function draw(ctx:CanvasRenderingContext2D,g:Football,beach:HTMLImageElement,nam
   ctx.restore();
  }
  g.players.forEach((p,i)=>{
-  const speed=Math.hypot(p.vx,p.vy),stride=Math.sin(g.clock*15)*Math.min(10,speed/25),facing=i?-1:1,kick=Math.sin(p.kick/.32*Math.PI);
+  const speed=Math.hypot(p.vx,p.vy);
   ctx.save();ctx.translate(p.x,p.y);
   ctx.fillStyle='#513a2440';ctx.beginPath();ctx.ellipse(0,14,p.dive>0?35:22,10,0,0,Math.PI*2);ctx.fill();
   ctx.translate(0,-p.jump*.65);
   if(i===0){ctx.strokeStyle=g.owner===0?effect.color:'#5de7d3';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,14,27,12,0,0,Math.PI*2);ctx.stroke();}
   if(i===0&&g.charge>0){ctx.strokeStyle=effect.color;ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,-7,43,-Math.PI/2,-Math.PI/2+g.charge*Math.PI*2);ctx.stroke();}
-  const defending=g.owner!==i, crouch=defending&&p.jump===0&&p.dive===0?6:0;
-  const windup=g.owner===i?g.charge:0;
-  ctx.translate(0,crouch);
-  ctx.rotate(p.dive>0?Math.sign(p.vy)*1.35:p.vx/300*.08-facing*windup*.12);
-  const skin=i?'#b97b50':'#d99e70';
-  ctx.lineCap='round';ctx.lineJoin='round';
-  const limb=(points:number[][],color:string,width:number)=>{ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();points.forEach(([x,y],j)=>j?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.stroke();};
-  // Feet stay on the sand; the striking leg follows through toward the opposing goal.
-  for(const side of [-1,1]){
-   const striking=side===facing;
-   const footX=side*(defending?17:10)+(striking?facing*(kick*35-windup*15):0);
-   const footY=14-crouch+side*stride*(p.dive>0?.2:.65)-(striking?kick*18:0);
-   const kneeX=side*11+(striking?facing*(kick*15-windup*10):0);
-   limb([[side*7,-8],[kneeX,3],[footX,footY]],'#263e42',10);
-   limb([[side*7,-8],[kneeX,3],[footX,footY]],skin,7);
-   limb([[footX-3,footY],[footX+6*facing,footY]],skin,6);
-   limb([[footX-2,footY+2],[footX+5*facing,footY+2]],'#a26b49',2);
-  }
-  ctx.fillStyle='#152d43';ctx.beginPath();ctx.roundRect(-14,-16,28,16,4);ctx.fill();
-  limb([[-11,-12],[-11,-2]],i?'#ffb179':'#71e2cc',3);
-  limb([[2,-5],[3,0]],'#091e30',3);
-  for(const side of [-1,1]){
-   const reaching=p.save>0||p.dive>0;
-   const handY=p.jump>0?-65:reaching?-43:defending?-21:-18+side*stride*.5;
-   const handX=p.dive>0?Math.sign(p.vy)*12+side*10:reaching?side*19:defending?side*28:side*22-facing*kick*12;
-   limb([[side*12,-35],[side*21,-26],[handX,handY]],'#263e42',9);
-   limb([[side*12,-35],[side*21,-26],[handX,handY]],skin,6);
-   // Contrasting keeper gloves make catches distinct from volleyball touches.
-   ctx.fillStyle='#f8eed7';ctx.strokeStyle='#284351';ctx.lineWidth=1.5;
-   ctx.beginPath();ctx.ellipse(handX,handY,5,6,side*.3,0,Math.PI*2);ctx.fill();ctx.stroke();
-   limb([[handX-3,handY+3],[handX+3,handY+3]],i?'#ef8359':'#38cbb2',2);
-  }
-  const shirt=ctx.createLinearGradient(-15,-44,15,-15);
-  shirt.addColorStop(0,i?'#ff9561':'#56dfc4');shirt.addColorStop(1,i?'#b83e34':'#08787d');
-  ctx.fillStyle=shirt;ctx.strokeStyle='#1b4b52';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(-9,-44);ctx.lineTo(-19,-36);ctx.lineTo(-15,-27);ctx.lineTo(-12,-29);ctx.lineTo(-13,-15);ctx.lineTo(13,-15);ctx.lineTo(12,-29);ctx.lineTo(15,-27);ctx.lineTo(19,-36);ctx.lineTo(9,-44);ctx.closePath();ctx.fill();ctx.stroke();
-  limb([[-7,-43],[0,-38],[7,-43]],'#fff1c9',2);
-  ctx.fillStyle='#fff1c9';ctx.font='900 13px sans-serif';ctx.textAlign='center';ctx.fillText(i?'9':'1',0,-21);
-  ctx.fillStyle=skin;ctx.fillRect(-4,-49,8,8);ctx.beginPath();ctx.ellipse(0,-57,9,11,0,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle=i?'#3c271e':'#28332d';ctx.beginPath();ctx.ellipse(-1,-63,9,6,-.1,Math.PI,Math.PI*2);ctx.fill();ctx.fillRect(-9,-63,3,8);
-  ctx.fillStyle='#293837';ctx.fillRect(facing*4-1,-59,2,2);ctx.fillStyle='#ab6e50';ctx.fillRect(facing*7,-56,3,3);
+  // Same pixel athletes as the other beach sports (approved 16-bit design), at a smaller scale for this top-down pitch.
+  const sheet=(sheets??=[athleteSheet('soccer',{team:0,keeper:false},0,2),athleteSheet('soccer',{team:1},3,2)])[i];
+  const defending=g.owner!==i;
+  const [pose,frame]=p.dive>0?['save',4]:p.recovery>0&&p.jump===0?['land',Math.round((1-Math.min(1,p.recovery))*11)]:p.jump>0?['jump',6]:p.kick>0?['kick',Math.round((1-p.kick/.32)*11)]:speed>40?['run',Math.floor(g.clock*12)%12]:[defending?'ready':'idle',reduced?0:Math.floor(g.clock*2)%12];
+  ctx.imageSmoothingEnabled=false;if(i)ctx.scale(-1,1);
+  ctx.drawImage(sheet.canvas,Number(frame)*ATHLETE_SIZE,Math.max(0,sheet.names.indexOf(String(pose)))*ATHLETE_SIZE,ATHLETE_SIZE,ATHLETE_SIZE,-ATHLETE_SIZE/2,14-ATHLETE_FEET,ATHLETE_SIZE,ATHLETE_SIZE);
   ctx.restore();
   if(!reduced&&speed>80){ctx.fillStyle='#fbe0ac80';for(let j=0;j<5;j++){ctx.beginPath();ctx.arc(p.x-p.vx*.025-j*3,p.y+15+Math.sin(j*2+g.clock*7)*7,2+j*.5,0,Math.PI*2);ctx.fill();}}
   ctx.font='bold 11px sans-serif';ctx.textAlign='center';const label=i?'RIVAL':name;const width=ctx.measureText(label).width+16;

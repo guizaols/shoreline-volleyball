@@ -264,7 +264,7 @@
 /* Arcade HUD from the approved design (Neo Geo look): pixel font, square boxes, white borders, hard offset shadows. */
 .game-shell .scoreboard{font-family:var(--font-arcade),monospace;background:#1a1028;color:#fff;border:4px solid #fff;border-radius:0;box-shadow:6px 6px 0 #2449b6;font-size:9px;letter-spacing:0}
 .game-shell .scoreboard b{color:#ffdb00;text-shadow:3px 3px 0 #db2400;font-weight:400}
-.game-shell .scoreboard small{color:#92b6db;font-size:7px;letter-spacing:0}
+.game-shell .scoreboard small{color:#92b6db;font-size:6px;line-height:1.7;letter-spacing:0;white-space:normal}
 .game-shell .contact-feedback,.game-shell .restart-feedback{font-family:var(--font-arcade),monospace;font-size:11px;line-height:1.6;background:#1a1028;color:#fff;border:4px solid #fff;border-radius:0;box-shadow:5px 5px 0 #db2400;letter-spacing:0}
 .game-shell .contact-feedback small,.game-shell .restart-feedback small{font-family:var(--font-arcade),monospace;font-size:7px;color:#92b6db}
 .game-shell .contact-feedback.is-perfect{background:none;border:0;box-shadow:none;color:#ffdb00;font-size:20px;text-shadow:-3px 0 #1a1028,3px 0 #1a1028,0 -3px #1a1028,0 3px #1a1028,5px 5px 0 #db2400}
