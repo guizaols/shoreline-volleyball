@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
   appleWebApp: {capable:true,title:'Shoreline',statusBarStyle:'black-translucent'},
   icons: {icon:'/icons/icon-192.png',apple:'/icons/icon-192.png'},
-  description: 'Escolha seu esporte de praia: vôlei em duplas ou Gol a Gol. Jogue sozinho ou convide um amigo.',
+  description: 'Vôlei, futevôlei, beach tennis, beach soccer e Gol a Gol. Cinco esportes na mesma praia, no computador e celular.',
 };
 
 export default function RootLayout({

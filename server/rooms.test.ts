@@ -32,7 +32,7 @@ volleyAction(volley,1,'style',2);assert.equal(volley.remoteAttackStyle,'tip');as
  const g=createGame();g.online=true;g.pointGoal=7;const served=new Set(),contacts=new Set(),clamp=(n:number)=>Math.max(-1,Math.min(1,n));
  for(let i=0;i<150000&&g.status!=='over';i++){
   if(g.status==='ready')prepareServe(g);if(g.status==='serving'){served.add(g.server);volleyAction(g,g.server,'serve',null);}if(g.status==='tossing'&&g.tossTime>=.56)volleyAction(g,g.server,'serve',null);
-  const target=guidance(g),input=[0,1].map(team=>{const p=g.players[team?g.remoteActive:g.active],miss=g.rally>12&&team===((g.score[0]+g.score[1])%3===0?0:1);return {...neutral,move:miss?0:target.team===team?clamp((target.x-p.x)/45):0,depth:miss?1:target.team===team?clamp((target.z-p.z)/45):0,prepare:!miss};});
+  const target=guidance(g),input=[0,1].map(team=>{const p=g.players[team?g.remoteActive:g.active],miss=g.rally>12&&team===((g.score[0]+g.score[1])%3===0?0:1),stroke=!miss&&target.team===team&&target.time>0&&target.time<.28;return {...neutral,move:miss||stroke?0:target.team===team?clamp((target.x-p.x)/45):0,depth:miss?1:stroke?0:target.team===team?clamp((target.z-p.z)/45):0,prepare:stroke};});
   const a=input[0];stepVolley(g,1/120,a.move,a.jump,'Club',a.attack,a.dive,a.depth,a.block,a.prepare,input[1]);if(g.lastTeam>=0)contacts.add(g.lastTeam);
  }
  assert.equal(g.status,'over');assert.equal(contacts.size,2);assert.equal(served.size,2);assert.ok(g.bestRally>12);

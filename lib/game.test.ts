@@ -1,12 +1,76 @@
 import {chooseShot,shotChoices} from './game.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createGame, serve as releaseServe, prepareServe, toss, setAttackStyle, contactQuality, guidance, step, point, switchPlayer, landingX, landingZ, contactPoint, launch, setAim, setServeStyle, FLOOR } from './game.ts';
+import { createGame, serve as releaseServe, prepareServe, toss, setAttackStyle, contactQuality, guidance, step, point, switchPlayer, landingX, landingZ, contactPoint, launch, setAim, setServeStyle, cancelVolleyStroke, volleyPerspective, FLOOR } from './game.ts';
 const atlas=readFileSync(new URL('../public/art/athlete-clean.png',import.meta.url));
 assert.equal(atlas.readUInt32BE(16),1254,'Sprite frame coordinates require the original atlas width');
 assert.equal(atlas[25],6,'Athlete atlas must have true alpha transparency');
 const tick = 1 / 120;
 function serve(g:ReturnType<typeof createGame>){g.windEnabled=false;prepareServe(g);toss(g);g.tossTime=.55;releaseServe(g);}
+for(const held of [false,true]){
+ const idle=createGame();serve(idle);
+ for(let i=0;i<3000&&idle.status==='playing';i++)step(idle,tick,0,false,'Club',false,false,0,false,held);
+ assert.equal(idle.playerContacts.reduce((a,b)=>a+b,0),0,'An idle or permanently held button cannot make your team receive and attack automatically');
+}
+function incomingStroke(){
+ const match=createGame();match.status='playing';match.windEnabled=false;match.autoSwitch=false;match.lastTeam=1;match.lastHit=3;
+ match.players[0].x=200;match.players[0].z=225;match.players[1].x=400;match.players[1].z=400;
+ match.ball={x:227,z:225,y:384,vx:0,vz:0,vy:20};return match;
+}
+const tap=incomingStroke();step(tap,tick,0,false,'Club',false,false,0,false,true);
+assert.equal(tap.lastHit,0,'A quick button press at the ball makes a reception immediately');
+assert.match(tap.feedback,/BOM/,'A centered quick tap is a useful contact without holding for a quarter second');
+tap.cooldown=0;tap.lastTeam=1;tap.lastHit=3;tap.players[0].action='bump';tap.players[0].actionTime=.28;tap.ball={x:227,z:225,y:384,vx:0,vz:0,vy:20};
+step(tap,tick,0,false,'Club',false,false,0,false,true);
+assert.equal(tap.playerContacts[0],1,'Holding after a successful tap cannot produce another stroke');
+const untouched=incomingStroke();step(untouched,tick,0,false,'Club');
+assert.equal(untouched.rally,0,'Being in range alone cannot swing the controlled athlete');
+const early=incomingStroke();early.ball.y=270;early.ball.vy=200;step(early,tick,0,false,'Club',false,false,0,false,true);
+for(let i=0;i<35&&early.lastHit!==0;i++)step(early,tick,0,false,'Club');
+assert.equal(early.lastHit,0,'A tap shortly before the ball arrives is buffered for contact');
+const cancelled=incomingStroke();cancelled.ball.y=200;step(cancelled,tick,0,false,'Club',false,false,0,false,true);cancelVolleyStroke(cancelled);
+cancelled.ball={x:227,z:225,y:384,vx:0,vz:0,vy:20};step(cancelled,tick,0,false,'Club');
+assert.equal(cancelled.playerContacts[0],0,'Cancelling an unused stroke cannot fire when the button is released');
+for(const team of [0,1]){
+ const directed=createGame();directed.online=!!team;directed.status='playing';directed.autoSwitch=false;directed.windEnabled=false;
+ directed.lastTeam=team;directed.lastHit=team?3:1;directed.touches=2;
+ const id=team?2:0;Object.assign(directed.players[id],{x:team?700:300,z:225,y:350,action:'spike',actionTime:.3});
+ directed.ball={...contactPoint(directed.players[id]),vx:0,vz:0,vy:1};
+ const remote={move:-1,depth:-1,jump:false,attack:true,dive:false,block:false,prepare:true};
+ step(directed,tick,team?0:1,false,'Club',!team,false,team?0:-1,false,!team,team?remote:undefined);
+ assert.equal(directed.lastHit,id,'Each team can make a deliberate attack');
+ assert.ok(Math.abs(landingX(directed,437)-(team?110:890))<.01&&Math.abs(landingZ(directed,437)-80)<.01,'The stroke direction places the ball symmetrically in the chosen corner');
+ assert.deepEqual(volleyPerspective(volleyPerspective(directed)),directed,'Mirroring preserves queued and consumed strokes');
+}
+const neutralAim=incomingStroke();setAim(neutralAim,610,370);step(neutralAim,tick,0,false,'Club',false,false,0,false,true);
+assert.deepEqual(neutralAim.aim,{x:610,z:370},'A neutral stroke preserves the preset or pointer target');
+const partner=createGame();partner.status='playing';partner.autoSwitch=false;partner.windEnabled=false;partner.lastTeam=0;partner.lastHit=0;partner.touches=1;
+partner.players[1].action='set';partner.players[1].actionTime=.28;partner.ball={...contactPoint(partner.players[1]),vx:0,vz:0,vy:20};
+step(partner,tick,0,false,'Club');assert.equal(partner.lastHit,1,'The CPU partner can supply the setup after a deliberate reception');
+const approach=guidance(partner).x;
+partner.cooldown=0;partner.players[0].action='spike';partner.players[0].actionTime=.28;partner.ball={...contactPoint(partner.players[0]),vx:0,vz:0,vy:20};
+step(partner,tick,0,false,'Club');assert.equal(partner.lastHit,1,'The CPU setup does not automate the third-contact attack');
+console.log('Passed: deliberate volleyball contacts, idle/held input and a responsive quick tap.');
+function openLaneShot(targetZ:number,defenderX=800){
+ const match=createGame();match.status='playing';match.autoSwitch=false;match.windEnabled=false;match.cpuStyle='defense';match.lastTeam=0;match.lastHit=1;match.touches=2;match.aim={x:890,z:targetZ};
+ Object.assign(match.players[0],{x:400,z:225,y:260,action:'spike',actionTime:.3});
+ Object.assign(match.players[2],{x:620,z:310});Object.assign(match.players[3],{x:defenderX,z:310});
+ match.ball={...contactPoint(match.players[0]),vx:0,vz:0,vy:1};step(match,tick,0,false,'Club',true);
+ const defender=match.players[3];
+ for(let i=0;i<15;i++){
+  step(match,tick,0,false,'Club');
+  assert.ok(defender.vz>=0,'An opponent needs time to read a strike toward the opposite lane');
+ }
+ for(let i=0;i<240&&match.status==='playing'&&match.lastTeam===0;i++){
+  step(match,tick,0,false,'Club');
+  if(match.ball.x>=482&&match.ball.x<=518)assert.ok(match.ball.y<261,'The fast attack clears the whole net band');
+ }
+ return match;
+}
+assert.equal(openLaneShot(80).score[0],1,'A centered jumping attack can beat defenders covering the other lane');
+assert.equal(openLaneShot(310,890).lastTeam,1,'A defender covering the selected landing can still receive the fast attack');
+assert.ok(approach>390,'The second touch sets up an approach toward the net');
+console.log('Passed: a fast placed attack beats an open lane, covered attacks remain defendable and sets invite an approach.');
 const g = createGame();
 assert.equal(g.players.length, 4);
 assert.deepEqual(g.players.map(p => p.team), [0, 0, 1, 1]);
@@ -35,9 +99,10 @@ for (let i = 0; i < 110; i++) {
 assert.equal(launches, 1, 'Holding jump must not bunny-hop after landing');
 function contact(player: number, lastHit: number, touches: number) {
   const c = createGame(); serve(c); c.cooldown = 0; c.lastHit = lastHit; c.lastTeam = lastHit < 2 ? 0 : 1; c.touches = touches;
+  c.active=player;c.autoSwitch=false;
   c.players[player].action=lastHit<2?(touches>=2?'spike':'set'):'bump'; c.players[player].actionTime=.28;
   c.ball = { ...contactPoint(c.players[player]), vx: 0, vz:0, vy: 50 };
-  step(c, tick, 0, false, 'Club'); return c;
+  step(c, tick, 0, false, 'Club',false,false,0,false,true); return c;
 }
 const reception = contact(0, 3, 1); assert.equal(reception.touches, 1); assert.equal(reception.shot, 'RECEPTION');
 const set = contact(1, 0, 1); assert.equal(set.touches, 2); assert.equal(set.shot, 'SET');
@@ -78,7 +143,7 @@ low.ball={...contactPoint(low.players[0]),vx:0,vz:0,vy:50};setAim(low,900,350);
 step(low,tick,0,false,'Club',true);
 assert.ok(Math.abs(landingX(low,437)-900)<.001 && Math.abs(landingZ(low,437)-350)<.001,'Attack follows the chosen aim');
 const lowBall=low.ball,netTime=(500-lowBall.x)/lowBall.vx;
-assert.ok(lowBall.y+lowBall.vy*netTime+310*netTime*netTime<250,'Low attack must clear the tape');
+assert.ok(lowBall.y+lowBall.vy*netTime+310*netTime*netTime<261,'Low attack must clear the tape by the ball radius');
 let arcs=0;
 for(const team of [0,1])for(const startX of [55,210,440,475])for(const height of [145,245,310,384])for(const targetX of [570,790,935])for(const targetZ of [55,225,395]){
   const shot=createGame();shot.windEnabled=false;shot.status='playing';shot.active=-1;shot.lastTeam=team;shot.cooldown=99;
@@ -92,7 +157,7 @@ for(const team of [0,1])for(const startX of [55,210,440,475])for(const height of
   assert.equal(shot.status,'ready');assert.equal(shot.score[team],1,'Aimed ball must land inside the opponent court');
   assert.ok(Math.abs(last.x-target.x)<12 && Math.abs(last.z-target.z)<12,'Landing follows the selected target');arcs++;
 }
-const automatic=contact(0,3,1);step(automatic,tick,0,false,'Club');assert.equal(automatic.active,1,'Control follows the pass to the partner');
+const automatic=contact(0,3,1);automatic.autoSwitch=true;step(automatic,tick,0,false,'Club');assert.equal(automatic.active,1,'Control follows the pass to the partner');
 for(let i=0;i<20;i++){step(automatic,tick,0,false,'Club');assert.equal(automatic.active,1,'Receiver remains stable during the pass');}
 const incoming=createGame();incoming.status='playing';incoming.players[0].x=50;incoming.players[0].z=40;
 incoming.ball={x:380,z:310,y:100,vx:0,vz:0,vy:0};step(incoming,tick,0,false,'Club');assert.equal(incoming.active,1);
@@ -110,15 +175,17 @@ const stationary={...waiting.ball};for(let i=0;i<300;i++)step(waiting,tick,1,tru
 assert.equal(waiting.status,'serving');assert.deepEqual(waiting.ball,stationary);toss(waiting);waiting.tossTime=.55;releaseServe(waiting);assert.equal(waiting.status,'playing');
 assert.equal(contactQuality(10),'BOM');assert.equal(contactQuality(40),'RUIM');
 const guide=guidance(waiting);assert.ok(Number.isFinite(guide.x)&&Number.isFinite(guide.time));
-assert.match(reception.feedback,/RECEPÇÃO BOM/);assert.match(set.feedback,/PASSE BOM/);assert.match(attack.feedback,/ATAQUE BOM/);
+assert.match(reception.feedback,/RECEPÇÃO BOM/);assert.match(set.feedback,/PASSE BOM/);assert.match(attack.feedback,/ATAQUE (BOM|PERFEITO)/);
 const stretched=createGame();serve(stretched);stretched.autoSwitch=false;stretched.active=0;stretched.cooldown=0;stretched.lastTeam=1;stretched.lastHit=3;
 stretched.players[0].action='bump';stretched.players[0].actionTime=.28;
 stretched.ball={...contactPoint(stretched.players[0]),vx:0,vz:0,vy:0};stretched.ball.z+=39;
-step(stretched,tick,0,false,'Club');assert.match(stretched.feedback,/RECEPÇÃO RUIM/,'Assisted edge contact is playable and honestly graded');
-const assistance=createGame();serve(assistance);assistance.autoSwitch=false;assistance.lastTeam=1;assistance.lastHit=3;
-assistance.ball={x:assistance.players[0].x+70,z:assistance.players[0].z,y:180,vx:0,vz:0,vy:0};
-const initialDistance=Math.abs(assistance.players[0].x-guidance(assistance).x);step(assistance,tick,0,false,'Club');
-assert.ok(Math.abs(assistance.players[0].x-guidance(assistance).x)<initialDistance,'Assistance moves toward the displayed guide');
+step(stretched,tick,0,false,'Club',false,false,0,false,true);assert.match(stretched.feedback,/RECEPÇÃO REGULAR/,'A quick edge contact remains playable and grades below a centered tap');
+for(const pace of ['Chill','Club']){
+ const assistance=createGame();serve(assistance);assistance.autoSwitch=false;assistance.lastTeam=1;assistance.lastHit=3;
+ assistance.ball={x:assistance.players[0].x+70,z:assistance.players[0].z,y:180,vx:0,vz:0,vy:0};
+ const initialDistance=Math.abs(assistance.players[0].x-guidance(assistance).x);step(assistance,tick,0,false,pace,false,false,0,false,true);
+ assert.equal(Math.abs(assistance.players[0].x-guidance(assistance).x)<initialDistance,pace==='Chill','Only Tranquilo walks the athlete toward the guide');
+}
 
 const tossGame=createGame();prepareServe(tossGame);toss(tossGame);releaseServe(tossGame);assert.equal(tossGame.status,'tossing','Cannot strike before the toss rises');
 const tossY=tossGame.ball.y;step(tossGame,.1,0,false,'Club');assert.ok(tossGame.ball.y<tossY,'Toss actually moves upward');
@@ -138,7 +205,7 @@ assert.equal(diagonal.players[0].action,'dive');assert.ok(diagonal.players[0].vx
 const hands=contactPoint(diagonal.players[0]);assert.ok(hands.x<diagonal.players[0].x&&hands.z>diagonal.players[0].z);
 const save=createGame();serve(save);save.autoSwitch=false;save.lastTeam=1;save.lastHit=3;save.cooldown=0;
 Object.assign(save.players[0],{x:220,z:225,action:'dive',actionTime:.55,diveX:-1,diveZ:0,vx:0,vz:0});
-save.ball={...contactPoint(save.players[0]),vx:0,vz:0,vy:30};step(save,tick,0,false,'Club');
+save.ball={...contactPoint(save.players[0]),vx:0,vz:0,vy:30};step(save,tick,0,false,'Club',false,true);
 assert.equal(save.shot,'DIVING SAVE');assert.ok(save.ball.vy<0);assert.match(save.feedback,/DEFESA NO CHÃO/);
 const recovery=createGame();serve(recovery);recovery.autoSwitch=false;recovery.players[0].action='dive';recovery.players[0].actionTime=.2;recovery.ball={x:900,z:400,y:0,vx:0,vz:0,vy:0};
 step(recovery,tick,1,true,'Club');assert.equal(recovery.players[0].vy,0);assert.equal(recovery.players[0].vx,0,'Recovery cannot run or jump');
@@ -186,16 +253,20 @@ cycleAim(keyboardAim);
 assert.equal(keyboardAim.aimPreset,0);
 console.log('Passed: keyboard targets cycle, wrap and recover after manual aiming.');
 
-// The contextual button behaves identically in a match and in practice.
+// Each match contact uses a fresh contextual tap; practice keeps hold-to-learn.
 const contextual=createGame();startPractice(contextual);contextual.practice=false;
 const contextualShots:string[]=[];
 for(let i=0;i<600&&contextualShots.length<3;i++){
   const rally=contextual.rally;
-  step(contextual,tick,0,false,'Club',false,false,0,false,true);
-  if(contextual.rally!==rally)contextualShots.push(contextual.shot);
+  const guide=guidance(contextual),player=contextual.players[contextual.active],dx=guide.x-player.x,dz=guide.z-player.z,distance=Math.hypot(dx,dz);
+  const stroke=guide.team===0&&guide.time<.28,pursuing=guide.team===0&&distance>30&&!stroke;
+  const b=contextual.ball,jump=guide.attack&&distance<65&&b.vy>0&&b.y>140&&b.y<260;
+  step(contextual,tick,pursuing?dx/distance:0,jump,'Club',false,false,pursuing?dz/distance:0,false,stroke);
+  if(contextual.rally>rally)contextualShots.push(contextual.shot);
 }
 assert.deepEqual(contextualShots,['RECEPTION','SET','ATTACK']);
-console.log('Passed: one contextual button receives, sets and jumps to attack in a match.');
+assert.match(contextual.feedback,/PERFEITO|CEDO|TARDE/,'A deliberate attack reports where the ball met the hand');
+console.log('Passed: timed contextual taps receive, set and attack after the player jumps.');
 
 // Responsive ground movement must brake without overshooting or changing the aim.
 const movementGame=createGame();movementGame.status='playing';movementGame.assist=false;movementGame.autoSwitch=false;movementGame.windEnabled=false;
