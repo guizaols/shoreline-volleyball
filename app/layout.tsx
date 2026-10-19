@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono, Press_Start_2P } from 'next/font/google';
+import { Geist, Geist_Mono, Press_Start_2P, VT323 } from 'next/font/google';
 import './globals.css';
 
 const geistSans = Geist({
@@ -14,6 +14,13 @@ const geistMono = Geist_Mono({
 
 const arcade = Press_Start_2P({
   variable: '--font-arcade',
+  weight: '400',
+  subsets: ['latin'],
+});
+
+// Second pixel font from the approved design: names and small text, with full accent support (Press Start 2P draws "Ê" badly).
+const arcadeText = VT323({
+  variable: '--font-arcade-text',
   weight: '400',
   subsets: ['latin'],
 });
@@ -36,7 +43,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${arcade.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${arcade.variable} ${arcadeText.variable} antialiased`}
       >
         {children}
       </body>

@@ -303,3 +303,7 @@ a.arcade-box:hover,a.arcade-box:focus-visible{box-shadow:6px 6px 0 #db2400;outli
  .game-shell .arcade-hud small,.game-shell .arcade-rival{display:none}
  .game-shell .contact-feedback,.game-shell .restart-feedback,.game-shell .play-tip{font-size:8px;padding:5px 7px;max-width:44%}
 }
+/* Names and captions in VT323 (accents render), digits stay in Press Start 2P. */
+.game-shell .scoreboard div{font-family:var(--font-arcade-text),monospace;font-size:17px;letter-spacing:.5px}
+.game-shell .scoreboard b{font-family:var(--font-arcade),monospace}
+.game-shell .scoreboard small{font-family:var(--font-arcade-text),monospace;font-size:12px;line-height:1;letter-spacing:.5px;white-space:nowrap}
