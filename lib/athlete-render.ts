@@ -73,6 +73,8 @@ function look(sport:string,role:AthleteRole,index:number):Look{
  return role.team?{skin,shirt:shirt===0xe2331e?0x2c6fd6:0xe2331e,shorts:0x1a1028,hair,glasses,band}:{skin,shirt,shorts:sport==='volleyball'?0x1b2a55:0xffffff,hair,glasses,band};
 }
 
+// Match scale: 2 screen pixels per art pixel keeps the court large around the athletes, as in Kings of the Beach.
+export const ATHLETE_PX=2;
 const W=34,H=44,OY=5,PX=3,INK=0x1a1028;
 // The design's renderer: thick limbs on a pixel grid, three tones per colour, a 1-pixel ink outline, effects behind.
 function paint(p:Pose,l:Look,racket:boolean){
@@ -136,7 +138,7 @@ export function athleteSheet(sport:string,role:AthleteRole,index:number,px=PX){
 // Phaser textures, one per athlete; frames are named `${pose}-${frame}`.
 export function bakeAthletes(scene:Phaser.Scene,sport:string,roles:AthleteRole[],px=PX){
  return roles.map((role,index)=>{
-  const key=`athletes-${sport}-${index}-${px}`;if(scene.textures.exists(key))return key;
+  const key=`athletes-${sport}-${index}-${px}-${role.referee?'ref':role.keeper?'gk':role.team}`;if(scene.textures.exists(key))return key;
   const {canvas,names}=athleteSheet(sport,role,index,px);
   scene.textures.addCanvas(key,canvas);const texture=scene.textures.get(key);texture.setFilter(1);// 1 = Phaser.Textures.FilterMode.NEAREST
   for(const [row,name] of names.entries())for(let i=0;i<ATHLETE_FRAMES;i++)texture.add(`${name}-${i}`,0,i*ATHLETE_SIZE,row*ATHLETE_SIZE,ATHLETE_SIZE,ATHLETE_SIZE);

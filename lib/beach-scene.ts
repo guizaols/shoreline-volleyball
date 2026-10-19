@@ -6,7 +6,7 @@ import {stepSoccer,type Soccer} from './soccer';
 import {aimDrift,powerRisk} from './arcade';
 import {matchAudio} from './match-audio';
 import {timingMeter} from './timing-meter';
-import {bakeAthletes,addCrowd,addReferee,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
+import {bakeAthletes,addCrowd,addReferee,ATHLETE_PX,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
 
 export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:()=>BeachInput,level:()=>string,changed:()=>void,ready:()=>void,failed:(message:string)=>void){
  const sound=matchAudio(parent.closest<HTMLElement>('.game-shell')||parent);
@@ -41,7 +41,7 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
      const edge=x===35?155:845;ground.lineStyle(2,0xfff1d5,.7);ground.strokePoints([project(x,115),project(edge,115),project(edge,335),project(x,335)],false);
     }
    }
-   const athleteKeys=bakeAthletes(this,getGame().sport,getGame().players.map((p,i)=>({team:p.team,keeper:getGame().sport==='soccer'&&i%3===0})));
+   const athleteKeys=bakeAthletes(this,getGame().sport,getGame().players.map((p,i)=>({team:p.team,keeper:getGame().sport==='soccer'&&i%3===0})),ATHLETE_PX);
    this.crowd=addCrowd(this,project);if(getGame().sport!=='soccer')addReferee(this,getGame().sport,project);
    for(let i=0;i<getGame().players.length;i++){
     this.shadows.push(this.add.ellipse(0,0,36,12,0x593e24,.23));this.bodies.push(this.add.sprite(0,0,athleteKeys[i],'idle-0').setOrigin(.5,ATHLETE_FEET/ATHLETE_SIZE).setFlipX(getGame().players[i].team===1));
@@ -110,7 +110,7 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
    const score=g.score.join(',')+(g.sport==='soccer'?'':':'+g.points.join(','));
    this.cheer=Math.max(0,this.cheer-delta/1000);this.crowd(this.cheer>0,g.clock);
    if(score!==this.lastScore){if(this.lastScore){sound.play('point');this.cheer=1.4;if(g.sport==='soccer'&&!reduced)this.cameras.main.shake(140,.004);}this.lastScore=score;}
-   const hitter=g.players[g.lastHit],above=hitter&&project(hitter.x,hitter.z,hitter.y-150);
+   const hitter=g.players[g.lastHit],above=hitter&&project(hitter.x,hitter.z,hitter.y-112);
    this.meter(above?.x??0,above?.y??0,g.timing!==null&&g.feedbackTime>.8&&hitter?.team===0?g.timing:null);
    if(g.status==='playing'&&(g.specialShot||Math.hypot(b.vx,b.vz)>430)&&!reduced)this.trailPoints.unshift({x:pos.x,y:pos.y});else this.trailPoints=[];
    this.trailPoints.length=Math.min(7,this.trailPoints.length);

@@ -1,4 +1,4 @@
-import {bakeAthletes,addCrowd,addReferee,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
+import {bakeAthletes,addCrowd,addReferee,ATHLETE_PX,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
 import {drills} from './training';
 import * as Phaser from 'phaser';
 import {matchAudio} from './match-audio';
@@ -53,7 +53,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       for(let h=0;h<=176;h+=14){const a=project(500,25,450-h),b=project(500,425,450-h);net.lineBetween(a.x,a.y,b.x,b.y);}
       net.lineStyle(5,0xfff3d5);net.lineBetween(topBack.x,topBack.y,topFront.x,topFront.y);
       [25,425].forEach((z,i)=>{const a=project(500,z),b=project(500,z,260);const post=this.add.graphics().setDepth(i?600:25);post.lineStyle(7,0x283f4e);post.lineBetween(a.x,a.y,b.x,b.y);post.lineStyle(2,0x829da0);post.lineBetween(a.x-2,a.y,b.x-2,b.y);});
-      const athleteKeys=bakeAthletes(this,'volleyball',[0,0,1,1].map(team=>({team})));
+      const athleteKeys=bakeAthletes(this,'volleyball',[0,0,1,1].map(team=>({team})),ATHLETE_PX);
       this.crowd=addCrowd(this,project);addReferee(this,'volleyball',project);
       for(let i=0;i<4;i++){
         this.shadows.push(this.add.ellipse(0,0,35,11,0x593e24,.24).setDepth(1));
@@ -151,7 +151,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       }
       this.cheer=Math.max(0,this.cheer-delta/1000);this.crowd(this.cheer>0,g.clock);
       const score=g.score.join(',');if(score!==this.lastScore){if(this.lastScore&&score!=='0,0'){sound.play('point');this.cheer=1.4;}this.lastScore=score;}
-      const hitter=g.players[g.lastHit],above=hitter&&project(hitter.x,hitter.z,hitter.y-150);
+      const hitter=g.players[g.lastHit],above=hitter&&project(hitter.x,hitter.z,hitter.y-112);
       this.meter(above?.x??0,above?.y??0,g.timing!==null&&g.feedbackTime>1.1&&hitter?.team===0?g.timing:null);
       this.lastFlash=g.hitFlash;
       this.impact.setPosition(this.impactPosition.x,this.impactPosition.y).setVisible(g.hitFlash>0&&!reduced).setAlpha(g.hitFlash/.16).setScale(1+(1-g.hitFlash/.16));
