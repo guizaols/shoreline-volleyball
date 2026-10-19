@@ -50,7 +50,9 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
    this.aim=this.add.ellipse(0,0,32,16).setStrokeStyle(2,0xffe385).setDepth(2);
    this.landing=this.add.ellipse(0,0,58,22,0x56d9d2,.13).setStrokeStyle(2,0x7fe5da).setDepth(2);
    this.ballShadow=this.add.ellipse(0,0,17,7,0x513c24,.3).setDepth(2);
-   this.ball=this.add.container(0,0,[this.add.circle(0,0,10,getGame().sport==='tennis'?0xffec68:0xfff5d9).setStrokeStyle(2,0x153d4b),this.add.arc(0,0,7,-65,100,false,getGame().sport==='tennis'?0xfff5d9:0x219ca4),this.add.arc(0,0,6,140,270,false,0xe7b743)]);
+   // Unlocked ball skins (lib/beach-progress.ts) recolour the ball; the classic one keeps each sport's colours.
+   const skin=({gold:[0xffd23f,0xb8860b,0xfff1a8],fire:[0xff6d00,0xffdb00,0xdb2400],champion:[0xffffff,0x8a2be2,0xffd23f]} as Record<string,number[]>)[getGame().ballSkin];
+   this.ball=this.add.container(0,0,[this.add.circle(0,0,10,skin?.[0]??(getGame().sport==='tennis'?0xffec68:0xfff5d9)).setStrokeStyle(2,0x153d4b),this.add.arc(0,0,7,-65,100,false,skin?.[1]??(getGame().sport==='tennis'?0xfff5d9:0x219ca4)),this.add.arc(0,0,6,140,270,false,skin?.[2]??0xe7b743)]);
    for(let i=0;i<7;i++)this.trail.push(this.add.circle(0,0,7-i*.7,0xffdc69).setVisible(false));
    this.impact=this.add.circle(0,0,12).setStrokeStyle(2,0xffffd9).setDepth(800);this.meter=timingMeter(this);
    this.input.on('pointerdown',(pointer:Phaser.Input.Pointer)=>{const sx=pointer.x-95,sy=pointer.y-245,x=(sx*.66-sy*.2)/(.77*.66+.2*.035),z=(sy*.77+sx*.035)/(.77*.66+.2*.035);if(x>535&&x<965&&z>25&&z<425){const g=getGame();g.aim=g.sport==='soccer'?{x:965,z:Math.max(165,Math.min(285,z))}:{x,z};}});

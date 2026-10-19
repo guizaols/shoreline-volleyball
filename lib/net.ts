@@ -9,6 +9,7 @@ export function createNetMatch(sport:NetSport,rival?:typeof rivals[number]){
  return {...createGame(),...createArcade(),sport,cpuStyle:rival?.style??'normal',rivalName:rival?.name.toUpperCase()??'PRAIA',rivalHint:rival?.description??'',windEnabled:false,points:[0,0],shotAimed:false,contactSerial:0,autoSwitchSerial:-1,shotConsumed:false,coverUsed:false,contactAge:0,impact:{x:0,z:0,y:0},message:'Chegue à bola e toque Jogar.',restartDelay:0};
 }
 export type NetMatch=ReturnType<typeof createNetMatch>;
+const RIVAL_SPEED:Record<string,number>={attack:1,block:.95,defense:1.1,placement:1};
 export function moveRunner(p:Player,dx:number,dz:number,dt:number,speed=300){
  const length=Math.max(1,Math.hypot(dx,dz));dx/=length;dz/=length;
  const response=p.y<FLOOR?8:!dx&&!dz||p.vx*dx+p.vz*dz<0?30:24;
@@ -76,6 +77,7 @@ export function serveNet(g:NetMatch,quality?:number){
  g.restartDelay=0;g.autoSwitchSerial=-1;g.shotConsumed=false;g.coverUsed=false;g.contactAge=0;g.lastPower=0;g.specialShot=false;g.specialPlayer=-1;g.timing=null;
  p.action=g.sport==='tennis'?'spike':'bump';p.actionTime=.26;g.lastTeam=g.server;g.lastHit=i;g.touches=1;g.status='playing';g.cooldown=.3;
  g.contactSerial++;g.impact={...g.ball};g.hitFlash=.16;g.feedback=quality===undefined?'SAQUE':quality>=.85?'SAQUE · PERFEITO':quality>=.5?'SAQUE · BOM':'SAQUE · FRACO';g.feedbackTime=1.5;
+ if(quality!==undefined&&quality>=.85)g.perfects++;
 }
 export function netPoint(g:NetMatch,winner:number,reason:string){
  g.energy[winner]=Math.min(100,g.energy[winner]+15);g.combo[1-winner]=0;g.comboTime[1-winner]=0;cancelArcadeInput(g);g.specialShot=false;
@@ -113,7 +115,7 @@ export function strikeNet(g:NetMatch,i:number,quality:number,ahead?:number){
  const incomingSpecial=g.specialShot&&g.lastTeam!==p.team;
  const special=over&&!cover?takeSpecial(g,p.team,i):false;
  if(!over||cover){g.specialShot=false;g.specialPlayer=-1;}
- g.lastPower=power;g.timing=timed?timed.offset:null;
+ g.lastPower=power;g.timing=timed?timed.offset:null;if(timed?.perfect)g.perfects++;if(special&&p.team===0)g.specials++;
  if(over){
   const target=cover?{x:775,z:225}:cpu?{...cpu.target}:{...g.aim};
   // Without an explicit direction, timing picks the side: early crosses the court, late goes down the line.
@@ -191,7 +193,8 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
   if(p.y===FLOOR&&(p.jumpBuffer>0||aerial&&g.contactAge>=reaction&&airTime<.3&&Math.hypot(receiveX-p.x,receiveZ-p.z)<70)){p.vy=-430;p.jumpBuffer=0;}
   p.jumpHeld=human&&input.jump;
   // Charging roots the athlete: arriving early is the only way to hit hard.
-  moveRunner(p,dx,dz,dt,human?320*(input.prepare?1-.7*g.charge:1):p.team&&level==='Chill'?235:300);
+  // Rival style also sets how fast the CPU covers the sand: defenders run most, blockers least.
+  moveRunner(p,dx,dz,dt,human?320*(input.prepare?1-.7*g.charge:1):(p.team&&level==='Chill'?235:300)*(p.team?RIVAL_SPEED[g.cpuStyle]??1:1));
   const x=clamp(p.x,p.team?537:40,p.team?960:463),z=clamp(p.z,30,420);
   if(x!==p.x)p.vx=0;if(z!==p.z)p.vz=0;p.x=x;p.z=z;
  }

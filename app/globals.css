@@ -275,3 +275,16 @@
 .game-shell .start-card h2{font-family:var(--font-arcade),monospace;font-size:16px;line-height:1.6;color:#ffdb00;text-shadow:3px 3px 0 #db2400}
 .game-shell .start-card .mini-label{font-family:var(--font-arcade),monospace;font-size:8px;color:#92b6db}
 .game-shell .start-card .primary{font-family:var(--font-arcade),monospace;font-size:11px;border-radius:0;background:#ffdb00;color:#1a1028;border:3px solid #1a1028;box-shadow:4px 4px 0 #db2400}
+/* Home progress (approved design "Tela inicial"): circuit, daily challenge, next unlock and records in the arcade style. */
+.arcade-home{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px;margin:0 0 28px;font-family:var(--font-arcade),monospace}
+.arcade-box{display:flex;flex-direction:column;gap:8px;padding:14px 16px;background:#1a1028;color:#fff;border:4px solid #fff;box-shadow:6px 6px 0 #2449b6;text-decoration:none;min-height:44px}
+a.arcade-box:hover,a.arcade-box:focus-visible{box-shadow:6px 6px 0 #db2400;outline:none}
+.arcade-continue{background:#002449}.arcade-daily{background:#ff6d00;color:#1a1028;box-shadow:6px 6px 0 #1a1028}
+.arcade-tag{font-size:8px;color:#ffdb00}.arcade-daily .arcade-tag{color:#1a1028}
+.arcade-box strong{font-size:11px;line-height:1.6;font-weight:400}
+.arcade-box small{font-family:var(--font-geist-sans),sans-serif;font-size:13px;opacity:.85}
+.arcade-bar{display:block;height:12px;background:#242449;border:2px solid #fff}.arcade-bar i{display:block;height:100%;background:#ffdb00}
+.arcade-records{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0}
+.arcade-records div{background:#1a1028;border:3px solid #4949b6;padding:10px;color:#fff}
+.arcade-records dt{font-size:7px;color:#92b6db}.arcade-records dd{margin:6px 0 0;font-size:16px;color:#ffdb00}
+.game-shell .start-card .progress-note{font-family:var(--font-arcade),monospace;font-size:9px;line-height:1.7;color:#ffdb00}

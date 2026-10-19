@@ -1,11 +1,13 @@
 import {createArcade,aimDrift,stepArcade,rewardArcade,takeSpecial,shotTiming} from './arcade.ts';
 import {createGame,FLOOR} from './game.ts';
 import {clamp,moveRunner,type BeachInput} from './net.ts';
+import type {rivals} from './rivals.ts';
+const soccerHints:Record<string,string>={attack:'Chutam de longe. Feche o meio.',block:'Goleiro forte. Chute no canto baixo.',defense:'Correm muito. Toque rápido e de primeira.',placement:'Tocam até achar o espaço. Dê o bote cedo.'};
 
-export function createSoccer(){
+export function createSoccer(rival?:typeof rivals[number]){
  const base=createGame().players[0];
  const players=Array.from({length:6},(_,i)=>({...base,tackleTime:0,tackleReaction:0,tackleCooldown:0,touchDelay:0,keeperTargetZ:225,facingX:i<3?1:-1,facingZ:0,team:i<3?0:1,x:[85,300,390,915,700,610][i],z:[225,145,310,225,310,145][i]}));
- return {...createArcade(),sport:'soccer' as const,players,ball:{x:318,z:145,y:437,vx:0,vz:0,vy:0},owner:1,active:1,autoSwitch:true,autoSwitchSerial:-1,score:[0,0],status:'ready',resumeStatus:'playing',clock:0,cooldown:0,cpuWait:0,lastHit:1,contactSerial:0,impact:{x:0,z:0,y:0},hitFlash:0,feedback:'',feedbackTime:0,contactHint:'',aim:{x:965,z:225},aimPreset:1,attackStyle:'power',message:'Passe, avance e chute. Primeiro a cinco gols.',rally:0,touches:0,restartDelay:0,pendingKick:'' as ''|'pass'|'shot',kickDelay:0,shotAge:1,kickPower:0,kickAimZ:225,kickTarget:-1,passReceiver:-1,firstTimeEta:0};
+ return {...createArcade(),sport:'soccer' as const,cpuStyle:rival?.style??'normal',rivalName:rival?.name.toUpperCase()??'PRAIA',rivalHint:rival?soccerHints[rival.style]??'':'',players,ball:{x:318,z:145,y:437,vx:0,vz:0,vy:0},owner:1,active:1,autoSwitch:true,autoSwitchSerial:-1,score:[0,0],status:'ready',resumeStatus:'playing',clock:0,cooldown:0,cpuWait:0,lastHit:1,contactSerial:0,impact:{x:0,z:0,y:0},hitFlash:0,feedback:'',feedbackTime:0,contactHint:'',aim:{x:965,z:225},aimPreset:1,attackStyle:'power',message:'Passe, avance e chute. Primeiro a cinco gols.',rally:0,touches:0,restartDelay:0,pendingKick:'' as ''|'pass'|'shot',kickDelay:0,shotAge:1,kickPower:0,kickAimZ:225,kickTarget:-1,passReceiver:-1,firstTimeEta:0};
 }
 export type Soccer=ReturnType<typeof createSoccer>;
 export function startSoccer(g:Soccer){if(g.status==='ready'){g.status='playing';g.restartDelay=0;}}
@@ -59,7 +61,7 @@ function strikePass(g:Soccer,input:BeachInput){
 function strikeShot(g:Soccer){
  if(g.status!=='playing'||g.owner<0)return;
  const i=g.owner,p=g.players[i],target=p.team?35:965,style=p.team?'power':g.attackStyle;
- const special=takeSpecial(g,p.team,i);
+ const special=takeSpecial(g,p.team,i);if(special&&p.team===0)g.specials++;
  const targetZ=g.kickAimZ;
  const dx=target-g.ball.x,dz=targetZ-g.ball.z,d=Math.hypot(dx,dz)||1,power=.35+g.kickPower*.65;g.lastPower=g.kickPower;
  g.ball.vx=dx/d*(special?1100:500+power*450);g.ball.vz=dz/d*(special?1100:500+power*450);g.ball.vy=style==='roll'?-300:-80-power*35;
@@ -84,7 +86,7 @@ function firstTimeShot(g:Soccer,i:number,timing:ReturnType<typeof shotTiming>){
  g.owner=i;g.kickPower=timing.perfect?1:.45;
  if(timing.early)g.kickAimZ+=(g.kickAimZ>=225?1:-1)*70;
  if(timing.late)g.kickAimZ=225+(g.kickAimZ-225)*.3;
- strikeShot(g);g.shotWindow=0;g.timing=timing.offset;
+ strikeShot(g);g.shotWindow=0;g.timing=timing.offset;if(timing.perfect)g.perfects++;
  if(g.feedback!=='CANHÃO!')g.feedback=`DE PRIMEIRA · ${timing.perfect?'PERFEITO':timing.early?'CEDO · ABRIU':'TARDE · NO GOLEIRO'}`;
 }
 function restart(g:Soccer,team:number,message:string,x?:number,z?:number){
@@ -131,7 +133,8 @@ export function stepSoccer(g:Soccer,dt:number,input:BeachInput,level:string){
   if(own&&g.pendingKick){dx*=.25;dz*=.25;}
   if(own)p.preparation=human?g.charge:Math.min(.85,g.cpuWait*.5);else p.preparation=0;
   if(human&&input.jump&&!p.jumpHeld&&p.y===FLOOR&&p.action!=='dive')p.vy=-390;p.jumpHeld=human&&input.jump;
-  const speedLimit=human?295:keeper?155:level==='Chill'&&p.team?205:270;
+  // Rival style: defenders run more, a blocking side has a quicker keeper.
+  const speedLimit=human?295:keeper?(p.team&&g.cpuStyle==='block'?195:155):(level==='Chill'&&p.team?205:270)*(p.team&&g.cpuStyle==='defense'?1.1:1);
   if(p.tackleTime>0){dx=p.diveX;dz=p.diveZ;}
   moveRunner(p,dx,dz,dt,p.tackleTime>0?470:p.action==='dive'&&p.actionTime>0?speedLimit*.45:speedLimit);
   const speed=Math.hypot(p.vx,p.vz);if(speed>35){p.facingX=p.vx/speed;p.facingZ=p.vz/speed;}
@@ -158,7 +161,7 @@ export function stepSoccer(g:Soccer,dt:number,input:BeachInput,level:string){
   else{
    g.cpuWait+=dt;g.charge=0;
    const pressure=g.players.some(q=>q.team!==p.team&&Math.hypot(q.x-p.x,q.z-p.z)<65);
-   if(g.cpuWait>.8||pressure&&g.cpuWait>.3){if(g.owner%3===0)passSoccer(g);else if((p.team?p.x<470:p.x>530)||g.cpuWait>2){shootSoccer(g);}else if(pressure||g.cpuWait>1.2){passSoccer(g);}}
+   if(g.cpuWait>.8||pressure&&g.cpuWait>.3){if(g.owner%3===0)passSoccer(g);else if((p.team?p.x<(g.cpuStyle==='attack'?560:470):p.x>530)||g.cpuWait>2){shootSoccer(g);}else if(pressure||g.cpuWait>1.2){passSoccer(g);}}
   }
   if(g.owner>=0&&!g.cooldown){
    const owner=g.owner,carrier=g.players[owner];

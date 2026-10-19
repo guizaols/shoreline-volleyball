@@ -26,7 +26,8 @@ Fase 1 fechada em 2026-10-19: testes, testes online, tipos, lint e build passam;
 - Lista completa dos 16 movimentos, cada um com risco: vôlei (manchete, levantamento, cortada, peixinho), futevôlei (peito, cabeçada, shark attack, bicicleta), beach tennis (voleio, lob, smash, mergulho), futebol (chapéu, voleio de primeira, carrinho, defesa voadora).
 
 ## Fase 4 — Motivo para voltar
-- [ ] Recordes e desbloqueios salvos nos 3 esportes novos, no padrão de `lib/gol.ts`.
-- [ ] Duplas e trios com atributos (`lib/rivals.ts`).
-- [ ] Circuito com treino que sobe atributo e desafio do dia na tela inicial (`app/page.tsx`).
+- [x] Recordes (vitórias, perfeitos, especiais, títulos) e bolas desbloqueáveis (dourada: 20 perfeitos; fogo: 5 especiais; campeã: circuito) salvos no aparelho para futevôlei, beach tennis e futebol. `lib/beach-progress.ts`, `app/BeachMatch.tsx`.
+- [x] Rivais com atributos nos 3 esportes: o estilo muda golpes, saque, velocidade da CPU; no futebol também goleiro e distância de chute, com dica própria. Escolher a própria dupla/trio com atributos ainda não existe.
+- [x] Circuito de praia (5 etapas, rivais cada vez mais fortes, alternando os 3 esportes) e desafio do dia (mesmo esporte, rival e meta de perfeitos para todos, com sequência de dias) na tela inicial. `app/HomeProgress.tsx`.
+- [ ] Minigames de treino que sobem atributo (ex.: alvos na areia) — não feito.
 - [ ] Online (previsão do próprio atleta) fica para depois.
