@@ -9,6 +9,8 @@ export function createNetMatch(sport:NetSport,rival?:typeof rivals[number]){
  return {...createGame(),...createArcade(),sport,cpuStyle:rival?.style??'normal',rivalName:rival?.name.toUpperCase()??'PRAIA',rivalHint:rival?.description??'',windEnabled:false,points:[0,0],shotAimed:false,contactSerial:0,autoSwitchSerial:-1,shotConsumed:false,coverUsed:false,contactAge:0,impact:{x:0,z:0,y:0},message:'Chegue à bola e toque Jogar.',restartDelay:0};
 }
 export type NetMatch=ReturnType<typeof createNetMatch>;
+// Short sessions (approved design: about 3 minutes a match): futevôlei sets go to 7, win by 2.
+export const FOOTVOLLEY_POINTS=7;
 const RIVAL_SPEED:Record<string,number>={attack:1,block:.95,defense:1.1,placement:1};
 export function moveRunner(p:Player,dx:number,dz:number,dt:number,speed=300){
  const length=Math.max(1,Math.hypot(dx,dz));dx/=length;dz/=length;
@@ -90,7 +92,7 @@ export function netPoint(g:NetMatch,winner:number,reason:string){
   g.status=g.score[winner]>=3?'over':'ready';
  }else{
   g.server=winner;g.score[winner]++;
-  g.status=g.score[winner]>=11&&Math.abs(g.score[0]-g.score[1])>=2?'over':'ready';
+  g.status=g.score[winner]>=FOOTVOLLEY_POINTS&&Math.abs(g.score[0]-g.score[1])>=2?'over':'ready';
  }
  g.message=reason;g.restartDelay=g.status==='ready'?1.6:0;
  for(const p of g.players){p.windup=0;p.preparation=0;p.jumpBuffer=0;}
@@ -180,7 +182,7 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
   const prediction=Math.min(reaction*.4,guide.time*.3);
   // AI defenders misread attacks, more for strong, perfect or special shots and on easier levels: a fixed per-rally
   // offset (no dice roll), so rallies end instead of running forever (playtest 2026-10-19).
-  const attack=human||g.lastTeam<0||g.lastTeam===p.team?0:g.rally===0?.1+(g.lastPerfect?.15:0):Math.min(1.4,.25+g.lastPower*.8+(g.lastPerfect?.5:0)+(g.specialShot?.8:0));
+  const attack=human||g.lastTeam<0||g.lastTeam===p.team?0:g.rally===0?.1+(g.lastPerfect?.15:0):Math.min(1.4,(g.sport==='tennis'?.4:.25)+g.lastPower*.8+(g.lastPerfect?.5:0)+(g.specialShot?.8:0));
   // Slow balls (lobs, floaty sets) are easy to read whatever the power behind them.
   const misread=attack*clamp((Math.hypot(g.ball.vx,g.ball.vz)-200)/350,.15,1.2)*(level==='Chill'?90:level==='Pro'?42:65);
   const receiveX=clamp((aerial?airX+(p.team?1:-1)*(g.sport==='tennis'?56:12):guide.x)-g.ball.vx*prediction+Math.sin(g.contactSerial*12.9898+i*78.2)*misread,p.team?550:50,p.team?950:450);
@@ -221,7 +223,8 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
    const threat=i===g.active||g.lastTeam===p.team?0:Math.min(1,clamp((Math.hypot(old.vx,old.vy,old.vz)-380)/480,0,1)*.75+(g.lastPerfect?.35:0)+(g.specialShot?.6:0))*(g.rally===0?.3:1);
    const reach=(i===g.active?(level==='Chill'?48:level==='Pro'?28:38):35*(1-threat*(level==='Chill'?.9:level==='Pro'?.45:.65)))+(g.sport==='tennis'&&p.team===0&&g.specialArmed&&g.energy[0]>=100?18:0);
    // Beach tennis dive: the human can stretch 50 further by diving, but stays down on the sand afterwards.
-   const dive=g.sport==='tennis'&&i===g.active&&p.y===FLOOR&&p.action!=='dive'&&distance>=reach&&distance<reach+50;
+   // Only once the ball is passing by (closest approach inside this step), so a ball still coming into reach is a normal stroke.
+   const dive=g.sport==='tennis'&&i===g.active&&p.y===FLOOR&&p.action!=='dive'&&t<1&&distance>=reach&&distance<reach+50;
    if((distance<reach||dive)&&(contact<0||i===g.active||contact!==g.active&&distance<closest)&&(p.team?old.x+dx*t>=500:old.x+dx*t<=500)){contact=i;closest=distance;contactTime=t;contactDive=dive;}
   }
   if(contact>=0){

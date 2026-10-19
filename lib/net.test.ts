@@ -18,7 +18,7 @@ const rally=createNetMatch('footvolley');rally.active=-1;serveNet(rally);
 let hits=0,points=0;
 for(let i=0;i<120*240&&rally.status!=='over';i++){if(rally.status==='ready'&&!rally.restartDelay)net.beginServe(rally);const before=rally.score[0]+rally.score[1];stepNet(rally,1/120,{x:0,z:0,prepare:false,jump:false},'Club');hits=Math.max(hits,rally.rally);if(rally.score[0]+rally.score[1]>before)points++;}
 assert.ok(hits>=6,`CPU must sustain combinations on both sides, got ${hits} contacts`);
-assert.ok(points>=8,`Points must end: only ${points} points in four minutes of CPU play`);
+assert.ok(rally.status==='over'||points>=8,`Points must end: only ${points} points in four minutes of CPU play`);
 assert.ok(rally.players.every(p=>Number.isFinite(p.x)));
 console.log('Passed: footvolley combinations, faults and simulated rally.');
 
@@ -250,7 +250,7 @@ console.log('Passed: timed human serve, late fallback and instant CPU serve.');
  assert.equal(shark(.2).score[1],1,'A mistimed shark attack goes into the net');
  const dive=createNetMatch('tennis');dive.status='playing';dive.autoSwitch=false;dive.lastTeam=1;dive.lastHit=2;dive.active=0;
  const runner=dive.players[0];runner.x=200;runner.z=225;
- const reachPoint=netContact(dive,0);dive.ball={x:reachPoint.x+40,z:reachPoint.z+40,y:reachPoint.y,vx:-60,vz:0,vy:30};dive.shotWindow=.3;dive.cooldown=0;dive.contactAge=1;
+ const reachPoint=netContact(dive,0);dive.ball={x:reachPoint.x+45,z:reachPoint.z+20,y:reachPoint.y,vx:0,vz:200,vy:30};dive.shotWindow=.3;dive.cooldown=0;dive.contactAge=1;
  stepNet(dive,1/120,{x:0,z:0,prepare:false,jump:false},'Club');
  assert.equal(runner.action,'dive','Out of reach, the tennis player dives');assert.match(dive.feedback,/MERGULHO/);
  for(let i=0;i<20;i++)stepNet(dive,1/120,{x:1,z:0,prepare:false,jump:false},'Club');
