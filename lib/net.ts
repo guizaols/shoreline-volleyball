@@ -73,7 +73,7 @@ export function serveNet(g:NetMatch,quality?:number){
  // A mistimed serve drifts to the safe center and floats; a perfect one is faster.
  target.x+=(775-target.x)*(1-q)*.32*(g.server?0:1);target.z+=(225-target.z)*(1-q)*.32*(g.server?0:1);
  launch(g,target,(g.sport==='tennis'?1.35:1.75)/(quality===undefined?1:.75+q*.35),g.sport==='tennis'?298:248);
- g.restartDelay=0;g.autoSwitchSerial=-1;g.shotConsumed=false;g.coverUsed=false;g.contactAge=0;g.lastPower=0;g.specialShot=false;g.specialPlayer=-1;
+ g.restartDelay=0;g.autoSwitchSerial=-1;g.shotConsumed=false;g.coverUsed=false;g.contactAge=0;g.lastPower=0;g.specialShot=false;g.specialPlayer=-1;g.timing=null;
  p.action=g.sport==='tennis'?'spike':'bump';p.actionTime=.26;g.lastTeam=g.server;g.lastHit=i;g.touches=1;g.status='playing';g.cooldown=.3;
  g.contactSerial++;g.impact={...g.ball};g.hitFlash=.16;g.feedback=quality===undefined?'SAQUE':quality>=.85?'SAQUE · PERFEITO':quality>=.5?'SAQUE · BOM':'SAQUE · FRACO';g.feedbackTime=1.5;
 }
@@ -110,7 +110,7 @@ export function strikeNet(g:NetMatch,i:number,quality:number,ahead?:number){
  const incomingSpecial=g.specialShot&&g.lastTeam!==p.team;
  const special=over&&!cover?takeSpecial(g,p.team,i):false;
  if(!over||cover){g.specialShot=false;g.specialPlayer=-1;}
- g.lastPower=power;
+ g.lastPower=power;g.timing=timed?timed.offset:null;
  if(over){
   const target=cover?{x:775,z:225}:cpu?{...cpu.target}:{...g.aim};
   // Without an explicit direction, timing picks the side: early crosses the court, late goes down the line.

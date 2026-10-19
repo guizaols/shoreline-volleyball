@@ -10,7 +10,7 @@ export function createSoccer(){
 export type Soccer=ReturnType<typeof createSoccer>;
 export function startSoccer(g:Soccer){if(g.status==='ready'){g.status='playing';g.restartDelay=0;}}
 function impact(g:Soccer,i:number,message:string){
- g.contactSerial++;g.impact={...g.ball};g.hitFlash=.16;g.lastHit=i;g.feedback=message;g.feedbackTime=1.5;g.contactHint='';
+ g.contactSerial++;g.impact={...g.ball};g.hitFlash=.16;g.lastHit=i;g.feedback=message;g.feedbackTime=1.5;g.contactHint='';g.timing=null;
 }
 function possess(g:Soccer,i:number){
  g.owner=i;g.lastHit=i;g.charge=0;g.lastPower=0;g.cpuWait=0;g.cooldown=.25;g.pendingKick='';g.kickTarget=-1;g.passReceiver=-1;
@@ -75,7 +75,7 @@ function firstTimeShot(g:Soccer,i:number,timing:ReturnType<typeof shotTiming>){
  g.owner=i;g.kickPower=timing.perfect?1:.45;
  if(timing.early)g.kickAimZ+=(g.kickAimZ>=225?1:-1)*70;
  if(timing.late)g.kickAimZ=225+(g.kickAimZ-225)*.3;
- strikeShot(g);g.shotWindow=0;
+ strikeShot(g);g.shotWindow=0;g.timing=timing.offset;
  if(g.feedback!=='CANHÃO!')g.feedback=`DE PRIMEIRA · ${timing.perfect?'PERFEITO':timing.early?'CEDO · ABRIU':'TARDE · NO GOLEIRO'}`;
 }
 function restart(g:Soccer,team:number,message:string,x?:number,z?:number){

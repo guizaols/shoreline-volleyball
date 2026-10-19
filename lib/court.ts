@@ -2,6 +2,7 @@ import {bakeAthletes,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-r
 import {drills} from './training';
 import * as Phaser from 'phaser';
 import {matchAudio} from './match-audio';
+import {timingMeter} from './timing-meter';
 import { step, aimPresets, DIVE_DURATION, setAim, guidance, landingX, landingZ, FLOOR, type Game, type Player } from './game';
 
 import {project} from './court-projection';
@@ -12,7 +13,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
   const sound=matchAudio(parent.closest<HTMLElement>('.game-shell')||parent);
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   class Court extends Phaser.Scene {
-    lastFlash=0;
+    lastFlash=0;freeze=0;lastScore='';meter!:ReturnType<typeof timingMeter>;
     impactPosition={x:0,y:0};
     athletes: Phaser.GameObjects.Sprite[] = [];
     shadows: Phaser.GameObjects.Ellipse[] = [];
@@ -62,7 +63,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       this.arrow=this.add.triangle(0,0,0,0,10,0,5,7,0xffdb6e).setDepth(1000);
       this.ballShadow=this.add.ellipse(0,0,16,6,0x563b26,.3).setDepth(2);
       this.ball=this.add.container(0,0,[this.add.circle(0,0,10,0xfff9df).setStrokeStyle(2,0x153d4b),this.add.arc(0,0,7,-60,110,false,0x3a93b5),this.add.arc(0,0,6,140,280,false,0xe4b841)]).setDepth(900);
-      this.impact=this.add.circle(0,0,12).setStrokeStyle(2,0xffffd3).setDepth(901);
+      this.impact=this.add.circle(0,0,12).setStrokeStyle(2,0xffffd3).setDepth(901);this.meter=timingMeter(this);
       const circle=this.add.ellipse(0,0,34,17).setStrokeStyle(2,0xffee75);
       const targetLabel=this.add.text(0,-24,'',{fontSize:'13px',color:'#fff075',backgroundColor:'#193e46',padding:{x:5,y:3}}).setOrigin(.5);
       const cross=this.add.graphics().lineStyle(2,0xffee75);cross.lineBetween(-10,0,10,0);cross.lineBetween(0,-8,0,8);
@@ -90,7 +91,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
     update(_time:number,delta:number) {
       if(getGame().online)this.accumulator=0;
       if(!this.ball)return;
-      this.accumulator+=Math.min(delta/1000,.1);
+      const frozen=this.freeze>0;this.freeze=Math.max(0,this.freeze-delta/1000);if(!frozen)this.accumulator+=Math.min(delta/1000,.1);
       while(!getGame().online&&this.accumulator>=1/120){this.previous=this.snapshot();step(getGame(),1/120,Math.max(-1,Math.min(1,getStick().x+(keys.has('right')?1:0)-(keys.has('left')?1:0))),keys.has('jump')||keys.has('touch-jump'),getLevel(),(keys.has('attack')||keys.has('touch-attack')||keys.has('1')||keys.has('2')||keys.has('3')),keys.has('dive'),Math.max(-1,Math.min(1,getStick().z+(keys.has('down')?1:0)-(keys.has('up')?1:0))),keys.has('block'),keys.has('touch-attack')||keys.has('1')||keys.has('2')||keys.has('3')||keys.has('prepare')||keys.has('touch-prepare')||keys.has('mouse-attack'));this.accumulator-=1/120;}
       const g=getGame(),alpha=g.online?Math.min(1,delta/35):this.accumulator*120, lerp=(a:number,b:number)=>a+(b-a)*alpha;
       if(g.online){for(const [i,p] of this.previous.players.entries()){const next=g.players[i];if(Math.hypot(p.x-next.x,p.z-next.z)>180)Object.assign(p,next);else{p.x=lerp(p.x,next.x);p.y=lerp(p.y,next.y);p.z=lerp(p.z,next.z);}}const b=this.previous.ball;if(Math.hypot(b.x-g.ball.x,b.y-g.ball.y)>200)Object.assign(b,g.ball);else{b.x=lerp(b.x,g.ball.x);b.y=lerp(b.y,g.ball.y);b.z=lerp(b.z,g.ball.z);}}
@@ -142,7 +143,15 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       const bp=project(x,z,y),shadow=project(x,z);
       this.ball.setPosition(bp.x,bp.y).setDepth(z+30);if(g.status==='playing'&&!reduced)this.ball.rotation+=delta*(g.shot==='FLOAT SERVE'?.0002:.004);
       this.ballShadow.setPosition(shadow.x,shadow.y).setAlpha(Math.max(.08,.3-(FLOOR-y)*.0005));
-      if(g.hitFlash>this.lastFlash){this.impactPosition={x:bp.x,y:bp.y};sound.play(g.shot==='ATTACK');}
+      if(g.hitFlash>this.lastFlash){
+        this.impactPosition={x:bp.x,y:bp.y};const perfect=/PERFEITO/.test(g.feedback),attack=g.shot==='ATTACK';
+        sound.play(attack?'spike':'hand',perfect);
+        // Hitstop scales with the contact, as in the beach sports.
+        if(!reduced){this.freeze=perfect?.04:attack?.028:/BOM/.test(g.feedback)?.016:0;if(perfect)this.cameras.main.shake(70,.0018);}
+      }
+      const score=g.score.join(',');if(score!==this.lastScore){if(this.lastScore&&score!=='0,0')sound.play('point');this.lastScore=score;}
+      const hitter=g.players[g.lastHit],above=hitter&&project(hitter.x,hitter.z,hitter.y-150);
+      this.meter(above?.x??0,above?.y??0,g.timing!==null&&g.feedbackTime>1.1&&hitter?.team===0?g.timing:null);
       this.lastFlash=g.hitFlash;
       this.impact.setPosition(this.impactPosition.x,this.impactPosition.y).setVisible(g.hitFlash>0&&!reduced).setAlpha(g.hitFlash/.16).setScale(1+(1-g.hitFlash/.16));
       const view=`${g.status}:${g.rally}:${g.active}:${g.score.join(',')}:${g.shot}:${g.feedbackTime>0}:${Math.floor(g.tossTime*20)}:${Math.round(g.wind)}:${Math.floor((g.players[g.active]?.preparation||0)*20)}`;if(view!==this.lastView){this.lastView=view;changed();}

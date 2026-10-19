@@ -15,9 +15,9 @@ Regra: os 4 esportes (vôlei, futevôlei, beach tennis, futebol 3×3). Cada fase
 Fase 1 fechada em 2026-10-19: testes, testes online, tipos, lint e build passam; páginas dos 4 esportes respondem 200 no servidor local. Falta jogar no celular e calibrar as faixas de tempo.
 
 ## Fase 2 — Impacto
-- [ ] Pausa de 15 a 40 ms e tremor leve em todo contato bom, nos 4 esportes. `lib/beach-scene.ts`, `lib/court.ts`. Respeitar `prefers-reduced-motion`.
-- [ ] Um som por tipo de contato (pé, peito, cabeça, mão, raquete, chute), de ponto e de torcida. `lib/match-audio.ts`.
-- [ ] Barra de tempo do toque na tela (cedo / na hora / tarde).
+- [x] Pausa no impacto nos 4 esportes: 16 ms em contato BOM, 28 ms em golpe forte/chute, 40 ms em PERFEITO, 55 ms em especial; tremor leve em PERFEITO, especial e gol. Desligado com `prefers-reduced-motion`. `lib/beach-scene.ts`, `lib/court.ts`.
+- [x] Um som por tipo de contato (pé, peito, cabeça, mão, cortada, raquete, chute, especial), um "ding" extra no PERFEITO, e som de ponto com torcida curta. Tudo sintetizado, sem arquivo. `lib/match-audio.ts`.
+- [x] Barra de tempo sobre o atleta logo após o toque: mostra onde o contato caiu (CEDO / PERFEITO / TARDE). `lib/timing-meter.ts`.
 
 ## Fase 3 — Movimentos e desenho
 - [ ] Protótipo do novo atleta (maior, contorno, 3 tons) só no futevôlei. `lib/athlete-render.ts`.

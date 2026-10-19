@@ -5,6 +5,7 @@ import {netGuide,stepNet,type NetMatch,type BeachInput} from './net';
 import {stepSoccer,type Soccer} from './soccer';
 import {aimDrift,powerRisk} from './arcade';
 import {matchAudio} from './match-audio';
+import {timingMeter} from './timing-meter';
 import {bakeAthletes,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
 
 export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:()=>BeachInput,level:()=>string,changed:()=>void,ready:()=>void,failed:(message:string)=>void){
@@ -14,7 +15,7 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
   bodies:Phaser.GameObjects.Sprite[]=[];shadows:Phaser.GameObjects.Ellipse[]=[];labels:Phaser.GameObjects.Text[]=[];
   ball!:Phaser.GameObjects.Container;ballShadow!:Phaser.GameObjects.Ellipse;ring!:Phaser.GameObjects.Ellipse;aim!:Phaser.GameObjects.Ellipse;landing!:Phaser.GameObjects.Ellipse;impact!:Phaser.GameObjects.Arc;
   trail:Phaser.GameObjects.Arc[]=[];trailPoints:{x:number;y:number}[]=[];freeze=0;
-  accumulator=0;lastContact=0;lastView='';previous!:{ball:NetMatch['ball'];players:Player[]};
+  accumulator=0;lastContact=0;lastScore='';lastView='';meter!:ReturnType<typeof timingMeter>;previous!:{ball:NetMatch['ball'];players:Player[]};
   preload(){this.load.image('beach','/art/beach.png');this.load.on('loaderror',()=>failed('Não foi possível carregar a praia. Recarregue a página.'));}
   create(){
    this.add.image(0,0,'beach').setOrigin(0).setDisplaySize(1000,620);
@@ -51,7 +52,7 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
    this.ballShadow=this.add.ellipse(0,0,17,7,0x513c24,.3).setDepth(2);
    this.ball=this.add.container(0,0,[this.add.circle(0,0,10,getGame().sport==='tennis'?0xffec68:0xfff5d9).setStrokeStyle(2,0x153d4b),this.add.arc(0,0,7,-65,100,false,getGame().sport==='tennis'?0xfff5d9:0x219ca4),this.add.arc(0,0,6,140,270,false,0xe7b743)]);
    for(let i=0;i<7;i++)this.trail.push(this.add.circle(0,0,7-i*.7,0xffdc69).setVisible(false));
-   this.impact=this.add.circle(0,0,12).setStrokeStyle(2,0xffffd9).setDepth(800);
+   this.impact=this.add.circle(0,0,12).setStrokeStyle(2,0xffffd9).setDepth(800);this.meter=timingMeter(this);
    this.input.on('pointerdown',(pointer:Phaser.Input.Pointer)=>{const sx=pointer.x-95,sy=pointer.y-245,x=(sx*.66-sy*.2)/(.77*.66+.2*.035),z=(sy*.77+sx*.035)/(.77*.66+.2*.035);if(x>535&&x<965&&z>25&&z<425){const g=getGame();g.aim=g.sport==='soccer'?{x:965,z:Math.max(165,Math.min(285,z))}:{x,z};}});
    this.previous=this.snapshot();ready();
   }
@@ -98,9 +99,17 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
    const guide=g.sport==='soccer'?{x:g.ball.x,z:g.ball.z,team:0,time:1}:netGuide(g),landing=project(guide.x,guide.z);this.landing.setPosition(landing.x,landing.y).setVisible(g.status==='playing'&&guide.team===0).setStrokeStyle(guide.time<.32?3:2,guide.time<.32?0xffe385:0x7fe5da);
    const impact=project(g.impact.x,g.impact.z,g.impact.y);this.impact.setPosition(impact.x,impact.y).setVisible(g.hitFlash>0&&!reduced).setAlpha(g.hitFlash/.16).setScale(2-g.hitFlash/.16);
    if(g.contactSerial!==this.lastContact){
-    this.lastContact=g.contactSerial;this.trailPoints=[];sound.play(g.specialShot?'special':g.touches===3||g.lastPower>.75);
-    if(g.specialShot){this.freeze=reduced?0:.055;if(!reduced)this.cameras.main.shake(90,.002);}else if(g.players[g.lastHit]?.team===0&&g.lastPower>.6&&!reduced)this.freeze=.025;
+    this.lastContact=g.contactSerial;this.trailPoints=[];
+    const f=g.feedback,perfect=/PERFEITO/.test(f);
+    const kind=g.specialShot?'special':g.sport==='tennis'?'racket':g.sport==='soccer'?(/^(CHUTE|CANHÃO|DE PRIMEIRA|COBERTURA)/.test(f)?'kick':f.startsWith('DEFESA')?'hand':'foot'):f.startsWith('CABEÇA')?'head':f.startsWith('PEITO')?'chest':'foot';
+    sound.play(kind,perfect);
+    // Hitstop scales with the contact: specials and perfect touches freeze longest, then strong hits, then good ones.
+    if(!reduced){this.freeze=g.specialShot?.055:perfect?.04:g.lastPower>.6||kind==='kick'?.028:/BOM/.test(f)?.016:0;if(g.specialShot||perfect)this.cameras.main.shake(g.specialShot?90:70,g.specialShot?.003:.0018);}
    }
+   const score=g.score.join(',')+(g.sport==='soccer'?'':':'+g.points.join(','));
+   if(score!==this.lastScore){if(this.lastScore){sound.play('point');if(g.sport==='soccer'&&!reduced)this.cameras.main.shake(140,.004);}this.lastScore=score;}
+   const hitter=g.players[g.lastHit],above=hitter&&project(hitter.x,hitter.z,hitter.y-150);
+   this.meter(above?.x??0,above?.y??0,g.timing!==null&&g.feedbackTime>.8&&hitter?.team===0?g.timing:null);
    if(g.status==='playing'&&(g.specialShot||Math.hypot(b.vx,b.vz)>430)&&!reduced)this.trailPoints.unshift({x:pos.x,y:pos.y});else this.trailPoints=[];
    this.trailPoints.length=Math.min(7,this.trailPoints.length);
    this.trail.forEach((dot,i)=>{const point=this.trailPoints[i];dot.setVisible(!!point);if(point)dot.setPosition(point.x,point.y).setDepth(b.z+29).setFillStyle(g.specialShot?0xffde68:0xff9573).setAlpha((1-i/7)*.45);});
