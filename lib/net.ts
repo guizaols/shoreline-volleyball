@@ -75,10 +75,14 @@ export function serveNet(g:NetMatch,quality?:number){
  const target=g.server?cpuServe(g):{...g.aim},q=quality??1;
  // A mistimed serve drifts to the safe center and floats; a perfect one is faster.
  target.x+=(775-target.x)*(1-q)*.32*(g.server?0:1);target.z+=(225-target.z)*(1-q)*.32*(g.server?0:1);
- launch(g,target,(g.sport==='tennis'?1.35:1.75)/(quality===undefined?1:.75+q*.35),g.sport==='tennis'?298:248);
- g.restartDelay=0;g.autoSwitchSerial=-1;g.shotConsumed=false;g.coverUsed=false;g.contactAge=0;g.lastPower=0;g.specialShot=false;g.specialPlayer=-1;g.timing=null;
+ // Virtua Tennis style super serve: with the special armed, a well-timed toss becomes a SAQUE BALA (much faster, hard to read).
+ const bullet=quality!==undefined&&quality>=.5&&g.server===0&&g.specialArmed&&g.energy[0]>=100;
+ // The bullet is struck from the top of a jump, so it can travel flat over the net.
+ if(bullet){g.energy[0]=0;g.specialArmed=false;g.ball.y=230;}
+ launch(g,target,(g.sport==='tennis'?1.35:1.75)/(quality===undefined?1:.75+q*.35)*(bullet?.55:1),g.sport==='tennis'?298:248,bullet?.36:.55);
+ g.restartDelay=0;g.autoSwitchSerial=-1;g.shotConsumed=false;g.coverUsed=false;g.contactAge=0;g.lastPower=0;g.specialShot=bullet;g.specialKind=bullet?'signature':'';g.specialPlayer=bullet?i:-1;g.timing=null;
  p.action=g.sport==='tennis'?'spike':'bump';p.actionTime=.26;g.lastTeam=g.server;g.lastHit=i;g.touches=1;g.status='playing';g.cooldown=.3;
- g.contactSerial++;g.impact={...g.ball};g.hitFlash=.16;g.feedback=quality===undefined?'SAQUE':quality>=.85?'SAQUE · PERFEITO':quality>=.5?'SAQUE · BOM':'SAQUE · FRACO';g.feedbackTime=1.5;
+ g.contactSerial++;g.impact={...g.ball};g.hitFlash=.16;g.feedback=bullet?'SAQUE BALA!':quality===undefined?'SAQUE':quality>=.85?'SAQUE · PERFEITO':quality>=.5?'SAQUE · BOM':'SAQUE · FRACO';g.feedbackTime=1.5;
  if(quality!==undefined&&quality>=.85)g.perfects++;
  g.lastPerfect=g.server===0&&quality!==undefined&&quality>=.85;
 }
@@ -184,7 +188,7 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
   const prediction=Math.min(reaction*.4,guide.time*.3);
   // AI defenders misread attacks, more for strong, perfect or special shots and on easier levels: a fixed per-rally
   // offset (no dice roll), so rallies end instead of running forever (playtest 2026-10-19).
-  const attack=human||g.lastTeam<0||g.lastTeam===p.team?0:g.rally===0?.1+(g.lastPerfect?.15:0):Math.min(1.4,(g.sport==='tennis'?.4:.25)+g.lastPower*.8+(g.lastPerfect?.5:0)+(g.specialShot?.8:0));
+  const attack=human||g.lastTeam<0||g.lastTeam===p.team?0:g.rally===0?.1+(g.lastPerfect?.15:0)+(g.specialShot?.7:0):Math.min(1.4,(g.sport==='tennis'?.4:.25)+g.lastPower*.8+(g.lastPerfect?.5:0)+(g.specialShot?.8:0));
   // Slow balls (lobs, floaty sets) are easy to read whatever the power behind them.
   const misread=attack*clamp((Math.hypot(g.ball.vx,g.ball.vz)-200)/350,.15,1.2)*(level==='Chill'?90:level==='Pro'?42:65);
   const receiveX=clamp((aerial?airX+(p.team?1:-1)*(g.sport==='tennis'?56:12):guide.x)-g.ball.vx*prediction+Math.sin(g.contactSerial*12.9898+i*78.2)*misread,p.team?550:50,p.team?950:450);

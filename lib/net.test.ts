@@ -266,3 +266,11 @@ console.log('Passed: timed human serve, late fallback and instant CPU serve.');
  assert.ok(swing>15,`The zigzag special weaves sideways, swing ${Math.round(swing)}`);
  console.log('Passed: B fires the zigzag special.');
 }
+
+{
+ const serve=(armed:boolean)=>{const m=createNetMatch('tennis');net.beginServe(m);m.energy[0]=100;m.specialArmed=armed;for(let i=0;i<60;i++)stepNet(m,1/120,{x:0,z:0,prepare:false,jump:false},'Club');net.pressNet(m);return m;};
+ const bullet=serve(true),normal=serve(false);
+ assert.equal(bullet.feedback,'SAQUE BALA!');assert.equal(bullet.energy[0],0);assert.ok(bullet.specialShot);
+ assert.ok(Math.abs(bullet.ball.vx)>Math.abs(normal.ball.vx)*1.3,'The bullet serve is much faster');
+ console.log('Passed: SAQUE BALA super serve.');
+}
