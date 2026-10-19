@@ -18,7 +18,7 @@ function players(): Player[] {
 }
 export function createGame() {
   return { online:false,remoteActive:2,remoteAim:{x:190,z:225},remoteAimPreset:-1,remoteAttackStyle:'power' as AttackStyle,remoteServeStyle:'float' as ServeStyle, drill:-1,drillAthlete:0,drillAttempts:0,drillScore:0,drillMedal:0,drillQuality:0,drillStruck:false,drillTarget:{x:890,z:80},location:'Palm Cove',windStrength:27,genders:['unspecified','unspecified'],opponentGenders:['male','male'],cpuTier:0,opponentCountry:'US',opponentPlayers:['Noah','Ethan'],opponentName:'COAST', friendlyOpponent:0, country: 'BR', names: ['Alex','Dani'], attributes: [{serve:50,attack:50,defense:50,mobility:50},{serve:50,attack:50,defense:50,mobility:50}], playerContacts:[0,0], event:0, matchSerial:0, cupStage: -1, cpuStyle: 'normal', pointGoal: 11, gold: false, challenge: -1, challengeStrike: false, players: players(), active: 0, autoSwitch: true, aimPreset: -1, aim: {x:810,z:225}, power: 1, serveStyle: 'float' as ServeStyle, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
-    pace: 'Club', controlSerial:[-1,-1], timing:null as number|null,strokes:[{time:0,held:0,attack:false,used:false,eta:0},{time:0,held:0,attack:false,used:false,eta:0}], lastRally: 0, bestRally: 0, pointReason: '', contactHint: '', practice: false, practiceDelay: 0, repetitions: 0, attackStyle: 'power' as AttackStyle, tossTime: 0, tossQuality: '', windEnabled: true, wind: 0, clock: 0, resumeStatus: 'playing', assist: true, feedback: '', feedbackTime: 0, server: 0, serviceOrder: [0,3], status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
+    pace: 'Club', controlSerial:[-1,-1], timing:null as number|null,lastPerfect:false,strokes:[{time:0,held:0,attack:false,used:false,eta:0},{time:0,held:0,attack:false,used:false,eta:0}], lastRally: 0, bestRally: 0, pointReason: '', contactHint: '', practice: false, practiceDelay: 0, repetitions: 0, attackStyle: 'power' as AttackStyle, tossTime: 0, tossQuality: '', windEnabled: true, wind: 0, clock: 0, resumeStatus: 'playing', assist: true, feedback: '', feedbackTime: 0, server: 0, serviceOrder: [0,3], status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
     lastHit: -1, lastTeam: -1, touches: 0, rally: 0, shot: '', hitFlash: 0 };
 }
 export type Game = ReturnType<typeof createGame>;
@@ -237,7 +237,7 @@ function hit(g: Game, i: number, attack: boolean, distance: number, ahead?: numb
   }
   g.contactHint=p.team?'':distance>35?'Aproxime-se do círculo':p.preparation<.25?'Prepare o contato mais cedo':Math.hypot(p.vx,p.vz)>170?'Chegue e freie antes do contato':'Contato equilibrado';
   const quality=skill>.72?'BOM':skill>.42?'REGULAR':'RUIM';p.preparation=0;
-  g.timing=timed?timed.offset:null;
+  g.timing=timed?timed.offset:null;g.lastPerfect=!!timed?.perfect;
   if(deliberate){g.strokes[p.team].time=0;g.strokes[p.team].used=true;}
   g.feedback=`${p.team?'COAST':'VOCÊ'} · ${diving?'DEFESA NO CHÃO':sendOver?(p.team===0&&style==='tip'?'LARGADINHA':p.team===0&&style==='roll'?'ATAQUE COLOCADO':'ATAQUE'):g.touches===1?'RECEPÇÃO':'PASSE'} ${timed?.perfect?'PERFEITO':timed?.early?'CEDO':timed?.late?'TARDE':quality}`;g.feedbackTime=1.8;
   if(g.drill>=0&&i===g.drillAthlete){
@@ -326,7 +326,7 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
       const target = onBall ? clamp(predicted+(p.team?1:-1)*(contactHeight===384?27:12), p.team ? 550 : 45, p.team ? 955 : 450) : home;
       direction = clamp((target - p.x) / 38, -1, 1);
       // Opponents estimate the landing lane; later events make smaller reading errors.
-      const readError=p.team===1&&g.lastTeam===0&&g.cpuStyle!=='normal'&&g.rally>0?Math.sin((g.rally+1)*12.9898+i*78.233+(g.score[0]+g.score[1])*4.17)*(45-g.cpuTier*2)*(1+Math.max(0,Math.hypot(b.vx,b.vz)-300)/500*(1.5-playerAttribute(g,i,'defense')/100)):0;
+      const readError=p.team===1&&g.lastTeam===0&&g.cpuStyle!=='normal'&&g.rally>0?Math.sin((g.rally+1)*12.9898+i*78.233+(g.score[0]+g.score[1])*4.17)*(45-g.cpuTier*2)*(1+Math.max(0,Math.hypot(b.vx,b.vz)-300)/500*(1.5-playerAttribute(g,i,'defense')/100))*(g.lastPerfect?2:1):0;
       const targetZ=onBall?clamp(predictedZ+readError,35,415):p.team&&g.cpuStyle==='block'&&i===2?clamp(g.cpuTier>=1?predictedZ:b.z,35,415):(i%2?310:145);
       depthDirection=clamp((targetZ-p.z)/38,-1,1);
       if(reacting){direction=0;depthDirection=0;}
