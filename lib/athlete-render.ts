@@ -7,7 +7,7 @@ type Pose={head:Point;neck:Point;hip:Point;eF:Point;hF:Point;eB:Point;hB:Point;k
 
 // Key poses from the approved "Movimentos por esporte" design: a 34×44 pixel grid, facing right, ground at y=37.
 const poses:Record<string,Pose>={
- idle:{head:[15,7],neck:[15,12],hip:[15,23],eF:[18,17],hF:[19,22],eB:[12,17],hB:[11,22],kF:[17,30],fF:[18,37],kB:[13,30],fB:[12,37]},
+ idle:{head:[15,7],neck:[15,12],hip:[15,23],eF:[20,17],hF:[21,22],eB:[10,17],hB:[9,22],kF:[19,30],fF:[21,37],kB:[12,30],fB:[10,37]},
  ready:{head:[15,9],neck:[15,14],hip:[14,24],eF:[19,18],hF:[21,21],eB:[11,18],hB:[12,22],kF:[18,30],fF:[20,37],kB:[11,31],fB:[9,37]},
  brake:{head:[13,10],neck:[14,15],hip:[15,25],eF:[19,18],hF:[22,20],eB:[10,18],hB:[8,21],kF:[20,31],fF:[24,37],kB:[12,31],fB:[10,37],fx:[['dust',25,38,1.6],['dust',21,38,1.2]]},
  runA:{head:[17,8],neck:[16,13],hip:[14,23],eF:[20,17],hF:[22,13],eB:[10,17],hB:[8,21],kF:[19,28],fF:[22,33],kB:[11,30],fB:[7,35]},
@@ -83,17 +83,18 @@ function paint(p:Pose,l:Look,racket:boolean){
   if(e[0]==='line')seg([e[1],e[2]],[e[3],e[4]],.35,'W',f);
   if(e[0]==='star'){seg([e[1]-3,e[2]],[e[1]+3,e[2]],.5,'Y',f);seg([e[1],e[2]-3],[e[1],e[2]+3],.5,'Y',f);}
  }
- seg(p.neck,p.eB,1.2,'s');seg(p.eB,p.hB,1.1,'s');
- seg(p.hip,p.kB,1.6,'s');seg(p.kB,p.fB,1.3,'s');
- seg(p.hip,mid(p.hip,p.kB,.5),2,'p');
- seg(p.neck,p.hip,2.7,'T');disc(p.hip[0],p.hip[1],2.6,'P');
- seg(p.hip,p.kF,1.6,'S');seg(p.kF,p.fF,1.3,'S');
- seg(p.hip,mid(p.hip,p.kF,.5),2.1,'P');
- seg(p.neck,p.eF,1.2,'S');seg(p.eF,p.hF,1.1,'S');
- seg(p.neck,mid(p.neck,p.eF,.35),1.7,'T');
+ // 16-bit proportions: thick limbs, broad torso, big head and feet, so the figure reads at a glance.
+ seg(p.neck,p.eB,1.5,'s');seg(p.eB,p.hB,1.3,'s');disc(p.hB[0],p.hB[1],1.5,'s');
+ seg(p.hip,p.kB,2,'s');seg(p.kB,p.fB,1.6,'s');disc(p.fB[0]+1,p.fB[1],1.7,'s');
+ seg(p.hip,mid(p.hip,p.kB,.5),2.4,'p');
+ seg(p.neck,p.hip,3,'T');seg([p.neck[0]-2.6,p.neck[1]+1],[p.neck[0]+2.6,p.neck[1]+1],1.7,'T');disc(p.hip[0],p.hip[1],2.8,'P');
+ seg(p.hip,p.kF,2,'S');seg(p.kF,p.fF,1.6,'S');disc(p.fF[0]+1,p.fF[1],1.7,'S');
+ seg(p.hip,mid(p.hip,p.kF,.5),2.5,'P');
+ seg(p.neck,p.eF,1.5,'S');seg(p.eF,p.hF,1.3,'S');disc(p.hF[0],p.hF[1],1.5,'S');
+ seg(p.neck,mid(p.neck,p.eF,.4),2.1,'T');
  if(racket){const tip=p.racket??[p.hF[0]+3,p.hF[1]-6];seg(p.hF,mid(p.hF,tip,.5),.6,'K');disc(tip[0],tip[1],2.4,'R');}
  const dir=p.face??1;
- disc(p.head[0],p.head[1],3.3,'H');disc(p.head[0]+dir*.9,p.head[1]+.9,2.6,'S');put(p.head[0]+dir*2,p.head[1]+OY+.4,'E',g);
+ disc(p.head[0],p.head[1],4,'H');disc(p.head[0]+dir*1.1,p.head[1]+1,3.2,'S');put(p.head[0]+dir*2.5,p.head[1]+OY+.5,'E',g);put(p.head[0]+dir*2.5,p.head[1]+OY-.5,'E',g);
  const pal:Record<string,number>={S:l.skin,s:shade(l.skin,-.18),T:l.shirt,P:l.shorts,p:shade(l.shorts,-.25),H:l.hair,E:INK,R:0xff6d00,K:0x6d4924,D:0xf2dca8,W:0xffffff,Y:0xffdb00};
  const has=(x:number,y:number)=>x>=0&&y>=0&&x<W&&y<H&&g[y*W+x]!==null;
  const cells:[number,number,number][]=[];

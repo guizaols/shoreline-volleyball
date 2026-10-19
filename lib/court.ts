@@ -111,9 +111,8 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         const direction=p.vx*.77+p.vz*.2;
         if(p.action!=='idle'||p.y<FLOOR)sprite.setFlipX(p.action==='dive'?p.diveX*.77+p.diveZ*.2<0:p.team===1);
         else if(speed>40)sprite.setFlipX(direction<0);else if(p.preparation>.1)sprite.setFlipX(p.team===1);
-        const compression=reduced?0:p.landing>0?Math.sin(p.landing/.18*Math.PI)*.05:p.windup>0?.05:0;
-        sprite.setPosition(pos.x,pos.y).setFrame(`${p.team}-${pose}-${frame}`).setScale(1+compression*.4,1-compression).setDepth(z+20).setTint(i<2&&g.gold?0xffe194:0xffffff);
-        sprite.setRotation(reduced?0:Math.max(-.04,Math.min(.04,p.vx/7000)));
+        sprite.setPosition(pos.x,pos.y).setFrame(`${p.team}-${pose}-${frame}`).setScale(1).setDepth(z+20).setTint(i<2&&g.gold?0xffe194:0xffffff);
+        sprite.setRotation(0);
         this.shadows[i].setPosition(ground.x,ground.y-1).setScale(y<FLOOR?.72:p.action==='dive'?1.35:1).setAlpha(y<FLOOR?.14:.24);
         this.labels[i].setText((i<2?g.names[i]:g.opponentPlayers[i-2])+((i<2?g.genders[i]:g.opponentGenders[i-2])==='female'?' ♀':(i<2?g.genders[i]:g.opponentGenders[i-2])==='male'?' ♂':'')).setPosition(ground.x,ground.y+9).setDepth(z+21).setAlpha(i===g.active?1:.65);
         if(i===g.active){this.ring.setPosition(ground.x,ground.y);this.arrow.setPosition(pos.x,pos.y-110);}
@@ -157,7 +156,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       const view=`${g.status}:${g.rally}:${g.active}:${g.score.join(',')}:${g.shot}:${g.feedbackTime>0}:${Math.floor(g.tossTime*20)}:${Math.round(g.wind)}:${Math.floor((g.players[g.active]?.preparation||0)*20)}`;if(view!==this.lastView){this.lastView=view;changed();}
     }
   }
-  const engine=new Phaser.Game({type:Phaser.AUTO,parent,width:1000,height:620,pixelArt:false,roundPixels:false,backgroundColor:'#dfbd85',scene:Court,
+  const engine=new Phaser.Game({type:Phaser.AUTO,parent,width:1000,height:620,pixelArt:true,roundPixels:true,backgroundColor:'#dfbd85',scene:Court,
     scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},render:{antialias:true},audio:{noAudio:true}});
   engine.events.once('destroy',()=>sound.destroy());return engine;
 }

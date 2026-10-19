@@ -85,9 +85,7 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
      sprite.setFlipX(p.action==='dive'&&pose==='slide'?p.diveX*.77+p.diveZ*.2<0:g.sport==='soccer'&&p.action!=='dive'?kickSide<0:p.team===1);
     }
     else if(speed>45)sprite.setFlipX(moveSide<0);else if(p.preparation>.1&&g.sport!=='soccer')sprite.setFlipX(ballSide<0);
-    const squash=reduced?0:Math.sin(p.landing/.18*Math.PI)*.08;
-    sprite.setFrame(`${g.sport==='soccer'&&i%3===0?p.team+2:p.team}-${pose}-${frame}`).setPosition(pos.x,pos.y).setScale(1+squash*.4,1-squash).setDepth(z+20);
-    sprite.setRotation(reduced?0:p.action==='dive'&&pose==='save'?Math.sin(p.actionTime/.5*Math.PI)*p.diveZ*.4:Math.max(-.04,Math.min(.04,p.vx/7000)));
+    sprite.setFrame(`${g.sport==='soccer'&&i%3===0?p.team+2:p.team}-${pose}-${frame}`).setPosition(pos.x,pos.y).setScale(1).setDepth(z+20);
     this.shadows[i].setPosition(ground.x,ground.y).setScale(y<FLOOR?.72:striking&&p.action==='dive'?1.35:1).setAlpha(y<FLOOR?.14:.23).setDepth(1);
     this.labels[i].setPosition(ground.x,ground.y+19).setDepth(z+21).setVisible(g.active===i);
     if(g.active===i)this.ring.setPosition(ground.x,ground.y).setStrokeStyle(g.specialArmed?3:2,g.specialArmed?0xffdc69:0x4ce3cf);
@@ -119,6 +117,6 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
    if(view!==this.lastView){this.lastView=view;changed();}
   }
  }
- const engine=new Phaser.Game({type:Phaser.AUTO,parent,width:1000,height:620,backgroundColor:'#dfbd85',scene:Beach,fps:{target:60},scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},audio:{noAudio:true}});
+ const engine=new Phaser.Game({type:Phaser.AUTO,parent,width:1000,height:620,backgroundColor:'#dfbd85',pixelArt:true,scene:Beach,fps:{target:60},scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},audio:{noAudio:true}});
  engine.events.once('destroy',()=>sound.destroy());return engine;
 }
