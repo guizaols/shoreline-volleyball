@@ -159,20 +159,36 @@ export function bakeCrowd(scene:Phaser.Scene,variants=8){
  for(let v=0;v<variants;v++)for(const f of [0,1])texture.add(`c${v}-${f}`,0,f*cell,v*cell,cell,cell);
  return key;
 }
-// Two rows of fans on the sand behind the far line; they cheer after a point and fidget otherwise.
-export function addCrowd(scene:Phaser.Scene,place:(x:number,z:number)=>{x:number;y:number}){
- const key=bakeCrowd(scene),fans:{image:Phaser.GameObjects.Image;variant:number}[]=[];
- for(let row=0;row<2;row++)for(let k=0;k<18;k++){
-  const at=place(60+k*50+(row?25:0)+(k*37)%11,row?-14:4),variant=(k*3+row*5)%8;
-  fans.push({image:scene.add.image(Math.round(at.x),Math.round(at.y),key,`c${variant}-0`).setOrigin(.5,1).setDepth(row?.5:.6),variant});
+// The stands behind the far line, as in Kings of the Beach: three wooden tiers of fans and a row of sponsor boards
+// in front (made-up beach brands). Fans cheer after a point and fidget otherwise.
+const boards=[['SHORELINE',0x1a1028,0xffdb00],['COCO GELADO',0x2fb65a,0xffffff],['PRAIA FM',0xe2331e,0xffffff],['SOL & SAL',0xffdb00,0x1a1028],['ONDA 92',0x2c6fd6,0xffffff],['AREIA PRO',0xff6d00,0x1a1028]] as const;
+export function addCrowd(scene:Phaser.Scene,place:(x:number,z:number,y?:number)=>{x:number;y:number}){
+ const key=bakeCrowd(scene),fans:{image:Phaser.GameObjects.Image;variant:number}[]=[],wood=scene.add.graphics().setDepth(.3);
+ const tiers=3,lift=13;
+ for(let row=tiers-1;row>=0;row--){
+  const z=-4-row*11,a=place(40,z),b=place(960,z),up=row*lift;
+  wood.fillStyle(row%2?0x8a5a3c:0xa06c48);wood.fillPoints([{x:a.x,y:a.y-up},{x:b.x,y:b.y-up},{x:b.x,y:b.y-up+7},{x:a.x,y:a.y-up+7}],true);
+  wood.fillStyle(0x6d4924);wood.fillPoints([{x:a.x,y:a.y-up+7},{x:b.x,y:b.y-up+7},{x:b.x,y:b.y},{x:a.x,y:a.y}],true);
+  for(let k=0;k<18;k++){
+   const at=place(55+k*51+(row%2?24:0)+(k*37)%9,z),variant=(k*3+row*5)%8;
+   fans.push({image:scene.add.image(Math.round(at.x),Math.round(at.y-up),key,`c${variant}-0`).setOrigin(.5,1).setDepth(.4+(tiers-row)*.01),variant});
+  }
  }
+ const font=(getComputedStyle(document.body).getPropertyValue('--font-arcade')||'monospace').trim();
+ boards.forEach(([label,fill,ink],k)=>{
+  const x0=40+k*(920/boards.length),x1=x0+920/boards.length-6,a=place(x0,10),b=place(x1,10),h=24;
+  const panel=scene.add.graphics().setDepth(.9);
+  panel.fillStyle(fill);panel.fillPoints([{x:a.x,y:a.y-h},{x:b.x,y:b.y-h},{x:b.x,y:b.y},{x:a.x,y:a.y}],true);
+  panel.lineStyle(2,0x1a1028);panel.strokePoints([{x:a.x,y:a.y-h},{x:b.x,y:b.y-h},{x:b.x,y:b.y},{x:a.x,y:a.y}],true,true);
+  scene.add.text(Math.round((a.x+b.x)/2),Math.round((a.y+b.y)/2-h/2),label,{fontFamily:font,fontSize:'9px',color:`#${ink.toString(16).padStart(6,'0')}`}).setOrigin(.5).setDepth(.95);
+ });
  return (cheering:boolean,clock:number)=>fans.forEach((fan,i)=>fan.image.setFrame(`c${fan.variant}-${cheering?Math.floor(clock*6+i)%2:Math.sin(clock*.7+i*1.7)>.97?1:0}`));
 }
 // The umpire on a high chair beside the net (net sports only).
 export function addReferee(scene:Phaser.Scene,sport:string,place:(x:number,z:number,y?:number)=>{x:number;y:number}){
- const foot=place(500,-12),seat=place(500,-12,385),chair=scene.add.graphics().setDepth(.7);
+ const foot=place(500,16),seat=place(500,16,385),chair=scene.add.graphics().setDepth(1);
  chair.lineStyle(4,0x6d4924);chair.lineBetween(foot.x-10,foot.y,seat.x-6,seat.y);chair.lineBetween(foot.x+10,foot.y,seat.x+6,seat.y);
  chair.lineStyle(3,0x6d4924);chair.lineBetween(seat.x-10,seat.y,seat.x+10,seat.y);chair.lineBetween(foot.x-8,foot.y-22,foot.x+8,foot.y-22);
  const [key]=bakeAthletes(scene,sport,[{team:0,referee:true}],2);
- return scene.add.sprite(Math.round(seat.x),Math.round(seat.y)+6,key,'idle-0').setOrigin(.5,ATHLETE_FEET/ATHLETE_SIZE).setDepth(.8);
+ return scene.add.sprite(Math.round(seat.x),Math.round(seat.y)+6,key,'idle-0').setOrigin(.5,ATHLETE_FEET/ATHLETE_SIZE).setDepth(1.1);
 }
