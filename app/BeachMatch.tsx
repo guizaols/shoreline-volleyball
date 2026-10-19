@@ -3,7 +3,7 @@ import Link from 'next/link';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import TouchControls from './TouchControls';
 import {rivals} from '../lib/rivals';
-import {createNetMatch,beginServe,pressNet,releaseNet,type NetSport} from '../lib/net';
+import {createNetMatch,beginServe,pressNet,releaseNet,netGuide,type NetSport} from '../lib/net';
 import {createSoccer,startSoccer,shootSoccer,passSoccer,tackleSoccer,firstTimeSoccer,chapeuSoccer} from '../lib/soccer';
 import {armSpecial,cancelArcadeInput,specialName} from '../lib/arcade';
 import {cycleAim} from '../lib/game';
@@ -16,6 +16,8 @@ export default function BeachMatch({sport,rival:rivalIndex,goal,day,circuit=fals
  const fresh=useCallback((pick=Math.floor(Math.random()*rivals.length))=>{const r=rivals[rivalIndex??pick],g=sport==='soccer'?createSoccer(r):createNetMatch(sport,r);return g;},[sport,rivalIndex]);
  const firstRival=rivalIndex??sport.length%rivals.length;
  const [notes,setNotes]=useState<string[]>([]);
+ // Contextual tips for the moves nobody finds on their own, during a player's first matches on this device.
+ const [tips]=useState(()=>readBeachProgress(readSaved()).matches<5);
  const game=useRef(fresh(firstRival)),host=useRef<HTMLDivElement>(null),keys=useRef(new Set<string>()),stick=useRef({x:0,z:0}),level=useRef('Club');
  const recorded=useRef(new WeakSet<object>());
  const [view,setView]=useState(()=>fresh(firstRival)),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[tools,setTools]=useState(false);
@@ -65,6 +67,8 @@ export default function BeachMatch({sport,rival:rivalIndex,goal,day,circuit=fals
  const charge=view.shotWindow>0?view.shotCharge:view.charge;
  const title=sport==='footvolley'?'FUTEVÔLEI':sport==='tennis'?'BEACH TENNIS':'BEACH SOCCER';
  const rival='rivalName' in view?view.rivalName:'PRAIA';
+ const me=view.players[view.active],guide=view.sport==='soccer'||!me?undefined:netGuide(view);
+ const tip=!tips||view.status!=='playing'||!me?'':view.sport==='soccer'?(view.owner<0&&view.passReceiver===view.active?'Passe vindo: A = chute de primeira':view.owner===view.active&&Math.hypot(me.vx,me.vz)<60?'Parado com a bola: B = chapéu, depois A':''):view.sport==='footvolley'?(view.lastTeam===0&&view.touches===2?'3º toque: salte colado na rede + A = shark attack':''):guide&&guide.team===0&&guide.time<.5&&Math.hypot(guide.x-me.x,guide.z-me.z)>90?'Bola longe: A = mergulho':'';
  const defending=view.sport==='soccer'&&(view.owner<0||view.owner>=3)&&!(view.owner<0&&view.passReceiver===view.active);
  const shots=sport==='tennis'?['Voleio','Lob','Curta']:sport==='soccer'?['Direto','Cobertura']:['Cabeçada','Colocada','Curta'];
  return <main className={`arcade-app beach-match mobile-game ${tools?'mobile-tools-open':''} ${view.status==='playing'||view.restartDelay>0?'match-live':''}`}>
@@ -76,12 +80,12 @@ export default function BeachMatch({sport,rival:rivalIndex,goal,day,circuit=fals
     <span className="location">PALM COVE · {title}</span>
     {(!loaded||error||view.status!=='playing'&&view.status!=='tossing'&&!(view.status==='ready'&&view.restartDelay>0))&&<div className="overlay"><div className="start-card"><span className="mini-label">SHORELINE · {title}</span><h2>{error||(!loaded?'Preparando a praia…':view.status==='over'?(view.score[0]>view.score[1]?'Seu time venceu!':'Boa partida!'):view.status==='paused'?'Partida pausada':view.contactSerial>0?view.message:sport==='tennis'?'Uma rebatida. Toda a quadra.':sport==='soccer'?'Toque, avance, marque.':'Pé, peito e cabeça.')}</h2>{view.status==='over'&&notes.map(note=><p className="progress-note" key={note}>{note}</p>)}{view.status!=='over'&&goal!==undefined&&<p className="progress-note">DESAFIO DO DIA: vença com {goal} golpes perfeitos</p>}{view.status!=='over'&&circuit&&<p className="progress-note">CIRCUITO DE PRAIA: vença para avançar</p>}{'rivalHint' in view&&view.rivalHint&&view.contactSerial===0&&<p><strong>Rival: {rival}.</strong> {view.rivalHint}</p>}<p>{sport==='soccer'?'J/A chuta; F/B passa. O direcional escolhe o lado. Sem a bola, o botão dá o bote.':sport==='tennis'?'J/A rebate; F/B faz o lob. Chegue ao círculo e toque perto da bola. O direcional coloca o golpe.':'J/A recebe e finaliza; F/B faz a curta. Toque perto da bola. O parceiro prepara o ataque.'} Segure e solte para mais força. Espaço/↑ salta. Boas jogadas carregam K/★ para o especial.</p><button className="primary" disabled={!loaded||!!error} onClick={view.status==='paused'?pause:start}>{view.status==='paused'?'Continuar':view.status==='over'?'Revanche':view.contactSerial>0?sport==='soccer'?'Repor a bola':'Próximo saque':'Jogar agora'}</button></div></div>}
     {view.status==='ready'&&view.restartDelay>0&&<output className="restart-feedback">{view.message}<small>{sport==='soccer'?'Reposição':'Próximo saque'} em {Math.ceil(view.restartDelay)}…</small></output>}
-    {view.status==='tossing'&&<output className="restart-feedback">SAQUE<small>Toque Jogar no alto da bola</small></output>}
+    {tip&&<output className="play-tip">{tip}</output>}{view.status==='tossing'&&<output className="restart-feedback">SAQUE<small>Toque Jogar no alto da bola</small></output>}
     {view.status==='playing'&&view.feedbackTime>0&&<output className={`contact-feedback ${view.feedback.includes('PERFEITO')?'is-perfect':''}`}>{view.feedback}<small>{view.contactHint}</small></output>}
    {loaded&&(view.status==='playing'||view.status==='ready'&&view.restartDelay>0)&&<div className="arcade-hud">
     <div className="arcade-power"><span>FORÇA <b>{Math.round(charge*100)}%</b> · {charge>.85?'NO LIMITE':charge>.65?'MIRA INSTÁVEL':'CONTROLE'}</span><meter className="sr-only" aria-label="Força; acima de 65% perde precisão" min={0} max={100} value={Math.round(charge*100)}/><div className="arcade-power-track" aria-hidden="true"><i style={{left:`${Math.min(98,charge*100)}%`}}/></div><small>{view.combo[0]>=3?`EM CHAMAS · COMBO ×${view.combo[0]}`:view.combo[0]>0?`COMBO ×${view.combo[0]} · CONTINUE!`:'TOQUE PARA GOLPEAR · SEGURE E SOLTE PARA FORÇA'}</small></div>
-    <button className={`arcade-special ${view.energy[0]>=100?'is-ready':''}`} onClick={special} aria-pressed={view.specialArmed} disabled={view.status!=='playing'||view.energy[0]<100} aria-label={`Especial ${specialName(sport)}, ${Math.round(view.energy[0])}%`} style={{background:`linear-gradient(90deg,#986326 ${view.energy[0]}%,#173f50 ${view.energy[0]}%)`}}><b>★ {view.specialArmed?'ARMADO!':view.energy[0]>=100?'ESPECIAL · K':`${Math.round(view.energy[0])}%`}</b><small>{specialName(sport)}</small></button>
-    <span className="arcade-rival">{rival} ★ {Math.round(view.energy[1])}%</span>
+    <button className={`arcade-special ${view.energy[0]>=100?'is-ready':''}`} onClick={special} aria-pressed={view.specialArmed} disabled={view.status!=='playing'||view.energy[0]<100} aria-label={`Especial ${specialName(sport)}, ${Math.round(view.energy[0])}%`} style={{background:`linear-gradient(90deg,#986326 ${view.energy[0]}%,#173f50 ${view.energy[0]}%)`}}><b>{view.specialArmed?'ARMADO!':view.energy[0]>=100?'ESPECIAL · K':`${Math.round(view.energy[0])}%`}</b><small>{specialName(sport)}</small></button>
+    <span className="arcade-rival">{rival} · ESPECIAL {Math.round(view.energy[1])}%</span>
    </div>}
    </div>
    {loaded&&view.status==='playing'&&<div className="shot-bar beach-shots" aria-label="Escolher golpe"><div>{shots.map((label,i)=><button key={label} aria-pressed={view.attackStyle===(['power','roll','tip'] as const)[i]} onClick={()=>choose(i)}><kbd>{i+1}</kbd>{label}</button>)}</div></div>}

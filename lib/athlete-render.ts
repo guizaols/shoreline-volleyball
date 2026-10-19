@@ -90,8 +90,9 @@ function look(sport:string,role:AthleteRole,index:number):Look{
  return role.team?{skin,shirt:shirt===0xe2331e?0x2c6fd6:0xe2331e,shorts:0x1a1028,hair,glasses,band}:{skin,shirt,shorts:sport==='volleyball'?0x1b2a55:0xffffff,hair,glasses,band};
 }
 
-// Match scale: 2 screen pixels per art pixel keeps the court large around the athletes, as in Kings of the Beach.
-export const ATHLETE_PX=2;
+// Match scale: 2 screen pixels per art pixel keeps the court large around the athletes, as in Kings of the Beach;
+// touch screens are small, so phones use 3 to keep poses readable (playtest 2026-10-19).
+export const athletePx=()=>typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches?3:2;
 const W=34,H=44,OY=5,PX=3,INK=0x1a1028;
 // The design's renderer: thick limbs on a pixel grid, three tones per colour, a 1-pixel ink outline, effects behind.
 function paint(p:Pose,l:Look,racket:boolean){
@@ -181,9 +182,9 @@ export function bakeCrowd(scene:Phaser.Scene,variants=8){
 const boards=[['SHORELINE',0x1a1028,0xffdb00],['COCO GELADO',0x2fb65a,0xffffff],['PRAIA FM',0xe2331e,0xffffff],['SOL & SAL',0xffdb00,0x1a1028],['ONDA 92',0x2c6fd6,0xffffff],['AREIA PRO',0xff6d00,0x1a1028]] as const;
 export function addCrowd(scene:Phaser.Scene,place:(x:number,z:number,y?:number)=>{x:number;y:number}){
  const key=bakeCrowd(scene),fans:{image:Phaser.GameObjects.Image;variant:number}[]=[],wood=scene.add.graphics().setDepth(.3);
- const tiers=3,lift=13;
+ const tiers=3,lift=10;
  for(let row=tiers-1;row>=0;row--){
-  const z=-4-row*11,a=place(40,z),b=place(960,z),up=row*lift;
+  const z=-4-row*8,a=place(40,z),b=place(960,z),up=row*lift;
   wood.fillStyle(row%2?0x8a5a3c:0xa06c48);wood.fillPoints([{x:a.x,y:a.y-up},{x:b.x,y:b.y-up},{x:b.x,y:b.y-up+7},{x:a.x,y:a.y-up+7}],true);
   wood.fillStyle(0x6d4924);wood.fillPoints([{x:a.x,y:a.y-up+7},{x:b.x,y:b.y-up+7},{x:b.x,y:b.y},{x:a.x,y:a.y}],true);
   for(let k=0;k<18;k++){

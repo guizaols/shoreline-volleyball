@@ -288,3 +288,18 @@ a.arcade-box:hover,a.arcade-box:focus-visible{box-shadow:6px 6px 0 #db2400;outli
 .arcade-records div{background:#1a1028;border:3px solid #4949b6;padding:10px;color:#fff}
 .arcade-records dt{font-size:7px;color:#92b6db}.arcade-records dd{margin:6px 0 0;font-size:16px;color:#ffdb00}
 .game-shell .start-card .progress-note{font-family:var(--font-arcade),monospace;font-size:9px;line-height:1.7;color:#ffdb00}
+/* Playtest 2026-10-19: feedback moves to the top-left corner so it never covers the net, the umpire or the fans. */
+.game-shell .contact-feedback,.game-shell .restart-feedback{left:14px;right:auto;top:14px;transform:none;max-width:min(46%,340px);text-align:left}
+/* Phones: the home progress becomes a horizontal strip so the sports stay on screen. */
+@media (max-width:900px),(pointer:coarse){
+ .arcade-home{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(220px,62%);overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:10px;margin-bottom:16px}
+ .arcade-home>*{scroll-snap-align:start}
+ .arcade-records{grid-template-columns:repeat(3,minmax(64px,1fr))}
+}
+.game-shell .play-tip{position:absolute;right:14px;top:14px;z-index:6;max-width:min(46%,320px);padding:8px 10px;font-family:var(--font-arcade),monospace;font-size:9px;line-height:1.7;color:#1a1028;background:#ffdb00;border:3px solid #1a1028;box-shadow:4px 4px 0 #db2400;pointer-events:none}
+/* Phones: the pixel font is wide, so the arcade HUD keeps only power and special. */
+@media (pointer:coarse),(max-width:700px){
+ .game-shell .arcade-hud{font-size:7px;padding:6px 8px;gap:8px}
+ .game-shell .arcade-hud small,.game-shell .arcade-rival{display:none}
+ .game-shell .contact-feedback,.game-shell .restart-feedback,.game-shell .play-tip{font-size:8px;padding:5px 7px;max-width:44%}
+}

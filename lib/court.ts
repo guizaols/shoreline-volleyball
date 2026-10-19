@@ -1,4 +1,4 @@
-import {bakeAthletes,addCrowd,addReferee,ATHLETE_PX,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
+import {bakeAthletes,addCrowd,addReferee,athletePx,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
 import {drills} from './training';
 import * as Phaser from 'phaser';
 import {matchAudio} from './match-audio';
@@ -53,12 +53,12 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       for(let h=0;h<=176;h+=14){const a=project(500,25,450-h),b=project(500,425,450-h);net.lineBetween(a.x,a.y,b.x,b.y);}
       net.lineStyle(5,0xfff3d5);net.lineBetween(topBack.x,topBack.y,topFront.x,topFront.y);
       [25,425].forEach((z,i)=>{const a=project(500,z),b=project(500,z,260);const post=this.add.graphics().setDepth(i?600:25);post.lineStyle(7,0x283f4e);post.lineBetween(a.x,a.y,b.x,b.y);post.lineStyle(2,0x829da0);post.lineBetween(a.x-2,a.y,b.x-2,b.y);});
-      const athleteKeys=bakeAthletes(this,'volleyball',[0,0,1,1].map(team=>({team})),ATHLETE_PX);
+      const athleteKeys=bakeAthletes(this,'volleyball',[0,0,1,1].map(team=>({team})),athletePx());
       this.crowd=addCrowd(this,project);addReferee(this,'volleyball',project);
       for(let i=0;i<4;i++){
         this.shadows.push(this.add.ellipse(0,0,35,11,0x593e24,.24).setDepth(1));
         this.athletes.push(this.add.sprite(0,0,athleteKeys[i],'idle-0').setOrigin(.5,ATHLETE_FEET/ATHLETE_SIZE).setFlipX(i>=2));
-        this.labels.push(this.add.text(0,0,`${i<2?'YOU':'COAST'} ${i%2+1}`,{fontFamily:'monospace',fontSize:'9px',color:i<2?'#164b48':'#852d2e',backgroundColor:'#fff0cc',padding:{x:4,y:2}}).setOrigin(.5,0));
+        this.labels.push(this.add.text(0,0,`${i<2?'YOU':'COAST'} ${i%2+1}`,{fontFamily:(getComputedStyle(document.body).getPropertyValue('--font-arcade')||'monospace').trim(),fontSize:'7px',color:i<2?'#164b48':'#852d2e',backgroundColor:'#fff0cc',padding:{x:4,y:2}}).setOrigin(.5,0));
       }
       this.ring=this.add.ellipse(0,0,44,15).setStrokeStyle(2,0x1eac90).setDepth(2);
       this.arrow=this.add.triangle(0,0,0,0,10,0,5,7,0xffdb6e).setDepth(1000);

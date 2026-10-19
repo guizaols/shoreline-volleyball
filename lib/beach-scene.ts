@@ -6,7 +6,7 @@ import {stepSoccer,type Soccer} from './soccer';
 import {aimDrift,powerRisk} from './arcade';
 import {matchAudio} from './match-audio';
 import {timingMeter} from './timing-meter';
-import {bakeAthletes,addCrowd,addReferee,ATHLETE_PX,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
+import {bakeAthletes,addCrowd,addReferee,athletePx,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
 
 export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:()=>BeachInput,level:()=>string,changed:()=>void,ready:()=>void,failed:(message:string)=>void){
  const sound=matchAudio(parent.closest<HTMLElement>('.game-shell')||parent);
@@ -41,11 +41,11 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
      const edge=x===35?155:845;ground.lineStyle(2,0xfff1d5,.7);ground.strokePoints([project(x,115),project(edge,115),project(edge,335),project(x,335)],false);
     }
    }
-   const athleteKeys=bakeAthletes(this,getGame().sport,getGame().players.map((p,i)=>({team:p.team,keeper:getGame().sport==='soccer'&&i%3===0})),ATHLETE_PX);
+   const athleteKeys=bakeAthletes(this,getGame().sport,getGame().players.map((p,i)=>({team:p.team,keeper:getGame().sport==='soccer'&&i%3===0})),athletePx());
    this.crowd=addCrowd(this,project);if(getGame().sport!=='soccer')addReferee(this,getGame().sport,project);
    for(let i=0;i<getGame().players.length;i++){
     this.shadows.push(this.add.ellipse(0,0,36,12,0x593e24,.23));this.bodies.push(this.add.sprite(0,0,athleteKeys[i],'idle-0').setOrigin(.5,ATHLETE_FEET/ATHLETE_SIZE).setFlipX(getGame().players[i].team===1));
-    this.labels.push(this.add.text(0,0,`${getGame().players[i].team?'PRAIA':'VOCÊ'} ${getGame().sport==='soccer'?i%3===0?'GOL':i%3:i%2+1}`,{fontFamily:'sans-serif',fontSize:'10px',color:'#fff4d6',backgroundColor:getGame().players[i].team?'#874536':'#14565b',padding:{x:5,y:3}}).setOrigin(.5));
+    this.labels.push(this.add.text(0,0,`${getGame().players[i].team?'PRAIA':'VOCÊ'} ${getGame().sport==='soccer'?i%3===0?'GOL':i%3:i%2+1}`,{fontFamily:(getComputedStyle(document.body).getPropertyValue('--font-arcade')||'monospace').trim(),fontSize:'7px',color:'#fff4d6',backgroundColor:getGame().players[i].team?'#874536':'#14565b',padding:{x:5,y:3}}).setOrigin(.5));
    }
    this.ring=this.add.ellipse(0,0,47,18).setStrokeStyle(2,0x4ce3cf).setDepth(2);
    this.aim=this.add.ellipse(0,0,32,16).setStrokeStyle(2,0xffe385).setDepth(2);
