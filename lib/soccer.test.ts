@@ -169,5 +169,7 @@ console.log('Passed: advancing one-twos, readable CPU tackles, quick directed sh
  for(let i=0;i<5;i++)stepSoccer(el,1/120,{x:0,z:0,prepare:false,jump:false},'Club');
  assert.notEqual(el.owner,4,'A tackle right after a trick whiffs');
  const alone=setup(0);alone.players[4].x=900;assert.equal(trickSoccer(alone),false,'No defender near: the button jumps instead');
+ const lift=setup(0);lift.players[4].x=565;assert.ok(trickSoccer(lift));assert.equal(lift.feedback,'CHAPÉU!');assert.ok(lift.ball.vy<0&&lift.passReceiver===2,'The chapéu lifts the ball over the defender for a first-time volley');
+ const spin=setup(0);spin.players[4].x=470;assert.ok(trickSoccer(spin));assert.equal(spin.feedback,'ROLETA!');assert.equal(spin.owner,2,'The roleta keeps the ball');
  console.log('Passed: street dribbles (caneta, elástico) beat tackles.');
 }

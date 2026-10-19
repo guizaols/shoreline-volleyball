@@ -110,7 +110,7 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
     const kind=g.specialShot?'special':g.sport==='tennis'?'racket':g.sport==='soccer'?(/^(CHUTE|CANHÃO|DE PRIMEIRA|COBERTURA)/.test(f)?'kick':f.startsWith('DEFESA')?'hand':'foot'):f.startsWith('CABEÇA')?'head':f.startsWith('PEITO')?'chest':'foot';
     sound.play(kind,perfect);
     // Hitstop scales with the contact: specials and perfect touches freeze longest, then strong hits, then good ones.
-    const trick=/CANETA|ELÁSTICO|CHAPÉU/.test(f);
+    const trick=/CANETA|ELÁSTICO|CHAPÉU|ROLETA/.test(f);
     if(!reduced){this.freeze=g.specialShot?.3:perfect?.04:trick?.06:g.lastPower>.6||kind==='kick'?.028:/BOM/.test(f)?.016:0;if(g.specialShot||perfect||trick)this.cameras.main.shake(g.specialShot?160:70,g.specialShot?.004:.0018);}
     if(g.specialShot){
      this.bannerText.setText(f.replace(/!$/,'')+'!');this.banner.setVisible(true).setX(reduced?500:1500);this.dim.setVisible(true);

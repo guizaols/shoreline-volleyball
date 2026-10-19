@@ -93,20 +93,28 @@ function firstTimeShot(g:Soccer,i:number,timing:ReturnType<typeof shotTiming>){
  strikeShot(g);g.shotWindow=0;g.timing=timing.offset;if(timing.perfect)g.perfects++;
  if(g.feedback!=='CANHÃO!')g.feedback=`DE PRIMEIRA · ${timing.perfect?'PERFEITO':timing.early?'CEDO · ABRIU':'TARDE · NO GOLEIRO'}`;
 }
-// Street-style dribble with the ball at your feet (jump button): CANETA through a defender in front, ELÁSTICO past one beside.
-// A good trick beats the tackle (it whiffs), fills the special bar and briefly protects the ball.
+// Street-style dribble with the ball at your feet (jump button). The move depends on where the defender is:
+// close in front = CANETA (ball through the legs), further in front = CHAPÉU (over the head, volley it first time),
+// beside = ELÁSTICO (cut sideways), behind = ROLETA (360° spin). A good trick beats the tackle, fills the special bar
+// and briefly protects the ball.
 export function trickSoccer(g:Soccer,i=g.active){
  const p=g.players[i];if(g.status!=='playing'||g.owner!==i||p.y<FLOOR||p.trickCooldown>0||g.pendingKick)return false;
  const near=g.players.map((q,id)=>({q,id,d:Math.hypot(q.x-p.x,q.z-p.z)})).filter(o=>o.q.team!==p.team&&o.id%3!==0&&o.d<80).sort((a,b)=>a.d-b.d)[0];
  if(!near)return false;
- const fx=p.facingX||(p.team?-1:1),fz=p.facingZ,dx=(near.q.x-p.x)/near.d,dz=(near.q.z-p.z)/near.d,ahead=fx*dx+fz*dz>.55;
- if(ahead){p.vx=fx*430;p.vz=fz*430;g.ball.x=clamp(near.q.x+fx*34,45,955);g.ball.z=clamp(near.q.z+fz*34,35,415);}
- else{const side=fx*dz-fz*dx>0?-1:1;p.vx=-fz*side*420;p.vz=fx*side*420;}
+ const fx=p.facingX||(p.team?-1:1),fz=p.facingZ,dx=(near.q.x-p.x)/near.d,dz=(near.q.z-p.z)/near.d,dot=fx*dx+fz*dz;
+ const move=dot>.55?(near.d<55?'CANETA!':'CHAPÉU!'):dot<-.3?'ROLETA!':'ELÁSTICO!';
+ if(move==='CANETA!'){p.vx=fx*430;p.vz=fz*430;g.ball.x=clamp(near.q.x+fx*34,45,955);g.ball.z=clamp(near.q.z+fz*34,35,415);}
+ else if(move==='ELÁSTICO!'){const side=fx*dz-fz*dx>0?-1:1;p.vx=-fz*side*420;p.vz=fx*side*420;}
+ else if(move==='ROLETA!'){p.vx=fx*300;p.vz=fz*300;p.dribbleTime=.7;}
+ else{p.vx=fx*380;p.vz=fz*380;}
  near.q.tackleTime=0;near.q.tackleReaction=0;near.q.tackleCooldown=Math.max(near.q.tackleCooldown,.7);
- p.dribbleTime=.5;p.trickCooldown=.9;p.action='bump';p.actionTime=.3;p.touchDelay=0;
- impact(g,i,ahead?'CANETA!':'ELÁSTICO!');
- // The nutmeg sends the ball rolling on behind the defender; the elastic keeps it at your feet.
- if(ahead){g.owner=-1;g.passReceiver=-1;g.ball.vx=fx*260;g.ball.vz=fz*260;g.ball.vy=0;}else g.owner=i;rewardArcade(g,p.team,1);g.energy[p.team]=Math.min(100,g.energy[p.team]+10);
+ p.dribbleTime=Math.max(p.dribbleTime,.5);p.trickCooldown=.9;p.action='bump';p.actionTime=.3;p.touchDelay=0;
+ impact(g,i,move);
+ // The nutmeg sends the ball rolling on behind the defender; the chapéu lifts it over him to your own feet; the others keep it.
+ if(move==='CANETA!'){g.owner=-1;g.passReceiver=-1;g.ball.vx=fx*260;g.ball.vz=fz*260;g.ball.vy=0;}
+ else if(move==='CHAPÉU!'){g.owner=-1;g.passReceiver=i;g.cooldown=.3;g.ball={x:p.x+fx*12,z:p.z+fz*12,y:Math.min(g.ball.y,430),vx:fx*300,vz:fz*300,vy:-320};}
+ else g.owner=i;
+ rewardArcade(g,p.team,1);g.energy[p.team]=Math.min(100,g.energy[p.team]+10);
  return true;
 }
 function restart(g:Soccer,team:number,message:string,x?:number,z?:number){
