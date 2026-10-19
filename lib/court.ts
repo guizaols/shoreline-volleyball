@@ -153,7 +153,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
         // Hitstop scales with the contact, as in the beach sports.
         if(!reduced){this.freeze=g.specialShot?.3:perfect?.04:attack?.028:/BOM/.test(g.feedback)?.016:0;if(perfect||g.specialShot)this.cameras.main.shake(g.specialShot?160:70,g.specialShot?.004:.0018);}
         if(g.specialShot){
-          this.bannerText.setText(g.volleySpecial==='meteor'?'CORTADA METEORO!':'CORTADA FANTASMA!');this.banner.setVisible(true).setX(reduced?500:1500);this.dim.setVisible(true);
+          this.bannerText.setText(g.feedback.split(' · ').pop()||'ESPECIAL!');this.banner.setVisible(true).setX(reduced?500:1500);this.dim.setVisible(true);
           if(!reduced)this.tweens.add({targets:this.banner,x:500,duration:140,ease:'Cubic.easeOut'});
           this.time.delayedCall(520,()=>{this.banner.setVisible(false);this.dim.setVisible(false);});
         }

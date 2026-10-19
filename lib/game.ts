@@ -227,7 +227,9 @@ function hit(g: Game, i: number, attack: boolean, distance: number, ahead?: numb
   const special=sendOver&&!g.practice&&g.drill<0&&!g.online&&(p.team===0?deliberate&&g.specialArmed&&g.energy[0]>=100:g.energy[1]>=100);
   if(special){g.energy[p.team]=0;if(p.team===0)g.specialArmed=false;}
   else if(!g.practice&&g.drill<0)g.energy[p.team]=Math.min(100,g.energy[p.team]+(skill>.72?9:skill>.42?5:2));
-  g.specialShot=special;g.volleySpecial=special?(style==='power'?'meteor':'ghost'):'';
+  // Rival teams have named specials (Hyper V-Ball): fast ones for attackers/blockers, weaving ones for placers/defenders.
+  const rivalName=p.team===1?({attack:'TROVÃO',block:'MARRETA',placement:'FOLHA SECA',defense:'BUMERANGUE'} as Record<string,string>)[g.cpuStyle]:undefined;
+  g.specialShot=special;g.volleySpecial=special?(rivalName?(['attack','block'].includes(g.cpuStyle)?'meteor':'ghost'):style==='power'?'meteor':'ghost'):'';
   if (sendOver) {
     if(p.team===0&&g.challenge>0)g.challengeStrike=g.challenge===1?style==='power':style==='tip';
     const target=p.team?{...opponentTarget(g),...(style==='tip'?{x:390}:{})}:{...g.aim,x:style==='tip'?Math.min(g.aim.x,650):g.aim.x};
@@ -245,7 +247,7 @@ function hit(g: Game, i: number, attack: boolean, distance: number, ahead?: numb
   const quality=skill>.72?'BOM':skill>.42?'REGULAR':'RUIM';p.preparation=0;
   g.timing=timed?timed.offset:null;g.lastPerfect=!!timed?.perfect;
   if(deliberate){g.strokes[p.team].time=0;g.strokes[p.team].used=true;}
-  g.feedback=special?`${p.team?'COAST':'VOCÊ'} · ${g.volleySpecial==='meteor'?'CORTADA METEORO!':'CORTADA FANTASMA!'}`:`${p.team?'COAST':'VOCÊ'} · ${diving?'DEFESA NO CHÃO':sendOver?(p.team===0&&style==='tip'?'LARGADINHA':p.team===0&&style==='roll'?'ATAQUE COLOCADO':'ATAQUE'):g.touches===1?'RECEPÇÃO':'PASSE'} ${timed?.perfect?'PERFEITO':timed?.early?'CEDO':timed?.late?'TARDE':quality}`;g.feedbackTime=1.8;
+  g.feedback=special?`${p.team?'COAST':'VOCÊ'} · ${rivalName?rivalName+'!':g.volleySpecial==='meteor'?'CORTADA METEORO!':'CORTADA FANTASMA!'}`:`${p.team?'COAST':'VOCÊ'} · ${diving?'DEFESA NO CHÃO':sendOver?(p.team===0&&style==='tip'?'LARGADINHA':p.team===0&&style==='roll'?'ATAQUE COLOCADO':'ATAQUE'):g.touches===1?'RECEPÇÃO':'PASSE'} ${timed?.perfect?'PERFEITO':timed?.early?'CEDO':timed?.late?'TARDE':quality}`;g.feedbackTime=1.8;
   if(g.drill>=0&&i===g.drillAthlete){
     if(drills[g.drill].kind==='defense'){finishDrillAttempt(g,skill>=[.42,.6,.72][drills[g.drill].level]);return;}
     if(drills[g.drill].kind==='attack'&&sendOver){g.drillQuality=skill;g.drillStruck=true;}

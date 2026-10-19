@@ -11,6 +11,8 @@ export function createNetMatch(sport:NetSport,rival?:typeof rivals[number]){
 export type NetMatch=ReturnType<typeof createNetMatch>;
 // Short sessions (approved design: about 3 minutes a match): futevôlei sets go to 7, win by 2.
 export const FOOTVOLLEY_POINTS=7;
+// Each rival style has its own named special, as every team did in Hyper V-Ball.
+const RIVAL_SPECIALS:Record<string,{name:string;kind:'signature'|'zigzag'|'drop'}>={attack:{name:'TROVÃO',kind:'signature'},block:{name:'MARRETA',kind:'signature'},placement:{name:'FOLHA SECA',kind:'drop'},defense:{name:'BUMERANGUE',kind:'zigzag'}};
 const RIVAL_SPEED:Record<string,number>={attack:1,block:.95,defense:1.1,placement:1};
 export function moveRunner(p:Player,dx:number,dz:number,dt:number,speed=300){
  const length=Math.max(1,Math.hypot(dx,dz));dx/=length;dz/=length;
@@ -122,7 +124,8 @@ export function strikeNet(g:NetMatch,i:number,quality:number,ahead?:number){
  const incomingSpecial=g.specialShot&&g.lastTeam!==p.team;
  const special=over&&!cover?takeSpecial(g,p.team,i):false;
  // Two specials, as in Hyper V-Ball: A fires the signature shot, B the zigzag ball that weaves in the air.
- if(special)g.specialKind=style==='power'?'signature':'zigzag';
+ const rivalSpecial=special&&p.team===1?RIVAL_SPECIALS[g.cpuStyle]:undefined;
+ if(special)g.specialKind=rivalSpecial?rivalSpecial.kind:style==='power'?'signature':'zigzag';
  if(!over||cover){g.specialShot=false;g.specialPlayer=-1;}
  g.lastPower=power;g.timing=timed?timed.offset:null;g.lastPerfect=!!timed?.perfect;if(timed?.perfect)g.perfects++;if(special&&p.team===0)g.specials++;
  if(over){
@@ -133,7 +136,7 @@ export function strikeNet(g:NetMatch,i:number,quality:number,ahead?:number){
   target.z=target.z+(p.z>225?error:-error)+drift;
   if(style==='tip'&&!special)target.x=p.team?400:600;
   if(shark&&!special)target.x=p.team?300:700;
-  const flight=special?.62:shark?.5:style==='roll'?1.9-power*.2:style==='tip'?1.25-power*.2:(g.sport==='tennis'?1.15:1.45)-power*.7;
+  const flight=special?(g.specialKind==='drop'?1.25:.62):shark?.5:style==='roll'?1.9-power*.2:style==='tip'?1.25-power*.2:(g.sport==='tennis'?1.15:1.45)-power*.7;
   launch(g,target,flight/(special?1:.72+quality*.28),g.sport==='tennis'?(special?309:298):(special?260:248));
  }else{
   const partner=g.players[i^1];
@@ -147,7 +150,7 @@ export function strikeNet(g:NetMatch,i:number,quality:number,ahead?:number){
  if(incomingSpecial&&quality>=.7)g.energy[p.team]=Math.min(100,g.energy[p.team]+20);
  g.feedback=`${body} · ${timed?.perfect?'PERFEITO':timed?.early?'CEDO · DIAGONAL':timed?.late?'TARDE · PARALELA':quality>.7?'BOM':quality>.4?'REGULAR':'FORA DO TEMPO'}`;
  g.contactHint=quality>.7?'Contato equilibrado':Math.hypot(p.vx,p.vz)>170?'Chegue e freie antes do contato':'Prepare o golpe antes da bola chegar';
- if(special)g.feedback=g.specialKind==='zigzag'?'ZIGUE-ZAGUE!':specialName(g.sport)+'!';else if(incomingSpecial&&quality>=.7)g.feedback='CONTRA-ESPECIAL!';else if(human&&power>.85)g.feedback+=' · NO LIMITE';
+ if(special)g.feedback=rivalSpecial?`${g.rivalName} · ${rivalSpecial.name}!`:g.specialKind==='zigzag'?'ZIGUE-ZAGUE!':specialName(g.sport)+'!';else if(incomingSpecial&&quality>=.7)g.feedback='CONTRA-ESPECIAL!';else if(human&&power>.85)g.feedback+=' · NO LIMITE';
  if(g.combo[p.team]>=3)g.contactHint=`COMBO ×${g.combo[p.team]} · +ESPECIAL`;
  if(cover)g.contactHint='Parceiro cobriu · retorne à posição';
  g.feedbackTime=1.6;p.preparation=0;if(cover)g.coverUsed=true;
@@ -212,7 +215,9 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
   const x=clamp(p.x,p.team?537:40,p.team?960:463),z=clamp(p.z,30,420);
   if(x!==p.x)p.vx=0;if(z!==p.z)p.vz=0;p.x=x;p.z=z;
  }
- const b=g.ball,old={...b};b.x+=b.vx*dt;b.z+=b.vz*dt+(g.specialShot&&g.specialKind==='zigzag'?Math.cos(g.contactAge*12)*520*dt:0);b.y+=b.vy*dt+310*dt*dt;b.vy+=620*dt;
+ const b=g.ball,old={...b};b.x+=b.vx*dt;b.z+=b.vz*dt+(g.specialShot&&g.specialKind==='zigzag'?Math.cos(g.contactAge*12)*520*dt:0);
+ // FOLHA SECA: once over the net the ball suddenly drops.
+ if(g.specialShot&&g.specialKind==='drop'&&b.vy>0&&(g.lastTeam?b.x<500:b.x>500))b.vy+=900*dt;b.y+=b.vy*dt+310*dt*dt;b.vy+=620*dt;
  if(b.y>=(g.sport==='tennis'?316:274)&&((old.x<500&&b.x>=500)||(old.x>500&&b.x<=500))){netPoint(g,1-g.lastTeam,'Bola na rede');return;}
  if(!g.cooldown){
   let contact=-1,closest=Infinity,contactTime=0,contactDive=false;

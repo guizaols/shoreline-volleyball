@@ -274,3 +274,12 @@ console.log('Passed: timed human serve, late fallback and instant CPU serve.');
  assert.ok(Math.abs(bullet.ball.vx)>Math.abs(normal.ball.vx)*1.3,'The bullet serve is much faster');
  console.log('Passed: SAQUE BALA super serve.');
 }
+
+{
+ const {rivals}=await import('./rivals.ts');
+ const rivalShot=(style:string)=>{const m=createNetMatch('footvolley',rivals.find(r=>r.style===style));m.status='playing';m.lastTeam=1;m.lastHit=3;m.touches=2;m.energy[1]=100;
+  m.ball={...netContact(m,2),vx:0,vz:0,vy:20};strikeNet(m,2,1);return m;};
+ const leaf=rivalShot('placement');assert.match(leaf.feedback,/FOLHA SECA!/);assert.equal(leaf.specialKind,'drop');
+ assert.match(rivalShot('attack').feedback,/TROVÃO!/);assert.match(rivalShot('defense').feedback,/BUMERANGUE!/);assert.match(rivalShot('block').feedback,/MARRETA!/);
+ console.log('Passed: each rival style has its own named special.');
+}
