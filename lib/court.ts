@@ -13,7 +13,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
   const sound=matchAudio(parent.closest<HTMLElement>('.game-shell')||parent);
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   class Court extends Phaser.Scene {
-    lastFlash=0;freeze=0;lastScore='';crowd!:ReturnType<typeof addCrowd>;cheer=0;meter!:ReturnType<typeof timingMeter>;
+    lastFlash=0;freeze=0;lastScore='';dim!:Phaser.GameObjects.Rectangle;banner!:Phaser.GameObjects.Container;bannerText!:Phaser.GameObjects.Text;crowd!:ReturnType<typeof addCrowd>;cheer=0;meter!:ReturnType<typeof timingMeter>;
     impactPosition={x:0,y:0};
     athletes: Phaser.GameObjects.Sprite[] = [];
     shadows: Phaser.GameObjects.Ellipse[] = [];
@@ -65,6 +65,10 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       this.ballShadow=this.add.ellipse(0,0,16,6,0x563b26,.3).setDepth(2);
       this.ball=this.add.container(0,0,[this.add.circle(0,0,10,0xfff9df).setStrokeStyle(2,0x153d4b),this.add.arc(0,0,7,-60,110,false,0x3a93b5),this.add.arc(0,0,6,140,280,false,0xe4b841)]).setDepth(900);
       this.impact=this.add.circle(0,0,12).setStrokeStyle(2,0xffffd3).setDepth(901);this.meter=timingMeter(this);
+      const arcadeFont=(getComputedStyle(document.body).getPropertyValue('--font-arcade')||'monospace').trim();
+      this.dim=this.add.rectangle(500,310,1000,620,0x000000,.45).setDepth(950).setVisible(false);
+      this.bannerText=this.add.text(0,0,'',{fontFamily:arcadeFont,fontSize:'32px',color:'#ffdb00',stroke:'#db2400',strokeThickness:6}).setOrigin(.5);
+      this.banner=this.add.container(500,290,[this.add.rectangle(0,0,1000,84,0x1a1028,.92).setStrokeStyle(4,0xffdb00),this.bannerText]).setDepth(960).setVisible(false);
       const circle=this.add.ellipse(0,0,34,17).setStrokeStyle(2,0xffee75);
       const targetLabel=this.add.text(0,-24,'',{fontSize:'13px',color:'#fff075',backgroundColor:'#193e46',padding:{x:5,y:3}}).setOrigin(.5);
       const cross=this.add.graphics().lineStyle(2,0xffee75);cross.lineBetween(-10,0,10,0);cross.lineBetween(0,-8,0,8);
@@ -145,9 +149,14 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
       this.ballShadow.setPosition(shadow.x,shadow.y).setAlpha(Math.max(.08,.3-(FLOOR-y)*.0005));
       if(g.hitFlash>this.lastFlash){
         this.impactPosition={x:bp.x,y:bp.y};const perfect=/PERFEITO/.test(g.feedback),attack=g.shot==='ATTACK';
-        sound.play(attack?'spike':'hand',perfect);
+        sound.play(g.specialShot?'special':attack?'spike':'hand',perfect);
         // Hitstop scales with the contact, as in the beach sports.
-        if(!reduced){this.freeze=perfect?.04:attack?.028:/BOM/.test(g.feedback)?.016:0;if(perfect)this.cameras.main.shake(70,.0018);}
+        if(!reduced){this.freeze=g.specialShot?.3:perfect?.04:attack?.028:/BOM/.test(g.feedback)?.016:0;if(perfect||g.specialShot)this.cameras.main.shake(g.specialShot?160:70,g.specialShot?.004:.0018);}
+        if(g.specialShot){
+          this.bannerText.setText(g.volleySpecial==='meteor'?'CORTADA METEORO!':'CORTADA FANTASMA!');this.banner.setVisible(true).setX(reduced?500:1500);this.dim.setVisible(true);
+          if(!reduced)this.tweens.add({targets:this.banner,x:500,duration:140,ease:'Cubic.easeOut'});
+          this.time.delayedCall(520,()=>{this.banner.setVisible(false);this.dim.setVisible(false);});
+        }
       }
       this.cheer=Math.max(0,this.cheer-delta/1000);this.crowd(this.cheer>0,g.clock);
       const score=g.score.join(',');if(score!==this.lastScore){if(this.lastScore&&score!=='0,0'){sound.play('point');this.cheer=1.4;}this.lastScore=score;}

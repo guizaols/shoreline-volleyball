@@ -36,4 +36,4 @@ Fase 1 fechada em 2026-10-19: testes, testes online, tipos, lint e build passam;
 - [x] Futebol: drible com a bola no pé (botão de salto, "DRIBLE" no celular). CANETA com o defensor à frente, a bola passa por ele e segue rolando; ELÁSTICO com o defensor do lado, corte lateral. O bote logo depois falha, a barra de especial enche mais rápido, e a CPU também dribla. `lib/soccer.ts` (`trickSoccer`).
 - [x] Futevôlei e beach tennis: dois especiais. Com o especial armado, A = golpe de assinatura (bicicleta / voleio relâmpago), B = ZIGUE-ZAGUE, bola que serpenteia no ar. `lib/net.ts`.
 - [x] Cerimônia de especial: tela escurece, o nome cruza a tela, pausa de 0,3 s e tremor. Drible e chapéu têm pausa curta e tremor. `lib/beach-scene.ts`.
-- [ ] Vôlei: especiais no estilo Hyper V-Ball (a regra do vôlei é separada, `lib/game.ts`).
+- [x] Vôlei (Hyper V-Ball): barra de especial enchida por bons toques; com a barra cheia, U ou o botão ESPECIAL arma o ataque. Cortada = CORTADA METEORO (bola muito rápida), largada/colocada = CORTADA FANTASMA (serpenteia). A CPU também usa. Só fora do online. `lib/game.ts` (`armVolleySpecial`), `lib/court.ts`, `app/volei/page.tsx`.

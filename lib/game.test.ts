@@ -335,3 +335,18 @@ point(rotating,1);checkServer(3);point(rotating,1);checkServer(3);
 point(rotating,0);checkServer(1);point(rotating,0);checkServer(1);
 point(rotating,1);checkServer(2);
 console.log('Passed: both teams rotate service on regaining possession, retain it after scoring and select the correct athlete.');
+
+{
+ const {armVolleySpecial}=await import('./game.ts');
+ const attack=(armed:boolean,style:'power'|'tip')=>{
+  const m=createGame();m.status='playing';m.autoSwitch=false;m.windEnabled=false;m.lastTeam=0;m.lastHit=1;m.touches=2;m.aim={x:890,z:225};m.energy[0]=100;m.attackStyle=style;
+  if(armed)armVolleySpecial(m);
+  Object.assign(m.players[0],{x:400,z:225,y:260,action:'spike',actionTime:.3});m.ball={...contactPoint(m.players[0]),vx:0,vz:0,vy:1};step(m,tick,0,false,'Club',true);
+  return m;
+ };
+ const meteor=attack(true,'power'),plain=attack(false,'power');
+ assert.match(meteor.feedback,/METEORO/);assert.equal(meteor.energy[0],0,'A special spends the bar');
+ assert.ok(meteor.ball.vx>plain.ball.vx*1.3,'METEORO flies much faster than a normal attack');
+ assert.match(attack(true,'tip').feedback,/FANTASMA/);
+ console.log('Passed: volleyball specials (meteoro, fantasma) armed from a full bar.');
+}

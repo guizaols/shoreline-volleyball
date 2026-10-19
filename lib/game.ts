@@ -18,7 +18,7 @@ function players(): Player[] {
 }
 export function createGame() {
   return { online:false,remoteActive:2,remoteAim:{x:190,z:225},remoteAimPreset:-1,remoteAttackStyle:'power' as AttackStyle,remoteServeStyle:'float' as ServeStyle, drill:-1,drillAthlete:0,drillAttempts:0,drillScore:0,drillMedal:0,drillQuality:0,drillStruck:false,drillTarget:{x:890,z:80},location:'Palm Cove',windStrength:27,genders:['unspecified','unspecified'],opponentGenders:['male','male'],cpuTier:0,opponentCountry:'US',opponentPlayers:['Noah','Ethan'],opponentName:'COAST', friendlyOpponent:0, country: 'BR', names: ['Alex','Dani'], attributes: [{serve:50,attack:50,defense:50,mobility:50},{serve:50,attack:50,defense:50,mobility:50}], playerContacts:[0,0], event:0, matchSerial:0, cupStage: -1, cpuStyle: 'normal', pointGoal: 11, gold: false, challenge: -1, challengeStrike: false, players: players(), active: 0, autoSwitch: true, aimPreset: -1, aim: {x:810,z:225}, power: 1, serveStyle: 'float' as ServeStyle, ball: { x: 200, z: 145, y: 325, vx: 0, vz: 0, vy: 0 }, score: [0, 0],
-    pace: 'Club', controlSerial:[-1,-1], timing:null as number|null,lastPerfect:false,strokes:[{time:0,held:0,attack:false,used:false,eta:0},{time:0,held:0,attack:false,used:false,eta:0}], lastRally: 0, bestRally: 0, pointReason: '', contactHint: '', practice: false, practiceDelay: 0, repetitions: 0, attackStyle: 'power' as AttackStyle, tossTime: 0, tossQuality: '', windEnabled: true, wind: 0, clock: 0, resumeStatus: 'playing', assist: true, feedback: '', feedbackTime: 0, server: 0, serviceOrder: [0,3], status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
+    pace: 'Club', controlSerial:[-1,-1], timing:null as number|null,lastPerfect:false,energy:[0,0],specialArmed:false,specialShot:false,volleySpecial:'' as ''|'meteor'|'ghost',strokes:[{time:0,held:0,attack:false,used:false,eta:0},{time:0,held:0,attack:false,used:false,eta:0}], lastRally: 0, bestRally: 0, pointReason: '', contactHint: '', practice: false, practiceDelay: 0, repetitions: 0, attackStyle: 'power' as AttackStyle, tossTime: 0, tossQuality: '', windEnabled: true, wind: 0, clock: 0, resumeStatus: 'playing', assist: true, feedback: '', feedbackTime: 0, server: 0, serviceOrder: [0,3], status: 'ready', message: 'Four players. One perfect rally.', cooldown: 0,
     lastHit: -1, lastTeam: -1, touches: 0, rally: 0, shot: '', hitFlash: 0 };
 }
 export type Game = ReturnType<typeof createGame>;
@@ -77,6 +77,7 @@ export function serveTiming(g:Game){
 export function switchPlayer(g: Game) {
   if (g.drill<0&&(g.status === 'playing' || g.status === 'ready')) g.active = 1 - g.active;
 }
+export function armVolleySpecial(g:Game){if(!g.online&&g.status==='playing'&&g.energy[0]>=100)g.specialArmed=!g.specialArmed;}
 export function setAim(g: Game, x: number, z: number) {
   if (!Number.isFinite(x) || !Number.isFinite(z)) return;
   g.aimPreset=-1;
@@ -103,9 +104,9 @@ export function setServeStyle(g: Game, style: string) {
   if(style==='underhand'||style==='float'||style==='jump')g.serveStyle=style;
 }
 // Solve the landing arc and raise it only as much as the whole net band requires.
-export function launch(g: Game, target: {x:number;z:number}, preferredFlight: number, netClearance=248) {
+export function launch(g: Game, target: {x:number;z:number}, preferredFlight: number, netClearance=248, minFlight=.55) {
   const b=g.ball,landingY=FLOOR-13;
-  let flight=Math.max(.55,preferredFlight);
+  let flight=Math.max(minFlight,preferredFlight);
   for(const netX of [482,500,518]) {
     const u=(netX-b.x)/(target.x-b.x);
     if(u>0 && u<1) {
@@ -182,7 +183,7 @@ export function point(g: Game, winner: number, reason = '') {
   g.message = g.status === 'over' ? (winner === 0 ? 'Your team owns the beach!' : 'The beach wants a rematch.')
     : `${winner === 0 ? 'Your point!' : 'Point, Coast.'}${reason ? ` ${reason}` : ' Next ball.'}`;
   g.players = players(); g.ball = { x: winner ? 800 : 200, z: winner ? 310 : 145, y: 325, vx: 0, vz: 0, vy: 0 };
-  g.serveStyle='float';g.attackStyle='power';
+  g.serveStyle='float';g.attackStyle='power';g.specialShot=false;g.volleySpecial='';
   g.active=0;g.remoteActive=2;g.controlSerial=[-1,-1]; g.rally = 0; g.touches = 0; g.lastHit = -1; g.lastTeam = -1; g.shot = ''; g.hitFlash = 0;
   cancelVolleyStroke(g);
 }
@@ -222,12 +223,17 @@ function hit(g: Game, i: number, attack: boolean, distance: number, ahead?: numb
   if (!diving) { p.action = action; p.actionTime = .26; }
   // Keep the real collision position instead of snapping the ball to the athlete.
   const style=p.team?(g.cpuStyle==='placement'&&g.rally%2?'tip':'power'):g.attackStyle;
+  // Hyper V-Ball style specials (offline): a full bar arms an attack. Power = METEORO (very fast), tip/roll = FANTASMA (weaves in the air).
+  const special=sendOver&&!g.practice&&g.drill<0&&!g.online&&(p.team===0?deliberate&&g.specialArmed&&g.energy[0]>=100:g.energy[1]>=100);
+  if(special){g.energy[p.team]=0;if(p.team===0)g.specialArmed=false;}
+  else if(!g.practice&&g.drill<0)g.energy[p.team]=Math.min(100,g.energy[p.team]+(skill>.72?9:skill>.42?5:2));
+  g.specialShot=special;g.volleySpecial=special?(style==='power'?'meteor':'ghost'):'';
   if (sendOver) {
     if(p.team===0&&g.challenge>0)g.challengeStrike=g.challenge===1?style==='power':style==='tip';
     const target=p.team?{...opponentTarget(g),...(style==='tip'?{x:390}:{})}:{...g.aim,x:style==='tip'?Math.min(g.aim.x,650):g.aim.x};
     const flight=g.practice?(style==='tip'?1.55:style==='roll'?1.65:b.y<255?.82:1.3):style==='tip'?(b.y<255?.92:1.55):style==='roll'?(b.y<255?1.05:1.65):b.y<255?.68:.9;
     if(p.team===0){const error=Math.max(0,.72-skill)*70;target.x=clamp(target.x+error,550,960);target.z=clamp(target.z+(p.z>225?error:-error),30,420);}
-    launch(g,target,flight/(1+(playerAttribute(g,i,'attack')-50)*.006)*(p.team&&g.cpuStyle==='attack'?.85:1)*(p.team?(g.pace==='Chill'?1.25:g.pace==='Pro'?.92:1):1)/((p.team||assisted?1:g.power)*(.65+skill*.5)),g.practice?248:260);
+    launch(g,target,flight*(g.volleySpecial==='meteor'?.6:1)/(1+(playerAttribute(g,i,'attack')-50)*.006)*(p.team&&g.cpuStyle==='attack'?.85:1)*(p.team?(g.pace==='Chill'?1.25:g.pace==='Pro'?.92:1):1)/((p.team||assisted?1:g.power)*(.65+skill*.5)),g.practice?248:260,g.volleySpecial==='meteor'?.36:.55);
   } else {
     b.vy = (g.touches === 1 ? -385 : -455)*(.8+skill*.2);
     const flight = (-b.vy + Math.sqrt(b.vy * b.vy + 2 * GRAVITY * (365 - b.y))) / GRAVITY;
@@ -239,7 +245,7 @@ function hit(g: Game, i: number, attack: boolean, distance: number, ahead?: numb
   const quality=skill>.72?'BOM':skill>.42?'REGULAR':'RUIM';p.preparation=0;
   g.timing=timed?timed.offset:null;g.lastPerfect=!!timed?.perfect;
   if(deliberate){g.strokes[p.team].time=0;g.strokes[p.team].used=true;}
-  g.feedback=`${p.team?'COAST':'VOCÊ'} · ${diving?'DEFESA NO CHÃO':sendOver?(p.team===0&&style==='tip'?'LARGADINHA':p.team===0&&style==='roll'?'ATAQUE COLOCADO':'ATAQUE'):g.touches===1?'RECEPÇÃO':'PASSE'} ${timed?.perfect?'PERFEITO':timed?.early?'CEDO':timed?.late?'TARDE':quality}`;g.feedbackTime=1.8;
+  g.feedback=special?`${p.team?'COAST':'VOCÊ'} · ${g.volleySpecial==='meteor'?'CORTADA METEORO!':'CORTADA FANTASMA!'}`:`${p.team?'COAST':'VOCÊ'} · ${diving?'DEFESA NO CHÃO':sendOver?(p.team===0&&style==='tip'?'LARGADINHA':p.team===0&&style==='roll'?'ATAQUE COLOCADO':'ATAQUE'):g.touches===1?'RECEPÇÃO':'PASSE'} ${timed?.perfect?'PERFEITO':timed?.early?'CEDO':timed?.late?'TARDE':quality}`;g.feedbackTime=1.8;
   if(g.drill>=0&&i===g.drillAthlete){
     if(drills[g.drill].kind==='defense'){finishDrillAttempt(g,skill>=[.42,.6,.72][drills[g.drill].level]);return;}
     if(drills[g.drill].kind==='attack'&&sendOver){g.drillQuality=skill;g.drillStruck=true;}
@@ -326,7 +332,7 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
       const target = onBall ? clamp(predicted+(p.team?1:-1)*(contactHeight===384?27:12), p.team ? 550 : 45, p.team ? 955 : 450) : home;
       direction = clamp((target - p.x) / 38, -1, 1);
       // Opponents estimate the landing lane; later events make smaller reading errors.
-      const readError=p.team===1&&g.lastTeam===0&&g.cpuStyle!=='normal'&&g.rally>0?Math.sin((g.rally+1)*12.9898+i*78.233+(g.score[0]+g.score[1])*4.17)*(45-g.cpuTier*2)*(1+Math.max(0,Math.hypot(b.vx,b.vz)-300)/500*(1.5-playerAttribute(g,i,'defense')/100))*(g.lastPerfect?2:1):0;
+      const readError=p.team===1&&g.lastTeam===0&&g.cpuStyle!=='normal'&&g.rally>0?Math.sin((g.rally+1)*12.9898+i*78.233+(g.score[0]+g.score[1])*4.17)*(45-g.cpuTier*2)*(1+Math.max(0,Math.hypot(b.vx,b.vz)-300)/500*(1.5-playerAttribute(g,i,'defense')/100))*(g.lastPerfect?2:1)*(g.specialShot?2.5:1):0;
       const targetZ=onBall?clamp(predictedZ+readError,35,415):p.team&&g.cpuStyle==='block'&&i===2?clamp(g.cpuTier>=1?predictedZ:b.z,35,415):(i%2?310:145);
       depthDirection=clamp((targetZ-p.z)/38,-1,1);
       if(reacting){direction=0;depthDirection=0;}
@@ -384,7 +390,7 @@ export function step(g: Game, dt: number, move: number, jump: boolean, difficult
   if(g.challenge===0){if(Math.hypot(g.players[0].x-350,g.players[0].z-225)<25&&(move||depth))g.status='challenge-complete';return;}
   const oldX = b.x, oldY = b.y;
   b.vz+=g.wind*dt;
-  b.vy += GRAVITY * dt; b.x += b.vx * dt; b.z += b.vz * dt; b.y += b.vy * dt;
+  b.vy += GRAVITY * dt; b.x += b.vx * dt; b.z += b.vz * dt+(g.specialShot&&g.volleySpecial==='ghost'?Math.cos(g.clock*12)*520*dt:0); b.y += b.vy * dt;
   g.cooldown = Math.max(0, g.cooldown - dt); g.hitFlash = Math.max(0, g.hitFlash - dt);
   for(let i=0;i<4;i++){
     const p=g.players[i],isBlocking=i===g.active?(block||preparing):remote&&i===g.remoteActive?(remote.block||remote.prepare):g.lastTeam!==p.team;
