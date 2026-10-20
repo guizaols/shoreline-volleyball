@@ -31,7 +31,7 @@ export default function Frescobol(){
  const clear=useCallback(()=>{keys.current.clear();stick.current={x:0,z:0};game.current.holding=false;game.current.charge=0;},[]);
  const start=useCallback(()=>{clear();setNotes([]);game.current=createFrescobol();startFrescobol(game.current);sync();},[clear,sync]);
  const pause=useCallback(()=>{clear();pauseFrescobol(game.current);sync();},[clear,sync]);
- const press=useCallback((key:string)=>{keys.current.add(key);pressFrescobol(game.current);sync();},[sync]);
+ const press=useCallback((key:string,kind:'hit'|'lob'='hit')=>{keys.current.add(key);pressFrescobol(game.current,kind);sync();},[sync]);
  const release=useCallback((key:string,kind:'hit'|'lob',cancelled=false)=>{
   if(!keys.current.delete(key))return;
   if(cancelled){game.current.holding=false;game.current.charge=0;return;}
@@ -48,7 +48,7 @@ export default function Frescobol(){
    event.preventDefault();if(event.repeat)return;
    if(key==='p'){pause();return;}if(key==='k'){pancada();return;}
    if(key===' '){if(['ready','over'].includes(game.current.status))start();return;}
-   if(key==='j'||key==='f'){press(key);return;}keys.current.add(key);
+   if(key==='j'||key==='f'){press(key,key==='f'?'lob':'hit');return;}keys.current.add(key);
   };
   const up=(event:KeyboardEvent)=>{const key=event.key.toLowerCase();if(key==='j')release('j','hit');else if(key==='f')release('f','lob');else keys.current.delete(key);};
   const blur=()=>{clear();if(game.current.status==='playing'){pauseFrescobol(game.current);sync();}};
@@ -76,11 +76,11 @@ export default function Frescobol(){
     </div></div>}
     {live&&view.feedbackTime>0&&<output className={`contact-feedback ${/PERFEITO|PANCADA/.test(view.feedback)?'is-perfect':''}`}>{view.feedback}</output>}
     {loaded&&live&&<div className="arcade-hud">
-     <div className="arcade-power"><span>{view.receiver===0?`FORÇA ${Math.round(view.charge*100)}%`:'BOLA COM O PARCEIRO'}</span><div className="arcade-power-track" aria-hidden="true"><i style={{left:`${Math.min(98,view.charge*100)}%`}}/></div><small>{view.charge>=.65?'ATAQUE!':'SOLTE = GOLPE · SEGURE = ATAQUE'}</small></div>
+     <div className="arcade-power"><span>{view.receiver===0?`FORÇA ${Math.round(view.charge*100)}%`:'BOLA COM O PARCEIRO'}</span><div className="arcade-power-track" aria-hidden="true"><i style={{left:`${Math.min(98,view.charge*100)}%`}}/></div><small>{view.holdKind==='hit'&&view.charge>=.65?'ATAQUE!':'SOLTE = GOLPE · SEGURE = ATAQUE'}</small></div>
      <button className={`arcade-special ${view.rhythm>=100?'is-ready':''}`} onClick={pancada} disabled={view.rhythm<100} aria-label={`Pancada de Ouro, ${Math.round(view.rhythm)}%`} style={{background:`linear-gradient(90deg,#986326 ${view.rhythm}%,#173f50 ${view.rhythm}%)`}}><b>{view.pancada>0?`OURO ${Math.ceil(view.pancada)}s`:view.rhythm>=100?'OURO · K':`${Math.round(view.rhythm)}%`}</b><small>PANCADA DE OURO</small></button>
     </div>}
    </div>
-   <TouchControls onMove={(x,z)=>{stick.current={x,z};}} onPress={()=>press('touch')} onRelease={cancelled=>release('touch','hit',cancelled)} onAim={pancada} onAlternate={()=>{press('lob');release('lob','lob');}} alternateLabel="Bola alta" label="Bater" charge={view.charge} enabled={loaded&&!error&&live}/>
+   <TouchControls onMove={(x,z)=>{stick.current={x,z};}} onPress={()=>press('touch')} onRelease={cancelled=>release('touch','hit',cancelled)} onAim={pancada} onAlternate={()=>{press('lob','lob');release('lob','lob');}} alternateLabel="Bola alta" label="Bater" charge={view.charge} enabled={loaded&&!error&&live}/>
    <div className="game-bottom"><span>WASD mover e mirar · J bater (segure = ataque) · F bola alta · K Pancada de Ouro · P pausa</span></div>
    <span className="sr-only" aria-live="polite">{view.score} pontos, sequência {view.sequence}.</span>
   </section>

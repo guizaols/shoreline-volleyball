@@ -57,4 +57,18 @@ assert.ok(drops.ataque>=drops.golpe);console.log('frescobol drops per round',dro
 // The score is final at the whistle.
 {const g=createFrescobol({random:seeded(2)});startFrescobol(g);bot(g,121);const final=g.score;pressFrescobol(g);releaseFrescobol(g,still,'hit');bot(g,2);assert.equal(g.score,final);}
 
-console.log('Passed: frescobol rally, shots, timing, partner and the Pancada de Ouro.');
+// Review fixes.
+// A release after the ball has passed the hitting point is judged late: 100 ms after is a miss.
+const lateHit=(after:number)=>{const g=createFrescobol({random:()=>0});startFrescobol(g);let crossed=-1,done=false;
+ for(let t=0;t<240&&!done;t++){const p=g.players[0],b=g.ball;if(crossed<0&&b.vy>0&&b.y>=FLOOR-110&&Math.hypot(b.x-p.x,b.z-p.z)<=45)crossed=t;
+  if(crossed>=0&&t>=crossed+after*120){pressFrescobol(g);releaseFrescobol(g,still,'hit');done=true;}stepFrescobol(g,DT,still,'Club');}
+ stepFrescobol(g,DT,still,'Club');return g;};
+{const g=lateHit(.1);assert.match(g.feedback,/ERROU|ISOLOU/,g.feedback);assert.ok(g.timing!<-.6,`timing ${g.timing}`);}
+// Aiming to the side carries no hidden risk: a clean side shot is as safe for the partner as a centred one.
+{const g=createFrescobol({random:()=>.9});startFrescobol(g);bot(g,1.2,{aim:{x:0,z:1}});assert.equal(g.receiver,1);assert.equal(g.cpuMiss,false);}
+// Holding J while the ball is with your partner builds the ataque for your next hit.
+{const g=createFrescobol({random:()=>0});startFrescobol(g);g.receiver=1;pressFrescobol(g);stepFrescobol(g,.5,still,'Club');assert.ok(g.charge>=.65,`charge ${g.charge}`);}
+// A mistimed shot still counts in the best sequence.
+{const g=createFrescobol({random:()=>0});startFrescobol(g);bot(g,1.2,{late:.12,shot:'ataque'});assert.equal(g.best,g.sequence);}
+
+console.log('Passed: frescobol rally, shots, timing, partner, the Pancada de Ouro and review fixes.');

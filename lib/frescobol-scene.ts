@@ -3,6 +3,7 @@ import {project} from './court-projection';
 import {FLOOR} from './game';
 import {stepFrescobol,frescobolGuide,shotPlan,type Frescobol,type FrescobolInput} from './frescobol';
 import {matchAudio} from './match-audio';
+import {PERFECT_ETA} from './arcade';
 import {bakeAthletes,addCrowd,athletePx,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
 
 // Timing bar over you after a hit: green is where the shot you tried works (golpe wide, ataque narrow), yellow perfect.
@@ -61,10 +62,12 @@ export function mountFrescobol(parent:HTMLElement,getGame:()=>Frescobol,input:()
    this.ball.setPosition(pos.x,pos.y).setDepth(b.z+30).setFillStyle(g.pancada>0?0xffdb00:0xe2331e);
    this.ballShadow.setPosition(shadow.x,shadow.y).setAlpha(Math.max(.08,.3-(FLOOR-b.y)*.0005));
    const mine=live&&g.receiver===0&&!g.dropTimer,guide=frescobolGuide(g),land=project(guide.x,guide.z);
-   this.landing.setVisible(mine).setPosition(land.x,land.y).setStrokeStyle(guide.time<.2?3:2,guide.time<.2?0xffe385:0x7fe5da);
+   this.landing.setVisible(mine).setPosition(land.x,land.y).setStrokeStyle(guide.time<=PERFECT_ETA?3:2,guide.time<=PERFECT_ETA?0xffe385:0x7fe5da);
    this.aim.clear();this.aimRing.setVisible(mine);
-   if(mine){const plan=shotPlan(g,input(),'hit',g.charge>=.65),a=project(g.players[0].x,g.players[0].z),to=project(plan.to.x,plan.to.z);this.aim.lineStyle(2,plan.shot==='ataque'?0xff795d:0xffdb00,.5).lineBetween(a.x,a.y,to.x,to.y);this.aimRing.setPosition(to.x,to.y).setStrokeStyle(3,plan.shot==='ataque'?0xff795d:0xffdb00);}
+   // Once released, the ring stays on the shot you made; before that it follows your direction and charge.
+   if(mine){const q=g.queued,plan=q?shotPlan(g,q.aim,q.kind,q.ataque):shotPlan(g,input(),g.holdKind,g.holding&&g.holdKind==='hit'&&g.charge>=.65),a=project(g.players[0].x,g.players[0].z),to=project(plan.to.x,plan.to.z);this.aim.lineStyle(2,plan.shot==='ataque'?0xff795d:0xffdb00,.5).lineBetween(a.x,a.y,to.x,to.y);this.aimRing.setPosition(to.x,to.y).setStrokeStyle(3,plan.shot==='ataque'?0xff795d:0xffdb00);}
    this.gold.setVisible(g.pancada>0);
+   if(g.contactSerial<this.lastContact)this.lastContact=g.contactSerial;
    if(g.contactSerial!==this.lastContact){
     this.lastContact=g.contactSerial;const who=g.hitter,perfect=/PERFEITO/.test(g.feedback);this.swing[who]=.35;
     sound.play(g.incoming==='ataque'?'spike':'racket',perfect);this.lastWindow=g.incoming==='ataque'?.3:g.incoming==='lob'?.75:.65;
