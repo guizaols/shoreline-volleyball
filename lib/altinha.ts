@@ -1,11 +1,13 @@
 import {moveRunner} from './net.ts';
 import {FLOOR,type Player} from './game.ts';
-import {pressTiming} from './arcade.ts';
+import {pressTiming,PERFECT_ETA} from './arcade.ts';
 
 // Altinha: five friends in a circle keep the ball up. Player 0 is the human; the others are CPU friends.
 // One roda score for everyone (grows while the ball stays up) and one score per player.
 export type AltinhaInput={x:number;z:number;jump:boolean};
-const MAX_COMBO=10,GRAVITY=620,CONTACT=60,REACH=45,ROUND=120,KEEP_FLIGHT=1.3,PASS_FLIGHT=1.5,QUEUE=.5;
+// Seconds off the perfect beat where a touch stops working: an easy trick survives about ±0.2 s, a carretilha ±0.09 s.
+// (Perfect stays the shared ±0.03 s of lib/arcade.ts.)
+const TIMING_SPAN=.3,MAX_COMBO=10,GRAVITY=620,CONTACT=60,REACH=45,ROUND=120,KEEP_FLIGHT=1.3,PASS_FLIGHT=1.5,QUEUE=.5;
 const spotsFor=(n:number)=>Array.from({length:n},(_,i)=>{const a=(90+i*72)*Math.PI/180;return {x:500+Math.cos(a)*150,z:225+Math.sin(a)*150};});
 const runner=(x:number,z:number):Player=>({x,z,y:FLOOR,vx:0,vz:0,vy:0,team:0,action:'idle',actionTime:0,stride:0,landing:0,windup:0,jumpBuffer:0,jumpHeld:false,diveHeld:false,diveX:1,diveZ:0,preparation:0});
 // Tricks: the held direction, holding J (charge over 65%) and jumping pick one. Risk narrows the timing that works
@@ -110,7 +112,7 @@ function cpuTouch(g:Altinha,i:number){
 }
 export function armGamebreaker(g:Altinha){if(g.status!=='playing'||g.style<100)return;g.gamebreaker=6;g.gamebreakers++;g.style=0;g.feedback='ALTINHA DE OURO';g.feedbackTime=1.2;}
 export function altinhaResult(g:Altinha){
- const king=g.individual.indexOf(Math.max(...g.individual));
+ const top=Math.max(...g.individual),king=top>0?g.individual.indexOf(top):-1;
  return {rodaBest:g.rodaBest,rodaScore:g.rodaScore,individual:[...g.individual],king,perfects:g.perfects,saves:g.saves,drops:g.drops,gamebreakers:g.gamebreakers};
 }
 export function stepAltinha(g:Altinha,dt:number,input:AltinhaInput,level:string){
@@ -130,8 +132,8 @@ export function stepAltinha(g:Altinha,dt:number,input:AltinhaInput,level:string)
  if(q){
   q.age+=dt;
   if(reachable(g,0,trickById(q.trick).height)){
-   // A salvada is a reaction, not a timed touch: arriving in time counts as fair timing (never perfect).
-   const t=trickById(q.trick),save=b.y>FLOOR-35&&g.run>120,raw=pressTiming(q.age).offset,offset=save?Math.sign(raw||1)*Math.min(Math.abs(raw),.5):raw,quality=Math.max(0,1-Math.abs(offset)),ok=quality>=.35+t.risk;g.timing=offset;g.queued=null;
+   // A salvada is a reaction, not a timed touch: arriving in time counts as fair timing (0.1 s off, never perfect).
+   const t=trickById(q.trick),save=b.y>FLOOR-35&&g.run>120,err=save?Math.min(Math.abs(q.age-PERFECT_ETA),.1):Math.abs(q.age-PERFECT_ETA),offset=save?Math.sign(pressTiming(q.age).offset||1)*Math.min(.5,Math.abs(pressTiming(q.age).offset)):pressTiming(q.age).offset,quality=Math.max(0,1-err/TIMING_SPAN),ok=quality>=.35+t.risk;g.timing=offset;g.queued=null;
    if(quality<.15){g.feedback='ISOLOU';g.feedbackTime=.9;return;}
    touch(g,0,q.kind,q.target,ok?0:Math.sign(offset||1)*(1-quality)*120);
    g.badPass=!ok;if(ok)scoreTrick(g,t,offset,save);else g.feedback='ERROU O TRICK';

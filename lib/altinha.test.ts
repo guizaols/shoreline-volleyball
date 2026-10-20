@@ -75,11 +75,11 @@ assert.equal(trickFor({x:0,z:1},false,true,all),'tesoura');
 // Repeating the same trick does not raise the combo.
 {const g=createAltinha();startAltinha(g);trick(g,{x:0,z:0});trick(g,{x:0,z:0});assert.equal(g.combo[0],1);}
 
-// Risk is timing, never dice: 40 ms late is fine for an embaixadinha and not for a carretilha.
-{const g=createAltinha({unlocked:all});startAltinha(g);trick(g,{x:0,z:0},.04);assert.equal(g.feedback,'EMBAIXADINHA');
+// Risk is timing, never dice: 120 ms off is fine for an embaixadinha and not for a carretilha.
+{const g=createAltinha({unlocked:all});startAltinha(g);trick(g,{x:0,z:0},.12);assert.equal(g.feedback,'EMBAIXADINHA');
  const h=createAltinha({unlocked:all});startAltinha(h);h.charge=0;
  const serial=h.contactSerial;let released=false;
- for(let t=0;t<120*4&&h.contactSerial===serial;t++){const guide=altinhaGuide(h,60);if(!released&&guide.time<=PERFECT_ETA+.4){h.holding=true;}if(!released&&guide.time<=PERFECT_ETA-.04){released=true;releaseAltinha(h,{x:0,z:-1},'keep');}stepAltinha(h,DT,{x:0,z:0,jump:false},'Club');}
+ for(let t=0;t<120*4&&h.contactSerial===serial;t++){const guide=altinhaGuide(h,60);if(!released&&guide.time<=PERFECT_ETA+.4){h.holding=true;}if(!released&&guide.time<=PERFECT_ETA-.12){released=true;releaseAltinha(h,{x:0,z:-1},'keep');}stepAltinha(h,DT,{x:0,z:0,jump:false},'Club');}
  assert.equal(h.individual[0],0);assert.match(h.feedback,/ERROU/);}
 
 // Salvada: the ball comes down far away, you run and touch it only once it is just above the sand.
@@ -114,5 +114,8 @@ assert.ok(drops.Chill<=drops.Pro);console.log('altinha drops per round',drops);
 
 // The king of the roda is the top individual score.
 {const g=createAltinha({random:seeded(9)});startAltinha(g);bot(g,121);const r=altinhaResult(g);assert.equal(r.individual[r.king],Math.max(...g.individual));assert.equal(r.rodaBest,g.rodaBest);}
+
+// Nobody is king of a roda where nobody scored.
+{const g=createAltinha();startAltinha(g);bot(g,121,{play:false});assert.equal(altinhaResult(g).king,-1);}
 
 console.log('Passed: altinha roda core, tricks, combos, salvadas, CPU friends and the gamebreaker.');

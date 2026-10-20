@@ -343,3 +343,8 @@ a.arcade-box:hover,a.arcade-box:focus-visible{box-shadow:6px 6px 0 #db2400;outli
 .sport-actions a.sport-online{background:#1a1028;color:#fff;border-color:#fff;box-shadow:4px 4px 0 #2449b6}
 .sport-actions a:active{transform:translate(2px,2px);box-shadow:2px 2px 0 #db2400}
 @media(max-width:600px){.sport-card h2{font-size:40px}.sports-select h1{font-size:20px}}
+/* Altinha results: the roda ranked, the king on top, your row lit. */
+.altinha-ranking{list-style:none;margin:8px 0 12px;padding:0;display:grid;gap:4px;font-family:var(--font-arcade-text),monospace;font-size:20px;text-align:left}
+.altinha-ranking li{display:flex;justify-content:space-between;padding:4px 10px;background:#002449;border:3px solid #4949b6;color:#fff}
+.altinha-ranking li:first-child{border-color:#ffdb00;color:#ffdb00}
+.altinha-ranking li.is-you{background:#2449b6}
