@@ -2,12 +2,13 @@ import {createArcade,aimDrift,stepArcade,rewardArcade,takeSpecial,specialName,ca
 import {createGame,launch,landingX,landingZ,flightTime,strokeQuality,setAim,FLOOR,type Player,type AttackStyle} from './game.ts';
 import type {rivals} from './rivals.ts';
 import {statFactor} from './teams.ts';
+import {createDrill,scoreTry} from './beach-training.ts';
 
 export type NetSport='footvolley'|'tennis';
 export type BeachInput={x:number;z:number;prepare:boolean;jump:boolean};
 export const clamp=(n:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,n));
 export function createNetMatch(sport:NetSport,rival?:typeof rivals[number]){
- return {...createGame(),...createArcade(),sport,cpuStyle:rival?.style??'normal',rivalName:rival?.name.toUpperCase()??'PRAIA',rivalHint:rival?.description??'',windEnabled:false,points:[0,0],shotAimed:false,myStats:[3,3,3,3],contactSerial:0,autoSwitchSerial:-1,shotConsumed:false,coverUsed:false,contactAge:0,impact:{x:0,z:0,y:0},message:'Chegue à bola e toque Jogar.',restartDelay:0};
+ return {...createGame(),...createArcade(),...createDrill(),sport,cpuStyle:rival?.style??'normal',rivalName:rival?.name.toUpperCase()??'PRAIA',rivalHint:rival?.description??'',windEnabled:false,points:[0,0],shotAimed:false,myStats:[3,3,3,3],contactSerial:0,autoSwitchSerial:-1,shotConsumed:false,coverUsed:false,contactAge:0,impact:{x:0,z:0,y:0},message:'Chegue à bola e toque Jogar.',restartDelay:0};
 }
 export type NetMatch=ReturnType<typeof createNetMatch>;
 // Short sessions (approved design: about 3 minutes a match): futevôlei sets go to 7, win by 2.
@@ -68,6 +69,8 @@ function cpuShot(g:NetMatch):{style:AttackStyle;power:number;target:{x:number;z:
  }
 }
 function cpuServe(g:NetMatch){
+ // Training: the CPU feeds your side; Corre-corre sends it to the corners.
+ if(g.drill>=0)return g.drill===0?[{x:90,z:60},{x:420,z:390},{x:90,z:390},{x:420,z:60}][g.drillTries%4]:{x:300,z:225};
  const turn=g.score[0]+g.score[1],z=turn%2?80:370;
  return g.cpuStyle==='attack'?{x:120,z}:g.cpuStyle==='placement'?{x:turn%3?320:120,z}:g.cpuStyle==='normal'?{x:220,z:145}:{x:200,z};
 }
@@ -82,14 +85,28 @@ export function serveNet(g:NetMatch,quality?:number){
  const bullet=quality!==undefined&&quality>=.5&&g.server===0&&g.specialArmed&&g.energy[0]>=100;
  // The bullet is struck from the top of a jump, so it can travel flat over the net.
  if(bullet){g.energy[0]=0;g.specialArmed=false;g.ball.y=230;}
- launch(g,target,(g.sport==='tennis'?1.35:1.75)/(quality===undefined?1:.75+q*.35)*(bullet?.55:1),g.sport==='tennis'?298:248,bullet?.36:.55);
+ // Training feeds float in slower, so there is time to run and charge.
+ launch(g,target,(g.sport==='tennis'?1.35:1.75)/(quality===undefined?1:.75+q*.35)*(bullet?.55:g.drill>=0?1.4:1),g.sport==='tennis'?298:248,bullet?.36:.55);
  g.restartDelay=0;g.autoSwitchSerial=-1;g.shotConsumed=false;g.coverUsed=false;g.contactAge=0;g.lastPower=0;g.specialShot=bullet;g.specialKind=bullet?'signature':'';g.specialPlayer=bullet?i:-1;g.timing=null;
  p.action=g.sport==='tennis'?'spike':'bump';p.actionTime=.26;g.lastTeam=g.server;g.lastHit=i;g.touches=1;g.status='playing';g.cooldown=.3;
  g.contactSerial++;g.impact={...g.ball};g.hitFlash=.16;g.feedback=bullet?'SAQUE BALA!':quality===undefined?'SAQUE':quality>=.85?'SAQUE · PERFEITO':quality>=.5?'SAQUE · BOM':'SAQUE · FRACO';g.feedbackTime=1.5;
  if(quality!==undefined&&quality>=.85)g.perfects++;
  g.lastPerfect=g.server===0&&quality!==undefined&&quality>=.85;
 }
+// Training targets on the CPU side (lib/beach-training.ts drill order: speed, power, net, spin).
+function netTarget(g:NetMatch){
+ const n=g.drillTries;
+ g.drillTarget=[{x:775,z:225,r:120},{x:880,z:n%2?80:370,r:75},{x:600,z:n%2?120:330,r:75},{x:n%4<2?880:620,z:n%2?370:80,r:60}][g.drill];
+}
+export function startNetDrill(g:NetMatch,drill:number){g.drill=drill;g.drillTries=0;g.drillHits=0;g.server=1;g.status='ready';netTarget(g);}
+function drillPoint(g:NetMatch,reason:string){
+ const b=g.ball,t=g.drillTarget;
+ // Only your own shot counts, not the partner's.
+ const hit=reason==='Bola na areia'&&g.lastTeam===0&&g.lastHit===g.active&&Math.hypot(b.x-t.x,b.z-t.z)<=t.r&&(g.drill!==1||g.lastPower>=.7);
+ g.status=scoreTry(g,hit)?'over':'ready';g.restartDelay=g.status==='ready'?1.2:0;netTarget(g);
+}
 export function netPoint(g:NetMatch,winner:number,reason:string){
+ if(g.drill>=0){cancelArcadeInput(g);g.specialShot=false;drillPoint(g,reason);}else{
  g.energy[winner]=Math.min(100,g.energy[winner]+15);g.combo[1-winner]=0;g.comboTime[1-winner]=0;cancelArcadeInput(g);g.specialShot=false;
  g.lastRally=g.rally;g.bestRally=Math.max(g.bestRally,g.rally);g.pointReason=reason;
  if(g.sport==='footvolley'&&winner!==g.server)g.serviceOrder[g.server]^=1;
@@ -102,6 +119,7 @@ export function netPoint(g:NetMatch,winner:number,reason:string){
   g.status=g.score[winner]>=FOOTVOLLEY_POINTS&&Math.abs(g.score[0]-g.score[1])>=2?'over':'ready';
  }
  g.message=reason;g.restartDelay=g.status==='ready'?1.6:0;
+ }
  for(const p of g.players){p.windup=0;p.preparation=0;p.jumpBuffer=0;}
  g.rally=0;g.touches=0;g.lastTeam=-1;g.lastHit=-1;g.active=g.active<0?-1:0;g.autoSwitchSerial=-1;g.shotConsumed=false;g.coverUsed=false;g.contactAge=0;g.charge=0;g.hitFlash=0;
 }
@@ -226,7 +244,7 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
   let contact=-1,closest=Infinity,contactTime=0,contactDive=false;
   for(let i=0;i<4;i++){
    const p=g.players[i];
-   if(g.lastHit===i||i===g.active&&!g.shotWindow)continue;
+   if(g.lastHit===i||i===g.active&&!g.shotWindow||g.drill>=0&&p.team===1)continue;
    if(i!==g.active&&g.contactAge<reaction)continue;
    if(g.active>=0&&p.team===0&&i!==g.active&&(g.sport==='tennis'?g.coverUsed||g.lastTeam===0:g.lastTeam!==0))continue;
    if(b.vy<=0&&(g.sport!=='tennis'||i!==g.active||!g.shotWindow))continue;

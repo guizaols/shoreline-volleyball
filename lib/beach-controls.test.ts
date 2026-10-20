@@ -9,6 +9,7 @@ import * as game from './game.ts';
 import * as rivals from './rivals.ts';
 import * as progress from './beach-progress.ts';
 import * as teams from './teams.ts';
+import * as training from './beach-training.ts';
 
 type KeyEvent={key:string;repeat:boolean;preventDefault:()=>void;target:{closest:(selector:string)=>object|null}};
 const listeners=new Map<string,(event:KeyEvent)=>void>(),refs:{current:unknown}[]=[],exports={} as {default:(props:{sport:string})=>unknown};
@@ -18,7 +19,7 @@ runInNewContext(ts.transpileModule(readFileSync(new URL('../app/BeachMatch.tsx',
  exports,window:events,document:{...events,hidden:false},require:(id:string)=>id==='react'?{
   useRef:(current:unknown)=>{const ref={current};refs.push(ref);return ref;},useState:(initial:unknown)=>[typeof initial==='function'?initial():initial,()=>{}],useCallback:(fn:unknown)=>fn,useSyncExternalStore:(_subscribe:unknown,_get:unknown,server:()=>unknown)=>server(),
   useEffect:(fn:()=>void)=>fn(),
- }:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id.endsWith('/net')?net:id.endsWith('/soccer')?soccer:id.endsWith('/game')?game:id.endsWith('/arcade')?arcade:id.endsWith('/rivals')?rivals:id.endsWith('/beach-progress')?progress:id.endsWith('/teams')?teams:{},
+ }:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id.endsWith('/net')?net:id.endsWith('/soccer')?soccer:id.endsWith('/game')?game:id.endsWith('/arcade')?arcade:id.endsWith('/rivals')?rivals:id.endsWith('/beach-progress')?progress:id.endsWith('/teams')?teams:id.endsWith('/beach-training')?training:{},
 });
 exports.default({sport:'soccer'});const match=refs[0].current as soccer.Soccer;
 const key=(key:string,button=false)=>({key,repeat:false,preventDefault:()=>{},target:{closest:(selector:string)=>button&&selector.includes('button')?{}:null}});

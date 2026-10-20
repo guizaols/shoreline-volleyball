@@ -3,12 +3,13 @@ import {createGame,FLOOR} from './game.ts';
 import {clamp,moveRunner,type BeachInput} from './net.ts';
 import type {rivals} from './rivals.ts';
 import {statFactor} from './teams.ts';
+import {createDrill,scoreTry} from './beach-training.ts';
 const soccerHints:Record<string,string>={attack:'Chutam de longe. Feche o meio.',block:'Goleiro forte. Chute no canto baixo.',defense:'Correm muito. Toque rápido e de primeira.',placement:'Tocam até achar o espaço. Dê o bote cedo.'};
 
 export function createSoccer(rival?:typeof rivals[number]){
  const base=createGame().players[0];
  const players=Array.from({length:6},(_,i)=>({...base,tackleTime:0,tackleReaction:0,tackleCooldown:0,dribbleTime:0,trickCooldown:0,touchDelay:0,keeperTargetZ:225,facingX:i<3?1:-1,facingZ:0,team:i<3?0:1,x:[85,300,390,915,700,610][i],z:[225,145,310,225,310,145][i]}));
- return {...createArcade(),sport:'soccer' as const,myStats:[3,3,3,3],cpuStyle:rival?.style??'normal',rivalName:rival?.name.toUpperCase()??'PRAIA',rivalHint:rival?soccerHints[rival.style]??'':'',players,ball:{x:318,z:145,y:437,vx:0,vz:0,vy:0},owner:1,active:1,autoSwitch:true,autoSwitchSerial:-1,score:[0,0],status:'ready',resumeStatus:'playing',clock:0,cooldown:0,cpuWait:0,lastHit:1,contactSerial:0,impact:{x:0,z:0,y:0},hitFlash:0,feedback:'',feedbackTime:0,contactHint:'',aim:{x:965,z:225},aimPreset:1,attackStyle:'power',message:'Passe, avance e chute. Primeiro a cinco gols.',rally:0,touches:0,restartDelay:0,pendingKick:'' as ''|'pass'|'shot',kickDelay:0,shotAge:1,kickPower:0,kickAimZ:225,kickTarget:-1,passReceiver:-1,firstTimeEta:0};
+ return {...createArcade(),...createDrill(),sport:'soccer' as const,myStats:[3,3,3,3],cpuStyle:rival?.style??'normal',rivalName:rival?.name.toUpperCase()??'PRAIA',rivalHint:rival?soccerHints[rival.style]??'':'',players,ball:{x:318,z:145,y:437,vx:0,vz:0,vy:0},owner:1,active:1,autoSwitch:true,autoSwitchSerial:-1,score:[0,0],status:'ready',resumeStatus:'playing',clock:0,cooldown:0,cpuWait:0,lastHit:1,contactSerial:0,impact:{x:0,z:0,y:0},hitFlash:0,feedback:'',feedbackTime:0,contactHint:'',aim:{x:965,z:225},aimPreset:1,attackStyle:'power',message:'Passe, avance e chute. Primeiro a cinco gols.',rally:0,touches:0,restartDelay:0,pendingKick:'' as ''|'pass'|'shot',kickDelay:0,shotAge:1,kickPower:0,kickAimZ:225,kickTarget:-1,passReceiver:-1,firstTimeEta:0};
 }
 export type Soccer=ReturnType<typeof createSoccer>;
 export function startSoccer(g:Soccer){if(g.status==='ready'){g.status='playing';g.restartDelay=0;}}
@@ -126,20 +127,37 @@ function restart(g:Soccer,team:number,message:string,x?:number,z?:number){
  for(const id of [(1-team)*3+1,(1-team)*3+2]){const q=g.players[id],dx=q.x-g.ball.x,dz=q.z-g.ball.z,d=Math.hypot(dx,dz)||1;if(d<150){q.x=clamp(g.ball.x+dx/d*150,45,955);q.z=clamp(g.ball.z+dz/d*150,35,415);}}
  possess(g,team*3+1);g.status='ready';g.restartDelay=1.2;g.message=message;g.active=active<0?-1:g.owner<3?g.owner:1;
 }
+// Training (lib/beach-training.ts drill order: speed, shot, pass, keeper). Attacking drills park the CPU outfielders
+// on the sidelines, so it is you against their keeper; Paredão parks yours, so it is their striker against your keeper.
+const parked=(g:Soccer,i:number)=>g.drill>=0&&i%3!==0&&(g.drill===3?i<3:i>=3);
+function drillRestart(g:Soccer){
+ restart(g,g.drill===3?1:0,g.message);
+ for(let i=0;i<6;i++)if(parked(g,i)){g.players[i].x=i<3?470:530;g.players[i].z=i%3===1?40:410;}
+ if(g.drill===3){g.players[4].x=640;g.players[4].z=225;g.ball.x=622;g.ball.z=225;g.active=0;}
+ g.drillTarget=g.drill===1?{x:965,z:g.drillTries%2?270:180,r:40}:{x:0,z:0,r:0};
+}
+export function startSoccerDrill(g:Soccer,drill:number){g.drill=drill;g.drillTries=0;g.drillHits=0;g.message='Treino';drillRestart(g);}
+function drillTry(g:Soccer,success:boolean){if(scoreTry(g,success)){g.status='over';g.restartDelay=0;}else drillRestart(g);}
 export function stepSoccer(g:Soccer,dt:number,input:BeachInput,level:string){
  if(!Number.isFinite(dt)||dt<=0||![input.x,input.z].every(Number.isFinite))return;
  if(g.status==='ready'&&g.restartDelay>0){g.restartDelay=Math.max(0,g.restartDelay-Math.min(dt,.05));if(!g.restartDelay)startSoccer(g);return;}
  if(g.status!=='playing')return;
+ if(g.drill>=0){
+  // A try also ends when the other side gets the ball, or on the clock (surviving it is a save in Paredão).
+  g.drillTime+=Math.min(dt,.05);const keeperDrill=g.drill===3;
+  if((keeperDrill?g.owner>=0&&g.owner<3:g.owner>=3)||g.drillTime>(keeperDrill?6:8)){drillTry(g,keeperDrill);return;}
+ }
  dt=Math.min(dt,.05);g.clock+=dt;stepArcade(g,dt);g.shotAge+=dt;g.cooldown=Math.max(0,g.cooldown-dt);g.hitFlash=Math.max(0,g.hitFlash-dt);g.feedbackTime=Math.max(0,g.feedbackTime-dt);
  const nearest=[1,4];
  for(const team of [0,1]){const ids=[team*3+1,team*3+2];nearest[team]=ids.reduce((a,b)=>Math.hypot(g.players[a].x-g.ball.x,g.players[a].z-g.ball.z)<Math.hypot(g.players[b].x-g.ball.x,g.players[b].z-g.ball.z)?a:b);}
  if(g.owner<0&&g.passReceiver>=0)nearest[g.players[g.passReceiver].team]=g.passReceiver;
- if(g.autoSwitch&&g.active>=0&&g.owner<0){
+ if(g.autoSwitch&&g.active>=0&&g.owner<0&&g.drill!==3){
   const current=g.players[g.active],next=g.players[nearest[0]],engaged=input.x!==0||input.z!==0||input.prepare||input.jump||current.y<FLOOR||current.actionTime>0||current.windup>0;
   if(!engaged&&g.autoSwitchSerial!==g.contactSerial&&Math.hypot(current.x-g.ball.x,current.z-g.ball.z)>Math.hypot(next.x-g.ball.x,next.z-g.ball.z)+45){g.active=nearest[0];g.autoSwitchSerial=g.contactSerial;}
  }
  for(let i=0;i<6;i++){
   const p=g.players[i],human=i===g.active,keeper=i%3===0,direction=p.team?-1:1,own=g.owner===i;
+  if(parked(g,i))continue;
   p.windup=own&&g.pendingKick?g.kickDelay:0;
   p.tackleCooldown=Math.max(0,p.tackleCooldown-dt);p.dribbleTime=Math.max(0,p.dribbleTime-dt);p.trickCooldown=Math.max(0,p.trickCooldown-dt);p.touchDelay=Math.max(0,p.touchDelay-dt);
   if(p.tackleTime>0){p.tackleTime=Math.max(0,p.tackleTime-dt);if(!p.tackleTime&&human&&g.owner!==i){g.feedback='ERROU O BOTE';g.feedbackTime=.7;g.contactHint='Recupere a posição antes de tentar de novo';}}
@@ -232,7 +250,12 @@ function soccerBoundary(g:Soccer,old:Soccer['ball']){
  if(b.x<35||b.x>965){
   const right=b.x>965,t=((right?965:35)-old.x)/(b.x-old.x),z=old.z+(b.z-old.z)*t,y=old.y+(b.y-old.y)*t;
   const winner=right?0:1,scored=z>=150&&z<=300&&y>=355;
+  if(g.drill>=0){
+   const t=g.drillTarget;
+   drillTry(g,g.drill===3?!scored:scored&&right&&(g.drill===0?g.drillTime<=4:g.drill===1?Math.abs(z-t.z)<=t.r:g.drill===2?g.timing!==null:true));
+   return;
+  }
   if(scored){g.energy[winner]=Math.min(100,g.energy[winner]+20);g.combo[1-winner]=0;g.comboTime[1-winner]=0;g.score[winner]++;restart(g,1-winner,winner===0?'GOL! Saída da Praia.':'Gol da Praia. Sua saída.');if(g.score[winner]>=5)g.status='over';}
   else restart(g,right?1:0,'Tiro de meta');
- }else if(b.z<25||b.z>425){restart(g,1-g.players[g.lastHit].team,'Lateral · reposição com os pés',b.x,clamp(b.z,45,405));}
+ }else if(b.z<25||b.z>425){if(g.drill>=0){drillTry(g,g.drill===3);return;}restart(g,1-g.players[g.lastHit].team,'Lateral · reposição com os pés',b.x,clamp(b.z,45,405));}
 }
