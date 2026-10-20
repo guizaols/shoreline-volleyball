@@ -1,0 +1,101 @@
+import assert from 'node:assert/strict';
+import {newFootball,startFootball,shootFootball,diveFootball,stepFootball,armFootballSpecial,goal} from './gol.ts';
+import {stickDirection} from './controls.ts';
+const tick=1/120;
+const g=newFootball();shootFootball(g);assert.equal(g.owner,0);assert.equal(g.ball.vx,0);
+startFootball(g);
+for(let i=0;i<120;i++)stepFootball(g,tick,0,0,true);
+assert.ok(g.charge>.89);assert.equal(g.owner,0,'Holding must not shoot automatically');
+shootFootball(g);assert.equal(g.owner,-1);assert.ok(g.ball.vx>650);
+const shot={...g.ball};shootFootball(g);assert.deepEqual(g.ball,shot,'A player without possession cannot shoot');
+g.status='paused';const paused=JSON.stringify(g);stepFootball(g,1,1,1,true);assert.equal(JSON.stringify(g),paused);
+function crossing(y:number){
+ const g=newFootball();startFootball(g);g.owner=-1;g.ball={x:goal.right-2,y,vx:750,vy:0};stepFootball(g,tick,0,0);return g;
+}
+const scored=crossing(315);assert.deepEqual(scored.score,[1,0]);assert.equal(scored.status,'goal');
+stepFootball(scored,1.3,0,0);assert.equal(scored.owner,1,'The conceding player gets the restart');
+const outside=crossing(150);assert.deepEqual(outside.score,[0,0]);assert.equal(outside.owner,1);
+const save=newFootball();startFootball(save);save.owner=-1;save.ball={x:170,y:315,vx:-750,vy:0};
+stepFootball(save,tick,0,0);assert.equal(save.owner,0,'A keeper intercepts an incoming shot');
+const dive=newFootball();startFootball(dive);dive.owner=-1;dive.ball={x:500,y:450,vx:-500,vy:0};
+diveFootball(dive,1);const velocity=dive.players[0].vy;assert.ok(velocity>500);
+diveFootball(dive,-1);assert.equal(dive.players[0].vy,velocity,'Recovery prevents repeated dives');
+for(let i=0;i<300;i++)stepFootball(dive,tick,1,1);
+assert.ok(dive.players[0].x<=450&&dive.players[0].y<=505,'The keeper stays in their own half');
+const winner=crossing(315);winner.status='playing';winner.score=[4,0];winner.owner=-1;winner.ball={x:929,y:315,vx:750,vy:0};
+stepFootball(winner,tick,0,0);assert.equal(winner.status,'over');assert.equal(winner.score[0],5);
+const flat=stickDirection(0,-40,40,true);assert.equal(flat.x,0);assert.equal(flat.z,-1);
+// Autonomous opponent can take possession, prepare and send a ball toward the human goal.
+const cpu=newFootball();startFootball(cpu);cpu.owner=1;
+for(let i=0;i<200;i++)stepFootball(cpu,tick,0,0);
+assert.equal(cpu.owner,-1);assert.ok(cpu.ball.vx<0);
+console.log('Passed: charged shots, swept saves, goals, outs, kickoff, dives, half limits, AI, pause and flat joystick.');
+
+// Bank shots preserve their intended angle when rebounding off the boards.
+for(const style of ['top','bottom']){
+ const bank=newFootball();startFootball(bank);bank.shotStyle=style;bank.aim=0;bank.charge=1;shootFootball(bank);
+ for(let i=0;i<1200&&bank.status==='playing';i++){bank.players[1].y=500;stepFootball(bank,tick,0,0);}
+ assert.equal(bank.score[0],1,style+' bank should reach the aimed corner');
+ assert.equal(bank.bankGoals,1);assert.match(bank.message,/TABELA/);
+}
+const {newFootballProgress,recordFootball,effectUnlocked,readFootballProgress}=await import('./gol.ts');
+const result=newFootball();result.status='over';result.score=[5,2];result.saves=[5,2];result.bankGoals=3;
+const earned=recordFootball(newFootballProgress(),result);
+for(const id of ['aqua','comet','electric','aurora'])assert.ok(effectUnlocked(earned,id));
+assert.deepEqual(recordFootball(earned,result),earned,'A finished match is recorded only once');
+assert.deepEqual(readFootballProgress(JSON.stringify({...earned,effect:'aurora'})),{...earned,effect:'aurora'});
+assert.equal(readFootballProgress('{"effect":"aurora"}').effect,'classic','Locked effects cannot be equipped');
+assert.deepEqual(readFootballProgress('bad json'),newFootballProgress());
+const plain=newFootball(),decorated=newFootball();decorated.effect='comet';startFootball(plain);startFootball(decorated);
+plain.charge=decorated.charge=1;shootFootball(plain);shootFootball(decorated);
+assert.deepEqual(plain.ball,decorated.ball,'Visual effects do not alter the shot physics');
+console.log('Passed: both bank-shot routes, unlocks, persistence, deduplication and cosmetic fairness.');
+
+const {jumpFootball}=await import('./gol.ts');
+for(const style of ['curve-up','curve-down','lob']){
+ const special=newFootball();startFootball(special);special.shotStyle=style;special.aim=1;special.charge=1;
+ shootFootball(special);const firstVY=special.ball.vy;let peak=0;
+ for(let i=0;i<1200&&special.status==='playing';i++){
+  special.players[1].x=905;special.players[1].y=500;
+  stepFootball(special,tick,0,0);peak=Math.max(peak,special.ballHeight);
+  if(i===30&&style!=='lob')assert.notEqual(special.ball.vy,firstVY,'Curve changes direction in flight');
+ }
+ assert.equal(special.score[0],1,style+' should still reach the selected target');
+ if(style==='lob')assert.ok(peak>150,'A lob must clear an advanced keeper');
+}
+function highBall(jumping:boolean){
+ const g=newFootball();startFootball(g);g.owner=-1;g.ball={x:170,y:315,vx:-750,vy:0};g.ballHeight=100;
+ if(jumping)g.players[0].jump=70;
+ stepFootball(g,tick,0,0);return g;
+}
+assert.equal(highBall(false).owner,-1,'Standing cannot intercept a high ball');
+assert.equal(highBall(true).owner,0,'A jumping keeper reaches a high ball');
+const leaper=newFootball();startFootball(leaper);leaper.owner=-1;jumpFootball(leaper);
+for(let i=0;i<20;i++)stepFootball(leaper,tick,0,0);
+assert.ok(leaper.players[0].jump>30);const lift=leaper.players[0].jumpVelocity;jumpFootball(leaper);
+assert.equal(leaper.players[0].jumpVelocity,lift,'No double jump');
+const above=newFootball();startFootball(above);above.owner=-1;above.ball={x:929,y:315,vx:750,vy:0};above.ballHeight=140;
+stepFootball(above,tick,0,0);assert.deepEqual(above.score,[0,0]);assert.match(above.last,/POR CIMA/);
+const retreat=newFootball();startFootball(retreat);retreat.owner=-1;retreat.ball={x:500,y:315,vx:400,vy:0};retreat.ballHeight=160;
+stepFootball(retreat,tick,0,0);assert.ok(retreat.players[1].vx>0,'CPU retreats under a lob');
+console.log('Passed: aimed curves, lob height, jump reach, double-jump guard, crossbar height and goalkeeper retreat.');
+
+// Arcade leaves an opening at the corner while retaining saves at the center.
+for(const [difficulty,aim,scored] of [['arcade',0,true],['arcade',1,false],['pro',0,false]] as const){
+ const match=newFootball();match.difficulty=difficulty;startFootball(match);match.aim=aim;match.charge=1;shootFootball(match);
+ for(let i=0;i<600&&match.owner<0&&match.status==='playing';i++)stepFootball(match,tick,0,0);
+ assert.equal(match.score[0]===1,scored,`${difficulty}, target ${aim}`);
+}
+const assisted=newFootball();startFootball(assisted);assisted.owner=1;shootFootball(assisted,1);
+for(let i=0;i<600&&assisted.owner<0&&assisted.status==='playing';i++)stepFootball(assisted,tick,0,0);
+assert.equal(assisted.owner,0,'Arcade helps a stationary keeper reach a nearby shot');
+assert.equal(assisted.energy,65,'A save charges the special');
+const turbo=newFootball();startFootball(turbo);armFootballSpecial(turbo);assert.equal(turbo.specialArmed,false);
+turbo.energy=100;armFootballSpecial(turbo);assert.equal(turbo.specialArmed,true);
+armFootballSpecial(turbo);assert.equal(turbo.specialArmed,false,'Arming can be cancelled without spending energy');
+armFootballSpecial(turbo);turbo.shotStyle='lob';shootFootball(turbo);
+assert.equal(turbo.energy,0);assert.equal(turbo.specialArmed,false);assert.equal(turbo.specialShot,true);
+assert.ok(turbo.ball.vx>1000,'Turbo is a powerful direct shot regardless of the previous style');
+assert.equal(turbo.ballLift,0);
+assert.equal(crossing(315).energy,70,'Goals charge the next special');
+console.log('Passed: Arcade scoring window, assisted save, energy rewards, Turbo activation, cancellation and consumption.');

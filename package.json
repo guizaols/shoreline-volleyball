@@ -11,8 +11,12 @@
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "format": "oxfmt",
-    "test": "node --experimental-strip-types lib/game.test.ts && node --experimental-strip-types lib/controls.test.ts && node --experimental-strip-types lib/cup.test.ts && node --experimental-strip-types lib/career.test.ts && node --experimental-strip-types lib/backup.test.ts && node --experimental-strip-types lib/training.test.ts",
-    "test:season": "node --experimental-strip-types scripts/simulate-season.ts"
+    "test": "node --experimental-strip-types lib/game.test.ts && node --experimental-strip-types lib/controls.test.ts && node --experimental-strip-types lib/cup.test.ts && node --experimental-strip-types lib/career.test.ts && node --experimental-strip-types lib/backup.test.ts && node --experimental-strip-types lib/training.test.ts && node --experimental-strip-types lib/gol.test.ts && node --experimental-strip-types lib/motion.test.ts && node --experimental-strip-types lib/net.test.ts && node --experimental-strip-types lib/soccer.test.ts && node --experimental-strip-types lib/beach-controls.test.ts && node --experimental-strip-types lib/arcade.test.ts && node --experimental-strip-types lib/beach-progress.test.ts",
+    "test:season": "node --experimental-strip-types scripts/simulate-season.ts",
+    "dev:online": "node --experimental-strip-types server/index.ts",
+    "build:railway": "RAILWAY_BUILD=1 vinext build",
+    "start:railway": "node --experimental-strip-types server/index.ts --production",
+    "test:online": "node --experimental-strip-types server/rooms.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
@@ -34,7 +38,8 @@
     "shadcn": "4.18.0",
     "tailwind-merge": "3.6.0",
     "tw-animate-css": "1.4.0",
-    "vinext": "1.0.0-beta.5"
+    "vinext": "1.0.0-beta.5",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
@@ -44,6 +49,7 @@
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
     "oxfmt": "0.61.0",

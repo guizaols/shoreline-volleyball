@@ -63,13 +63,13 @@ function receiving(defense:number){
  const g=createGame();g.status='playing';g.autoSwitch=false;g.assist=false;g.windEnabled=false;g.lastTeam=1;g.lastHit=3;g.attributes[0].defense=defense;
  Object.assign(g.players[0],{action:'bump',actionTime:.3});
  g.ball={...contactPoint(g.players[0]),vx:0,vz:0,vy:1};g.ball.z+=32;
- step(g,1/120,0,false,'Club');return g.rally;
+ step(g,1/120,0,false,'Club',false,false,0,false,true);return g.rally;
 }
 assert.equal(receiving(50),0);assert.equal(receiving(100),1,'Defense upgrades extend contact range');
 function attacking(attack:number){
  const g=createGame();g.status='playing';g.autoSwitch=false;g.windEnabled=false;g.lastTeam=0;g.lastHit=1;g.touches=2;g.attributes[0].attack=attack;
  Object.assign(g.players[0],{x:400,z:225,y:270,action:'spike',actionTime:.3});
- g.ball={...contactPoint(g.players[0]),vx:0,vz:0,vy:1};step(g,1/120,0,false,'Club');return g.ball.vx;
+ g.ball={...contactPoint(g.players[0]),vx:0,vz:0,vy:1};step(g,1/120,0,false,'Club',false,false,0,false,true);return g.ball.vx;
 }
 assert.ok(attacking(100)>attacking(50),'Attack upgrades increase ball speed');
 

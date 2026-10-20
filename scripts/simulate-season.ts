@@ -15,14 +15,15 @@ for(let event=0;event<events.length;event++)for(let stage=0;stage<3;stage++){
   if(g.status==='ready')prepareServe(g);
   if(g.status==='serving')toss(g);
   if(g.status==='tossing'&&g.tossTime>=.55)serve(g);
-  const guide=guidance(g),player=g.players[g.active],dx=guide.x-player.x,dz=guide.z-player.z,d=Math.hypot(dx,dz);
-  const pursuing=guide.team===0&&d>55;
+  const guide=guidance(g),player=g.players[g.active],target=guide.team===0?guide:{x:240,z:225},dx=target.x-player.x,dz=target.z-player.z,d=Math.hypot(dx,dz);
+  // Press about PERFECT_ETA (0.12 s) before the ball arrives, as the timing rule rewards.
+  const stroke=guide.team===0&&guide.time>0&&guide.time<.13,pursuing=d>45&&!stroke;
   if(g.lastTeam===0&&g.touches===2){
    g.attackStyle=Math.floor(g.rally/6)%2?'tip':'power';
    g.aim={x:870,z:g.players[2].z+g.players[3].z>450?80:370};
   }
   const before=g.rally;
-  step(g,1/120,pursuing?dx/d:0,false,'Club',false,false,pursuing?dz/d:0,false,true);
+  step(g,1/120,pursuing?dx/d:0,false,'Club',false,false,pursuing?dz/d:0,false,stroke);
   if(g.rally>before)contacts+=g.rally-before;
   ticks++;
  }
