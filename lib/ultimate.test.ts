@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {createUltimate,startUltimate,stepUltimate,pressUltimate,releaseUltimate,pauseUltimate,layoutUltimate,throwTarget,END_LEFT,END_RIGHT,type Ultimate} from './ultimate.ts';
+import {createUltimate,startUltimate,stepUltimate,pressUltimate,releaseUltimate,pauseUltimate,layoutUltimate,armUltimateSpecial,throwTarget,END_LEFT,END_RIGHT,type Ultimate} from './ultimate.ts';
 
 const DT=1/120,still={x:0,z:0,jump:false};
 const run=(g:Ultimate,seconds:number,input=still)=>{for(let t=0;t<seconds*120&&g.status!=='over';t++)stepUltimate(g,DT,input,'Club');};
@@ -70,4 +70,27 @@ const lay=(dive:boolean)=>{const g=createUltimate({ai:false});startUltimate(g);p
  g.holder=-1;g.offense=1;g.active=2;g.flight={from:{x:900,z:225},to:{x:800,z:225},t:0,T:.4,kind:'pass',thrower:5,target:6,curve:0,peak:40};
  run(g,.5);assert.deepEqual(g.score,[1,0]);assert.equal(g.feedback,'CALLAHAN!');}
 
-console.log('Passed: ultimate core, huck, hammer, curve, layout and Callahan.');
+const seeded=(seed:number)=>()=>{seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};
+
+// Balance: CPU against CPU (autopilot plays your team). Games finish, both sides score, throws sometimes fail.
+const wins=[0,0];
+for(const seed of [1,2,3,4,5,6]){
+ const g=createUltimate({autopilot:true,random:seeded(seed)});startUltimate(g);let turnovers=0,last=g.offense;
+ for(let t=0;t<120*600&&g.status!=='over';t++){stepUltimate(g,DT,still,'Club');if(g.offense!==last&&!g.restartDelay){turnovers++;last=g.offense;}}
+ assert.equal(g.status,'over',`seed ${seed} unfinished ${g.score}`);assert.ok(Math.min(...g.score)>=1||turnovers>=3,`seed ${seed} ${g.score}`);assert.ok(turnovers>=3,`seed ${seed} turnovers ${turnovers}`);
+ wins[g.score[0]>g.score[1]?0:1]++;console.log('ultimate sim',seed,g.score.join('-'),'turnovers',turnovers,'minutes',(g.clock/60).toFixed(1));
+}
+assert.ok(wins[0]>=1&&wins[1]>=1,`wins ${wins}`);
+
+// A human who never throws keeps getting stalled, and the CPU wins.
+{const g=createUltimate({random:seeded(9)});startUltimate(g);run(g,600);assert.equal(g.status,'over');assert.equal(g.score[1],5);assert.equal(g.score[0],0);}
+
+// Three points in a row: that team is on fire (faster) until the other team scores.
+{const g=createUltimate({ai:false});startUltimate(g);for(let k=0;k<3;k++){place(g,{0:[700,225],2:[850,200],5:[100,40],6:[100,120],7:[100,200],8:[100,300],9:[100,400]});g.holder=0;g.offense=0;g.active=0;pass(g,2);run(g,1);run(g,2);}
+ assert.deepEqual(g.score,[3,0]);assert.equal(g.onFire,0);}
+
+// Disco de Fogo: with a full meter, K makes your next throw unblockable.
+{const g=createUltimate({ai:false});startUltimate(g);place(g,{0:[300,225],2:[520,225],5:[410,225]});g.energy=100;armUltimateSpecial(g);assert.ok(g.specialArmed);
+ pass(g,2);assert.equal(g.energy,0);run(g,1.5);assert.equal(g.holder,2);}
+
+console.log('Passed: ultimate core, throws, layouts, Callahan, CPU, streaks and the special.');

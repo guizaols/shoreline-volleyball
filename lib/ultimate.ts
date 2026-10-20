@@ -16,10 +16,10 @@ const runner=(x:number,z:number,team:number):Runner=>({x,z,y:FLOOR,vx:0,vz:0,vy:
 // Start of every point: the team with the disc lines up in its own end zone, the defence in front of it.
 const lineup=(team:number)=>{const side=(t:number,x:number)=>t?1000-x:x;return Array.from({length:10},(_,i)=>{const t=i<5?0:1,k=i%5,own=t===team;return {x:side(t===0?0:1,own?[200,260,300,300,340][k]:[420,380,380,460,460][k]),z:[225,120,330,60,390][k]};});};
 const clampField=(p:{x:number;z:number})=>({x:Math.max(X_MIN,Math.min(X_MAX,p.x)),z:Math.max(Z_MIN,Math.min(Z_MAX,p.z))});
-export function createUltimate(opts:{ai?:boolean;random?:()=>number;goal?:number}={}){
- return {status:'ready' as 'ready'|'playing'|'paused'|'over',resumeStatus:'playing' as 'ready'|'playing'|'paused'|'over',clock:0,score:[0,0],goal:opts.goal??5,ai:opts.ai??true,random:opts.random??Math.random,
+export function createUltimate(opts:{ai?:boolean;autopilot?:boolean;random?:()=>number;goal?:number}={}){
+ return {status:'ready' as 'ready'|'playing'|'paused'|'over',resumeStatus:'playing' as 'ready'|'playing'|'paused'|'over',clock:0,score:[0,0],goal:opts.goal??5,ai:opts.ai??true,autopilot:opts.autopilot??false,streakTeam:-1,streakCount:0,onFire:-1,energy:0,specialArmed:false,random:opts.random??Math.random,
   players:lineup(0).map((s,i)=>runner(s.x,s.z,i<5?0:1)),disc:{x:200,z:225,y:FLOOR-DISC_HEIGHT},holder:0,offense:0,active:0,stall:0,
-  flight:null as null|{from:{x:number;z:number};to:{x:number;z:number};t:number;T:number;kind:ThrowKind;thrower:number;target:number;curve:number;peak:number},layouts:0,
+  flight:null as null|{from:{x:number;z:number};to:{x:number;z:number};t:number;T:number;kind:ThrowKind;thrower:number;target:number;curve:number;peak:number;fire?:boolean},layouts:0,
   ground:-1,restartDelay:0,restartTeam:0,charge:0,holding:false,cpuWait:0,feedback:'',feedbackTime:0,contactSerial:0};
 }
 export type Ultimate=ReturnType<typeof createUltimate>;
@@ -47,7 +47,9 @@ export function throwTarget(g:Ultimate,dir:{x:number;z:number}){
  });
  return best;
 }
-const human=(g:Ultimate)=>g.status==='playing'&&!g.restartDelay&&g.holder>=0&&g.offense===0&&g.active===g.holder;
+const human=(g:Ultimate)=>g.status==='playing'&&!g.restartDelay&&!g.autopilot&&g.holder>=0&&g.offense===0&&g.active===g.holder;
+// Disco de Fogo: earned by catches, layouts and blocks; your next throw flies faster and cannot be knocked down.
+export function armUltimateSpecial(g:Ultimate){if(g.status==='playing'&&g.energy>=100)g.specialArmed=!g.specialArmed;}
 export function pressUltimate(g:Ultimate){if(!human(g))return;g.holding=true;g.charge=0;}
 export function releaseUltimate(g:Ultimate,dir:{x:number;z:number},kind:'pass'|'hammer'){
  const ok=human(g)&&g.holding,huck=g.charge>=.65;g.holding=false;g.charge=0;if(!ok)return;
@@ -67,7 +69,9 @@ function throwDisc(g:Ultimate,thrower:number,target:number,kind:ThrowKind='pass'
  let T=Math.max(MIN_FLIGHT,Math.hypot(b.x-a.x,b.z-a.z)/speed)*slow;
  // Lead the receiver: throw to where they will be when the disc arrives (a huck goes further, into space).
  const to=clampField({x:b.x+b.vx*T+forward*lead,z:b.z+b.vz*T});T=Math.max(MIN_FLIGHT,Math.hypot(to.x-a.x,to.z-a.z)/speed)*slow;
- g.flight={from:{x:a.x,z:a.z},to,t:0,T,kind,thrower,target,curve,peak};g.holder=-1;g.stall=0;
+ const fire=teamOf(thrower)===0&&g.specialArmed;if(fire){g.specialArmed=false;g.energy=0;T*=.75;say(g,'DISCO DE FOGO');}
+ g.flight={from:{x:a.x,z:a.z},to,t:0,T,kind,thrower,target,curve,peak,fire};g.holder=-1;g.stall=0;
+ if(g.offense===1)g.active=nearest(g,0,to);
  if(g.offense===0)g.active=target;
 }
 const scores=(team:number,x:number)=>team?x<=END_LEFT:x>=END_RIGHT;
@@ -77,7 +81,10 @@ function turnover(g:Ultimate,text:string){
 function catchDisc(g:Ultimate,i:number){
  const team=teamOf(i),intercepted=team!==g.offense,dived=g.players[i].dive>0;give(g,i);
  if(dived&&!team)g.layouts++;
- if(scores(team,g.players[i].x)){g.score[team]++;say(g,intercepted?'CALLAHAN!':'PONTO!');if(g.score[team]>=g.goal){g.status='over';return;}g.restartDelay=1.5;g.restartTeam=1-team;return;}
+ if(!team)g.energy=Math.min(100,g.energy+(dived?30:intercepted?25:15));
+ if(scores(team,g.players[i].x)){g.score[team]++;say(g,intercepted?'CALLAHAN!':'PONTO!');
+  // Three points in a row put that team on fire (faster) until the other team scores.
+  g.streakCount=g.streakTeam===team?g.streakCount+1:1;g.streakTeam=team;g.onFire=g.streakCount>=3?team:-1;if(g.streakCount===3)say(g,'EM CHAMAS!');if(g.score[team]>=g.goal){g.status='over';return;}g.restartDelay=1.5;g.restartTeam=1-team;return;}
  say(g,dived?(intercepted?'LAYOUT D!':'LAYOUT!'):intercepted?'INTERCEPTOU!':'PEGOU');
 }
 function stepFlight(g:Ultimate,dt:number){
@@ -87,11 +94,48 @@ function stepFlight(g:Ultimate,dt:number){
  // Diving players reach much further.
  const close=(r:number,dive:number)=>g.players.map((p,i)=>({i,d:Math.hypot(p.x-g.disc.x,p.z-g.disc.z)})).filter(c=>c.d<=(g.players[c.i].dive?dive:r)&&c.i!==f.thrower).sort((a,b)=>a.d-b.d);
  // A low throw can be knocked down by a defender in its lane.
- if(u>.1&&u<.85&&FLOOR-g.disc.y<BLOCK_HEIGHT){const d=close(BLOCK,60).find(c=>teamOf(c.i)!==g.offense);if(d){catchDisc(g,d.i);if(g.status==='playing'&&!g.restartDelay)say(g,'BLOQUEIO!');return;}}
- if(u>=.85){const c=close(REACH,DIVE_REACH)[0];if(c){catchDisc(g,c.i);return;}}
+ if(!f.fire&&u>.25&&u<.85&&FLOOR-g.disc.y<BLOCK_HEIGHT){const d=close(BLOCK,60).find(c=>teamOf(c.i)!==g.offense);if(d){catchDisc(g,d.i);if(g.status==='playing'&&!g.restartDelay)say(g,'BLOQUEIO!');return;}}
+ // At the end of the flight the receiver's side catches anything in reach; a defender has to be right in the way
+ // (well inside reach and closer than every attacker) to take it.
+ if(u>=.85){const all=close(REACH,DIVE_REACH),mine=all.find(c=>teamOf(c.i)===g.offense),theirs=all.find(c=>teamOf(c.i)!==g.offense);
+  const steal=theirs&&(theirs.d<=REACH*.6||g.players[theirs.i].dive>0)&&(!mine||theirs.d<mine.d-10);
+  if(steal){catchDisc(g,theirs.i);return;}if(mine){catchDisc(g,mine.i);return;}}
  if(u>=1)turnover(g,'CAIU!');
 }
-export function stepUltimate(g:Ultimate,dt:number,input:UltimateInput,_level:string){
+// Tuned by sim (CPU vs CPU, 6 seeds): about 2 minutes to 5 points, 8-15 turnovers, either side can win.
+// CPU players. Offence spreads into cutting lanes ahead of the disc, the receiver runs to the throw; defence marks
+// the same slot on the other team, a step goal-side, and the closest defender chases a throw.
+const DEFENCE_SPEED:Record<string,number>={Chill:270,Club:290,Pro:305};
+function aiGoal(g:Ultimate,i:number){
+ const p=g.players[i],team=teamOf(i),f=g.flight,forward=g.offense?-1:1;
+ if(f&&f.target===i)return f.to;
+ // The closest defender reads the throw after a 0.35 s reaction.
+ if(f&&team!==g.offense&&f.t>.35&&nearest(g,team,f.to)===i)return f.to;
+ if(team===g.offense){
+  const mates=[0,1,2,3,4].map(k=>k+team*5).filter(k=>k!==g.holder),k=Math.max(0,mates.indexOf(i));
+  return clampField({x:g.disc.x+forward*[110,190,270,150][k],z:[90,360,225,300][k]+Math.sin(g.clock*1.3+i)*50});
+ }
+ // The thrower's mark stands 30 upfield; everyone else trails their cutter by a step (cuts beat the mark).
+ const mark=(i+5)%10,m=g.players[mark];return mark===g.holder?{x:m.x+forward*30,z:m.z}:{x:m.x-forward*22,z:m.z+(p.z>m.z?10:-10)};
+}
+function lane(g:Ultimate,from:{x:number;z:number},to:{x:number;z:number},team:number){
+ const dx=to.x-from.x,dz=to.z-from.z,d=dx*dx+dz*dz||1;
+ return Math.min(...g.players.filter((_,i)=>teamOf(i)!==team).map(q=>{const t=Math.max(0,Math.min(1,((q.x-from.x)*dx+(q.z-from.z)*dz)/d));return Math.hypot(q.x-from.x-dx*t,q.z-from.z-dz*t);}));
+}
+// The CPU holder looks for the most open teammate upfield; under stall pressure it throws anyway.
+function cpuThrow(g:Ultimate,dt:number){
+ g.cpuWait+=dt;if(g.cpuWait<.7+g.random()*.05)return;
+ const a=g.players[g.holder],team=g.offense,forward=team?-1:1;let best=-1,score=-Infinity,open=0,gap=0;
+ g.players.forEach((q,i)=>{
+  if(i===g.holder||teamOf(i)!==team)return;
+  const free=Math.min(...g.players.filter((_,j)=>teamOf(j)!==team).map(d=>Math.hypot(d.x-q.x,d.z-q.z))),space=lane(g,a,q,team);
+  const s=(q.x-a.x)*forward*.6+Math.min(free,120)+Math.min(space,80)*1.2;if(s>score){score=s;best=i;open=free;gap=space;}
+ });
+ if(best<0||open<35&&g.stall<6.5)return;
+ const deep=(g.players[best].x-a.x)*forward>200,kind:ThrowKind=deep&&open>90&&g.random()<.5?'huck':gap<30&&g.random()<.4?'hammer':'pass';
+ throwDisc(g,g.holder,best,kind,gap<30&&kind==='pass'?(g.random()<.5?-45:45):0);
+}
+export function stepUltimate(g:Ultimate,dt:number,input:UltimateInput,level:string){
  if(g.status!=='playing')return;
  g.clock+=dt;g.feedbackTime=Math.max(0,g.feedbackTime-dt);
  if(g.restartDelay){g.restartDelay=Math.max(0,g.restartDelay-dt);if(!g.restartDelay)restart(g,g.restartTeam);return;}
@@ -101,10 +145,14 @@ export function stepUltimate(g:Ultimate,dt:number,input:UltimateInput,_level:str
   // A dive carries you on with no steering; you get up after a short recovery.
   if(p.dive){p.dive=Math.max(0,p.dive-dt);p.x+=p.vx*dt;p.z+=p.vz*dt;p.vx*=.9;p.vz*=.9;if(!p.dive){p.recover=.6;p.vx=p.vz=0;}return;}
   if(p.recover){p.recover=Math.max(0,p.recover-dt);if(!p.recover)p.action='idle';return;}
-  moveRunner(p,control?input.x:0,control?input.z:0,dt);
-  if(i===g.holder){p.x=g.disc.x;p.z=g.disc.z;}
+  if(i===g.holder){moveRunner(p,0,0,dt);p.x=g.disc.x;p.z=g.disc.z;return;}
+  const speed=(teamOf(i)===g.offense?300:DEFENCE_SPEED[level]??290)*(g.onFire===teamOf(i)?1.15:1);
+  if(control&&!g.autopilot){moveRunner(p,input.x,input.z,dt,speed);return;}
+  const goal=g.ai?aiGoal(g,i):p,dx=goal.x-p.x,dz=goal.z-p.z,d=Math.hypot(dx,dz);
+  moveRunner(p,d>8?dx:0,d>8?dz:0,dt,speed);
  });
  if(g.flight){stepFlight(g,dt);return;}
  if(g.ground>=0){g.cpuWait=Math.max(0,g.cpuWait-dt);if(!g.cpuWait){const p=g.players[g.ground];p.x=g.disc.x;p.z=g.disc.z;give(g,g.ground);}return;}
+ if(g.holder>=0&&g.ai&&(g.offense===1||g.autopilot)){cpuThrow(g,dt);if(g.flight)return;}
  if(g.holder>=0){g.stall+=dt;if(g.stall>=STALL){Object.assign(g.disc,{y:FLOOR-4});g.offense=teamOf(g.holder);turnover(g,'STALL!');}}
 }
