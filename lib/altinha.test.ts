@@ -1,25 +1,27 @@
 import assert from 'node:assert/strict';
-import {createAltinha,startAltinha,stepAltinha,pressAltinha,releaseAltinha,pauseAltinha,altinhaGuide,passTarget,trickFor,tricks,type Altinha,type TrickId} from './altinha.ts';
+import {createAltinha,startAltinha,stepAltinha,pressAltinha,releaseAltinha,pauseAltinha,altinhaGuide,passTarget,trickFor,tricks,armGamebreaker,altinhaResult,type Altinha,type TrickId} from './altinha.ts';
 import {FLOOR} from './game.ts';
 import {PERFECT_ETA} from './arcade.ts';
 
 const DT=1/120;
 // A scripted human: runs to where the ball comes down and releases J so the touch lands on the perfect beat.
-function bot(g:Altinha,seconds:number,{play=true,kind='keep' as 'keep'|'pass',dir={x:0,z:0}}={}){
+function bot(g:Altinha,seconds:number,{play=true,kind='keep' as 'keep'|'pass',dir={x:0,z:0},level='Club'}={}){
  let released=-1;
  for(let t=0;t<seconds*120&&g.status!=='over';t++){
   const guide=altinhaGuide(g),p=g.players[0],dx=guide.x-p.x,dz=guide.z-p.z,d=Math.hypot(dx,dz),mine=play&&g.status==='playing'&&g.receiver===0&&!g.dropTimer;
   if(mine&&guide.time<=PERFECT_ETA&&released!==g.contactSerial){released=g.contactSerial;pressAltinha(g);releaseAltinha(g,dir,kind);}
-  stepAltinha(g,DT,{x:mine&&d>8?dx/d:0,z:mine&&d>8?dz/d:0,jump:false},'Club');
+  stepAltinha(g,DT,{x:mine&&d>8?dx/d:0,z:mine&&d>8?dz/d:0,jump:false},level);
  }
 }
+// Seeded random so the CPU sims are repeatable.
+const seeded=(seed:number)=>()=>{seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};
 
 // Starting: the ball goes up over the human.
 {const g=createAltinha({random:()=>.5});startAltinha(g);assert.equal(g.status,'playing');assert.equal(g.receiver,0);assert.ok(g.ball.y<FLOOR);}
 
 // Ten touches in a row (the 3rd of each turn is forced to a pass and the friend sends it back):
 // 9 touches at 5 points, the 10th at 10 (the roda multiplier grows every 10).
-{const g=createAltinha({maxTouches:3});startAltinha(g);
+{const g=createAltinha({maxTouches:3,random:()=>0});startAltinha(g);
  for(let t=0;t<120*30&&g.rodaStreak<10;t++)bot(g,DT);
  assert.equal(g.rodaStreak,10);assert.equal(g.rodaScore,55);assert.equal(g.drops,0);}
 
@@ -43,8 +45,8 @@ function bot(g:Altinha,seconds:number,{play=true,kind='keep' as 'keep'|'pass',di
 {const g=createAltinha(),me=g.spots[0],s=g.spots[2],d=Math.hypot(s.x-me.x,s.z-me.z);
  assert.equal(passTarget(g,{x:(s.x-me.x)/d,z:(s.z-me.z)/d}),2);assert.equal(passTarget(g,{x:0,z:0}),1);}
 
-// A pass goes to the friend, who sends it back (CPU friends never fail in this first version).
-{const g=createAltinha();startAltinha(g);bot(g,1.6,{kind:"pass"});assert.notEqual(g.receiver,0);bot(g,4);assert.equal(g.drops,0);assert.ok(g.rodaStreak>=3);}
+// A pass goes to the friend, who plays it on (here a CPU that never misses).
+{const g=createAltinha({random:()=>0});startAltinha(g);bot(g,1.6,{kind:"pass"});assert.notEqual(g.receiver,0);bot(g,4);assert.equal(g.drops,0);assert.ok(g.rodaStreak>=3);}
 
 // The round lasts 120 seconds.
 {const g=createAltinha();startAltinha(g);bot(g,121);assert.equal(g.status,'over');}
@@ -89,4 +91,28 @@ assert.equal(g.saves,1);assert.equal(g.feedback,'SALVADA!');assert.ok(g.individu
 // One-touch mode: every touch goes to a friend, even a keep-up.
 {const g=createAltinha({maxTouches:1});startAltinha(g);trick(g,{x:0,z:0},0,'keep');assert.notEqual(g.receiver,0);}
 
-console.log('Passed: altinha roda core, tricks, combos and salvadas.');
+// Balance: a perfect human with CPU friends for a whole round. The ball must fall sometimes, not all the time.
+const drops:Record<string,number>={};
+for(const level of ['Chill','Club','Pro']){
+ const g=createAltinha({random:seeded(7)});startAltinha(g);bot(g,121,{level});drops[level]=g.drops;
+ assert.equal(g.status,'over');assert.ok(g.drops>=2&&g.drops<=12,`${level}: ${g.drops} drops`);assert.ok(g.rodaBest>=15,`${level}: best ${g.rodaBest}`);
+ for(let i=1;i<5;i++)assert.ok(g.individual[i]>0,`friend ${i} scored`);
+}
+assert.ok(drops.Chill<=drops.Pro);console.log('altinha drops per round',drops);
+
+// A human who never plays scores nothing, and the roda suffers for it.
+{const g=createAltinha({random:seeded(3)});startAltinha(g);bot(g,121,{play:false});assert.equal(g.individual[0],0);assert.ok(g.drops>=1);}
+
+// Altinha de Ouro: with a full style meter, K gives 6 s of slow ball and double points.
+{const g=createAltinha({random:()=>0});startAltinha(g);trick(g,{x:0,z:0});const normal=g.individual[0];
+ const h=createAltinha({random:()=>0});startAltinha(h);h.style=100;armGamebreaker(h);assert.equal(h.gamebreaker,6);assert.equal(h.style,0);assert.equal(h.feedback,'ALTINHA DE OURO');
+ trick(h,{x:0,z:0});assert.equal(h.individual[0],normal*2);}
+
+// The score is final at the whistle, even with the ball in the air.
+{const g=createAltinha({random:seeded(5)});startAltinha(g);bot(g,121);const final=g.individual[0];
+ pressAltinha(g);releaseAltinha(g,{x:0,z:0},'keep');bot(g,2);assert.equal(g.individual[0],final);}
+
+// The king of the roda is the top individual score.
+{const g=createAltinha({random:seeded(9)});startAltinha(g);bot(g,121);const r=altinhaResult(g);assert.equal(r.individual[r.king],Math.max(...g.individual));assert.equal(r.rodaBest,g.rodaBest);}
+
+console.log('Passed: altinha roda core, tricks, combos, salvadas, CPU friends and the gamebreaker.');
