@@ -27,7 +27,7 @@ Fase 1 fechada em 2026-10-19: testes, testes online, tipos, lint e build passam;
 
 ## Fase 4 — Motivo para voltar
 - [x] Recordes (vitórias, perfeitos, especiais, títulos) e bolas desbloqueáveis (dourada: 20 perfeitos; fogo: 5 especiais; campeã: circuito) salvos no aparelho para futevôlei, beach tennis e futebol. `lib/beach-progress.ts`, `app/BeachMatch.tsx`.
-- [x] Rivais com atributos nos 3 esportes: o estilo muda golpes, saque, velocidade da CPU; no futebol também goleiro e distância de chute, com dica própria. Escolher a própria dupla/trio com atributos ainda não existe.
+- [x] Rivais com atributos nos 3 esportes: o estilo muda golpes, saque, velocidade da CPU; no futebol também goleiro e distância de chute, com dica própria. Escolha da sua dupla/trio no cartão de início (6 times, 13 pontos cada): VELOCIDADE, FORÇA, REDE, EFEITO nos esportes de rede; VELOCIDADE, CHUTE, PASSE, GOLEIRO no futebol. `lib/teams.ts`.
 - [x] Circuito de praia (5 etapas, rivais cada vez mais fortes, alternando os 3 esportes) e desafio do dia (mesmo esporte, rival e meta de perfeitos para todos, com sequência de dias) na tela inicial. `app/HomeProgress.tsx`.
 - [ ] Minigames de treino que sobem atributo (ex.: alvos na areia) — não feito.
 - [ ] Online (previsão do próprio atleta) fica para depois.

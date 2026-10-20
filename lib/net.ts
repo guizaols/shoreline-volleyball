@@ -1,12 +1,13 @@
 import {createArcade,aimDrift,stepArcade,rewardArcade,takeSpecial,specialName,cancelArcadeInput,shotTiming,PERFECT_ETA,PERFECT_SPAN} from './arcade.ts';
 import {createGame,launch,landingX,landingZ,flightTime,strokeQuality,setAim,FLOOR,type Player,type AttackStyle} from './game.ts';
 import type {rivals} from './rivals.ts';
+import {statFactor} from './teams.ts';
 
 export type NetSport='footvolley'|'tennis';
 export type BeachInput={x:number;z:number;prepare:boolean;jump:boolean};
 export const clamp=(n:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,n));
 export function createNetMatch(sport:NetSport,rival?:typeof rivals[number]){
- return {...createGame(),...createArcade(),sport,cpuStyle:rival?.style??'normal',rivalName:rival?.name.toUpperCase()??'PRAIA',rivalHint:rival?.description??'',windEnabled:false,points:[0,0],shotAimed:false,contactSerial:0,autoSwitchSerial:-1,shotConsumed:false,coverUsed:false,contactAge:0,impact:{x:0,z:0,y:0},message:'Chegue à bola e toque Jogar.',restartDelay:0};
+ return {...createGame(),...createArcade(),sport,cpuStyle:rival?.style??'normal',rivalName:rival?.name.toUpperCase()??'PRAIA',rivalHint:rival?.description??'',windEnabled:false,points:[0,0],shotAimed:false,myStats:[3,3,3,3],contactSerial:0,autoSwitchSerial:-1,shotConsumed:false,coverUsed:false,contactAge:0,impact:{x:0,z:0,y:0},message:'Chegue à bola e toque Jogar.',restartDelay:0};
 }
 export type NetMatch=ReturnType<typeof createNetMatch>;
 // Short sessions (approved design: about 3 minutes a match): futevôlei sets go to 7, win by 2.
@@ -120,7 +121,8 @@ export function strikeNet(g:NetMatch,i:number,quality:number,ahead?:number){
  const timed=i===g.active&&ahead!==undefined&&over&&!cover?shotTiming(ahead):null;
  if(timed)quality=timed.perfect?Math.min(1,quality+.15):timed.late?quality*.85:quality;
  if(shark&&quality<.45){netPoint(g,1-p.team,'Shark attack na rede');return;}
- const b=g.ball,human=i===g.active,power=cover?.2:human?(g.shotWindow>0?g.shotCharge:g.charge):cpu?cpu.power:.5;
+ // Your team's FORÇA adds to every shot your side hits (lib/teams.ts).
+ const b=g.ball,human=i===g.active,power=cover?.2:p.team===0?Math.min(1,(human?(g.shotWindow>0?g.shotCharge:g.charge):.5)+(g.myStats[1]-3)*.08):cpu?cpu.power:.5;
  const incomingSpecial=g.specialShot&&g.lastTeam!==p.team;
  const special=over&&!cover?takeSpecial(g,p.team,i):false;
  // Two specials, as in Hyper V-Ball: A fires the signature shot, B the zigzag ball that weaves in the air.
@@ -191,7 +193,7 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
   const prediction=Math.min(reaction*.4,guide.time*.3);
   // AI defenders misread attacks, more for strong, perfect or special shots and on easier levels: a fixed per-rally
   // offset (no dice roll), so rallies end instead of running forever (playtest 2026-10-19).
-  const attack=human||g.lastTeam<0||g.lastTeam===p.team?0:g.rally===0?.1+(g.lastPerfect?.15:0)+(g.specialShot?.7:0):Math.min(1.4,(g.sport==='tennis'?.4:.25)+g.lastPower*.8+(g.lastPerfect?.5:0)+(g.specialShot?.8:0));
+  const attack=human||g.lastTeam<0||g.lastTeam===p.team?0:(g.lastTeam===0?(g.myStats[3]-3)*.08:0)+(g.rally===0?.1+(g.lastPerfect?.15:0)+(g.specialShot?.7:0):Math.min(1.4,(g.sport==='tennis'?.4:.25)+g.lastPower*.8+(g.lastPerfect?.5:0)+(g.specialShot?.8:0)));
   // Slow balls (lobs, floaty sets) are easy to read whatever the power behind them.
   // Fatigue: the longer the rally, the worse the read, so even two perfect defences cannot rally forever.
   const misread=attack*clamp((Math.hypot(g.ball.vx,g.ball.vz)-200)/350,.15,1.2)*(level==='Chill'?90:level==='Pro'?42:65)*(1+Math.max(0,g.rally-(g.sport==='tennis'?20:12))/(level==='Pro'?30:12));
@@ -212,7 +214,7 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
   p.jumpHeld=human&&input.jump;
   // Charging roots the athlete: arriving early is the only way to hit hard.
   // Rival style also sets how fast the CPU covers the sand: defenders run most, blockers least.
-  moveRunner(p,dx,dz,dt,human?320*(input.prepare?1-.7*g.charge:1):(p.team&&level==='Chill'?235:300)*(p.team?RIVAL_SPEED[g.cpuStyle]??1:1));
+  moveRunner(p,dx,dz,dt,human?320*(input.prepare?1-.7*g.charge:1)*statFactor(g.myStats[0]):(p.team&&level==='Chill'?235:300)*(p.team?RIVAL_SPEED[g.cpuStyle]??1:1));
   const x=clamp(p.x,p.team?537:40,p.team?960:463),z=clamp(p.z,30,420);
   if(x!==p.x)p.vx=0;if(z!==p.z)p.vz=0;p.x=x;p.z=z;
  }
@@ -233,7 +235,7 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
    const distance=Math.hypot(old.x+dx*t-target.x,old.y+dy*t-target.y,old.z+dz*t-target.z);
    // AI defenders (CPU and your partner) are beaten by pace: a fast, perfect or special shot shrinks their reach, more on easier levels, so points end.
    const threat=i===g.active||g.lastTeam===p.team?0:Math.min(1,clamp((Math.hypot(old.vx,old.vy,old.vz)-380)/480,0,1)*.75+(g.lastPerfect?.35:0)+(g.specialShot?.6:0))*(g.rally===0?.3:1);
-   const reach=(i===g.active?(level==='Chill'?48:level==='Pro'?28:38):35*(1-threat*(level==='Chill'?.9:level==='Pro'?.45:.65)))+(g.sport==='tennis'&&p.team===0&&g.specialArmed&&g.energy[0]>=100?18:0);
+   const reach=(i===g.active?(level==='Chill'?48:level==='Pro'?28:38)+(g.myStats[2]-3)*3:35*(1-threat*(level==='Chill'?.9:level==='Pro'?.45:.65)))+(g.sport==='tennis'&&p.team===0&&g.specialArmed&&g.energy[0]>=100?18:0);
    // Beach tennis dive: the human can stretch 50 further by diving, but stays down on the sand afterwards.
    // Only once the ball is passing by (closest approach inside this step), so a ball still coming into reach is a normal stroke.
    const dive=g.sport==='tennis'&&i===g.active&&p.y===FLOOR&&p.action!=='dive'&&t<1&&distance>=reach&&distance<reach+50;

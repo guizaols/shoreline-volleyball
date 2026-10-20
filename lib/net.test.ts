@@ -283,3 +283,11 @@ console.log('Passed: timed human serve, late fallback and instant CPU serve.');
  assert.match(rivalShot('attack').feedback,/TROVÃO!/);assert.match(rivalShot('defense').feedback,/BUMERANGUE!/);assert.match(rivalShot('block').feedback,/MARRETA!/);
  console.log('Passed: each rival style has its own named special.');
 }
+
+{
+ const {playableTeams}=await import('./teams.ts');
+ for(const soccer of [false,true])assert.ok(playableTeams(soccer).every(t=>t.stats.reduce((a,b)=>a+b,0)===13),'Every playable team has the same 13 attribute points');
+ const run=(speed:number)=>{const m=createNetMatch('tennis');m.status='playing';m.active=0;m.autoSwitch=false;m.cooldown=1;m.myStats=[speed,3,3,3];m.ball={x:800,z:225,y:100,vx:0,vz:0,vy:0};const x=m.players[0].x;for(let i=0;i<30;i++)stepNet(m,1/120,{x:1,z:0,prepare:false,jump:false},'Club');return m.players[0].x-x;};
+ assert.ok(run(5)>run(1)*1.1,'VELOCIDADE makes your athlete faster');
+ console.log('Passed: playable team attributes are balanced and change play.');
+}

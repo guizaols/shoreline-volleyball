@@ -307,3 +307,17 @@ a.arcade-box:hover,a.arcade-box:focus-visible{box-shadow:6px 6px 0 #db2400;outli
 .game-shell .scoreboard div{font-family:var(--font-arcade-text),monospace;font-size:17px;letter-spacing:.5px}
 .game-shell .scoreboard b{font-family:var(--font-arcade),monospace}
 .game-shell .scoreboard small{font-family:var(--font-arcade-text),monospace;font-size:12px;line-height:1;letter-spacing:.5px;white-space:nowrap}
+/* Team pick on the start card (approved design "Escolha da dupla"). */
+.game-shell .team-pick{border:0;margin:6px 0 12px;padding:0;text-align:left}
+.game-shell .team-pick legend{font-family:var(--font-arcade),monospace;font-size:9px;color:#92b6db;margin-bottom:6px}
+.game-shell .team-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.game-shell .team-grid button{min-height:44px;font-family:var(--font-arcade-text),monospace;font-size:18px;line-height:1.1;color:#fff;background:#002449;border:3px solid #4949b6;border-radius:0;cursor:pointer;padding:4px}
+.game-shell .team-grid button small{display:block;font-family:var(--font-arcade-text),monospace;font-size:14px;color:#92b6db}
+.game-shell .team-grid button[aria-pressed=true]{background:#2449b6;border-color:#ffdb00;box-shadow:3px 3px 0 #db2400}
+.game-shell .team-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 14px;margin:10px 0 0}
+.game-shell .team-stats div{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.game-shell .team-stats dt{font-family:var(--font-arcade-text),monospace;font-size:15px;color:#fff}
+.game-shell .team-stats dd{display:flex;gap:3px;margin:0}
+.game-shell .team-stats i{display:block;width:14px;height:10px;background:#242449;box-shadow:0 0 0 2px #1a1028}
+.game-shell .team-stats i.on{background:#ffdb00}
+@media (pointer:coarse),(max-height:520px){.game-shell .start-card{max-height:calc(100% - 16px);overflow-y:auto}.game-shell .team-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
