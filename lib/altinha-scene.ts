@@ -1,14 +1,20 @@
 import * as Phaser from 'phaser';
 import {project} from './court-projection';
 import {FLOOR} from './game';
-import {stepAltinha,altinhaGuide,passTarget,tricks,type Altinha,type AltinhaInput} from './altinha';
+import {stepAltinha,altinhaGuide,passTarget,tricks,trickWindow,type Altinha,type AltinhaInput} from './altinha';
 import {matchAudio,type SoundKind} from './match-audio';
-import {timingMeter} from './timing-meter';
 import {bakeAthletes,addCrowd,athletePx,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
 
 export const FRIENDS=['VOCÊ','BIEL','NANDA','TICO','LU'];
 // Each trick borrows the futevôlei pose that reads like it: feet, chest, head, or the bicicleta for the tesoura.
 const poseOf=(name:string)=>/CABEÇA/.test(name)?'header':/PEITO|OMBRO/.test(name)?'chest':/TESOURA/.test(name)?'bicycle':'kick';
+// Timing bar over you after a touch: the green band is where the trick you just tried works, the yellow
+// centre is perfect, and the marker is where you were (CEDO left, TARDE right). Same scale as g.timing.
+function altinhaMeter(scene:Phaser.Scene){
+ const band=scene.add.rectangle(0,0,10,8,0x41c6a4),marker=scene.add.rectangle(0,0,4,16,0xffffff).setStrokeStyle(2,0x1a1028);
+ const meter=scene.add.container(0,0,[scene.add.rectangle(0,0,96,12,0x1a1028),scene.add.rectangle(0,0,90,8,0xed6856),band,scene.add.rectangle(0,0,9,8,0xffdb00),marker]).setDepth(900).setVisible(false);
+ return (x:number,y:number,timing:number|null,window:number)=>{meter.setVisible(timing!==null);if(timing!==null){meter.setPosition(x,y);band.setSize(window*90,8).setOrigin(.5);marker.setX(-timing*45);}};
+}
 const soundOf=(pose:string):SoundKind=>pose==='header'?'head':pose==='chest'?'chest':pose==='bicycle'?'special':'foot';
 
 export function mountAltinha(parent:HTMLElement,getGame:()=>Altinha,input:()=>AltinhaInput,level:()=>string,changed:()=>void,ready:()=>void,failed:(message:string)=>void){
@@ -19,7 +25,7 @@ export function mountAltinha(parent:HTMLElement,getGame:()=>Altinha,input:()=>Al
  class Roda extends Phaser.Scene{
   bodies:Phaser.GameObjects.Sprite[]=[];shadows:Phaser.GameObjects.Ellipse[]=[];strikes:{pose:string;time:number}[]=[];
   ball!:Phaser.GameObjects.Container;ballShadow!:Phaser.GameObjects.Ellipse;ring!:Phaser.GameObjects.Ellipse;landing!:Phaser.GameObjects.Ellipse;
-  passLine!:Phaser.GameObjects.Graphics;passRing!:Phaser.GameObjects.Ellipse;popup!:Phaser.GameObjects.Text;meter!:ReturnType<typeof timingMeter>;crowd!:ReturnType<typeof addCrowd>;
+  passLine!:Phaser.GameObjects.Graphics;passRing!:Phaser.GameObjects.Ellipse;popup!:Phaser.GameObjects.Text;meter!:ReturnType<typeof altinhaMeter>;crowd!:ReturnType<typeof addCrowd>;
   dim!:Phaser.GameObjects.Rectangle;banner!:Phaser.GameObjects.Container;bannerText!:Phaser.GameObjects.Text;gold!:Phaser.GameObjects.Rectangle;
   accumulator=0;freeze=0;lastContact=0;lastFeedback='';cheer=0;lastView='';previous!:{ball:Altinha['ball'];players:Altinha['players']};
   preload(){this.load.image('beach','/art/beach.png');this.load.on('loaderror',()=>failed('Não foi possível carregar a praia. Recarregue a página.'));}
@@ -40,7 +46,7 @@ export function mountAltinha(parent:HTMLElement,getGame:()=>Altinha,input:()=>Al
    this.ballShadow=this.add.ellipse(0,0,17,7,0x513c24,.3).setDepth(2);
    this.ball=this.add.container(0,0,[this.add.circle(0,0,10,0xfff5d9).setStrokeStyle(2,0x153d4b),this.add.arc(0,0,7,-65,100,false,0x219ca4),this.add.arc(0,0,6,140,270,false,0xe7b743)]);
    this.popup=this.add.text(0,0,'',{fontFamily:arcadeFont,fontSize:'14px',color:'#ffdb00',stroke:'#1a1028',strokeThickness:5}).setOrigin(.5).setDepth(900).setVisible(false);
-   this.meter=timingMeter(this);
+   this.meter=altinhaMeter(this);
    this.gold=this.add.rectangle(500,310,1000,620,0xffc400,.12).setDepth(940).setVisible(false);
    this.dim=this.add.rectangle(500,310,1000,620,0x000000,.45).setDepth(950).setVisible(false);
    this.bannerText=this.add.text(0,0,'',{fontFamily:arcadeFont,fontSize:'34px',color:'#ffdb00',stroke:'#db2400',strokeThickness:6}).setOrigin(.5);
@@ -75,13 +81,15 @@ export function mountAltinha(parent:HTMLElement,getGame:()=>Altinha,input:()=>Al
    this.passLine.clear();this.passRing.setVisible(mine);
    if(mine){
     const me=project(g.players[0].x,g.players[0].z),friend=g.players[passTarget(g,input())],to=project(friend.x,friend.z);
-    this.passLine.lineStyle(3,0xffdb00,.7).lineBetween(me.x,me.y,to.x,to.y);this.passRing.setPosition(to.x,to.y);
+    // Bright when your next touch goes to that friend anyway (last touch of the turn); faint when only F would pass.
+    const forced=g.touchesThisTurn+1>=g.maxTouches;
+    this.passLine.lineStyle(3,0xffdb00,forced?.8:.25).lineBetween(me.x,me.y,to.x,to.y);this.passRing.setPosition(to.x,to.y).setAlpha(forced?1:.35);
    }
    this.gold.setVisible(g.gamebreaker>0);
    if(g.contactSerial!==this.lastContact){
     this.lastContact=g.contactSerial;const who=g.holder,name=g.feedback,pose=poseOf(name),perfect=/PERFEITO/.test(name),save=name==='SALVADA!';
     this.strikes[who]={pose,time:.4};sound.play(soundOf(pose),perfect);
-    const at=project(g.players[who].x,g.players[who].z,g.players[who].y-120);
+    const at=project(g.players[who].x,g.players[who].z,g.players[who].y-150);
     this.popup.setText(name.replace(' · PERFEITO','')).setPosition(at.x,at.y).setVisible(true).setAlpha(1).setColor(who?'#ffffff':'#ffdb00');
     this.tweens.killTweensOf(this.popup);if(!reduced)this.tweens.add({targets:this.popup,y:at.y-30,alpha:0,delay:350,duration:450});else this.time.delayedCall(800,()=>this.popup.setVisible(false));
     if(!reduced){this.freeze=save?.12:perfect?.04:0;if(save||perfect)this.cameras.main.shake(save?120:60,save?.003:.0015);}
@@ -95,7 +103,7 @@ export function mountAltinha(parent:HTMLElement,getGame:()=>Altinha,input:()=>Al
    }
    this.cheer=Math.max(0,this.cheer-delta/1000);this.crowd(this.cheer>0,g.clock);
    const me=g.players[0],above=project(me.x,me.z,me.y-112);
-   this.meter(above.x,above.y,g.timing!==null&&g.feedbackTime>.4&&g.holder===0?g.timing:null);
+   this.meter(above.x,above.y,g.timing!==null&&g.feedbackTime>.4&&g.holder===0?g.timing:null,trickWindow(g.lastTrick));
    const view=`${g.status}:${Math.ceil(g.timeLeft)}:${g.rodaScore}:${g.individual.join(',')}:${g.combo[0]}:${Math.floor(g.style)}:${g.gamebreaker>0}:${g.feedback}:${g.feedbackTime>0}:${g.receiver}:${Math.floor(g.charge*10)}`;
    if(view!==this.lastView){this.lastView=view;changed();}
   }

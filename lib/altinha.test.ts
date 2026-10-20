@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {createAltinha,startAltinha,stepAltinha,pressAltinha,releaseAltinha,pauseAltinha,altinhaGuide,passTarget,trickFor,tricks,armGamebreaker,altinhaResult,type Altinha,type TrickId} from './altinha.ts';
+import {createAltinha,startAltinha,stepAltinha,pressAltinha,releaseAltinha,pauseAltinha,altinhaGuide,passTarget,trickFor,tricks,trickWindow,armGamebreaker,altinhaResult,type Altinha,type TrickId} from './altinha.ts';
 import {FLOOR} from './game.ts';
 import {PERFECT_ETA} from './arcade.ts';
 
@@ -114,6 +114,15 @@ assert.ok(drops.Chill<=drops.Pro);console.log('altinha drops per round',drops);
 
 // The king of the roda is the top individual score.
 {const g=createAltinha({random:seeded(9)});startAltinha(g);bot(g,121);const r=altinhaResult(g);assert.equal(r.individual[r.king],Math.max(...g.individual));assert.equal(r.rodaBest,g.rodaBest);}
+
+// The timing meter is on the altinha scale: each trick's working window, in the same units as g.timing (±1 = ±0.3 s).
+assert.ok(Math.abs(trickWindow('embaixadinha')-.65)<1e-9);assert.ok(Math.abs(trickWindow('carretilha')-.3)<1e-9);
+{const g=createAltinha({unlocked:all});startAltinha(g);trick(g,{x:0,z:0},.12);assert.ok(Math.abs(Math.abs(g.timing!)-.4)<.05,`timing ${g.timing}`);}
+
+// Holding J while the ball is still on its way to you keeps the charge, so the held trick comes out.
+{const g=createAltinha({unlocked:all,random:()=>0});startAltinha(g);g.receiver=2;g.ball.vy=-300;pressAltinha(g);
+ for(let t=0;t<60;t++)stepAltinha(g,DT,{x:0,z:0,jump:false},'Club');
+ assert.ok(g.charge>=.65,`charge ${g.charge}`);g.receiver=0;releaseAltinha(g,{x:0,z:0},'keep');assert.equal(g.queued?.trick,'volta');}
 
 // Nobody is king of a roda where nobody scored.
 {const g=createAltinha();startAltinha(g);bot(g,121,{play:false});assert.equal(altinhaResult(g).king,-1);}

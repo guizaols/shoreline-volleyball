@@ -32,13 +32,15 @@ export function trickFor(input:{x:number;z:number},hold:boolean,jump:boolean,unl
  return t&&unlocked.includes(t.id)?t.id:'embaixadinha';
 }
 const trickById=(id:TrickId)=>tricks.find(t=>t.id===id)!;
+// How far off the beat (in TIMING_SPAN units, the scale of g.timing and the meter) a trick still works.
+export const trickWindow=(id:TrickId)=>.65-trickById(id).risk;
 export function createAltinha(opts:{maxTouches?:1|2|3;random?:()=>number;unlocked?:TrickId[]}={}){
  const spots=spotsFor(5);
  return {status:'ready' as 'ready'|'playing'|'paused'|'over',resumeStatus:'playing' as 'ready'|'playing'|'paused'|'over',clock:0,timeLeft:ROUND,
   spots,players:spots.map(s=>runner(s.x,s.z)),ball:{x:spots[0].x,z:spots[0].z,y:FLOOR-CONTACT,vx:0,vz:0,vy:0},
   receiver:0,holder:0,touchesThisTurn:0,maxTouches:opts.maxTouches??3,rodaScore:0,rodaStreak:0,rodaBest:0,individual:[0,0,0,0,0],combo:[0,0,0,0,0],drops:0,dropTimer:0,
   charge:0,holding:false,queued:null as null|{kind:'keep'|'pass';target:number;trick:TrickId;age:number},
-  unlocked:opts.unlocked??STARTING_TRICKS,lastTricks:[[],[],[],[],[]] as TrickId[][],style:0,perfects:0,saves:0,run:0,gamebreaker:0,gamebreakers:0,badPass:false,
+  unlocked:opts.unlocked??STARTING_TRICKS,lastTricks:[[],[],[],[],[]] as TrickId[][],style:0,perfects:0,saves:0,run:0,gamebreaker:0,gamebreakers:0,badPass:false,lastTrick:'embaixadinha' as TrickId,
   cpu:null as null|{trick:TrickId;miss:boolean},cpuTouches:1,
   feedback:'',feedbackTime:0,contactSerial:0,timing:null as number|null,random:opts.random??Math.random};
 }
@@ -64,7 +66,8 @@ export function passTarget(g:Altinha,input:{x:number;z:number}){
  return best;
 }
 const mine=(g:Altinha)=>g.status==='playing'&&g.receiver===0&&!g.dropTimer;
-export function pressAltinha(g:Altinha){if(!mine(g))return;g.holding=true;g.charge=0;}
+// Holding may start while the ball is still on its way to you; only the release has to be on your turn.
+export function pressAltinha(g:Altinha){if(g.status!=='playing')return;g.holding=true;g.charge=0;}
 export function releaseAltinha(g:Altinha,input:{x:number;z:number;jump?:boolean},kind:'keep'|'pass'){
  const hold=g.charge>=.65;g.holding=false;g.charge=0;
  if(!mine(g)||g.queued)return;
@@ -133,7 +136,7 @@ export function stepAltinha(g:Altinha,dt:number,input:AltinhaInput,level:string)
   q.age+=dt;
   if(reachable(g,0,trickById(q.trick).height)){
    // A salvada is a reaction, not a timed touch: arriving in time counts as fair timing (0.1 s off, never perfect).
-   const t=trickById(q.trick),save=b.y>FLOOR-35&&g.run>120,err=save?Math.min(Math.abs(q.age-PERFECT_ETA),.1):Math.abs(q.age-PERFECT_ETA),offset=save?Math.sign(pressTiming(q.age).offset||1)*Math.min(.5,Math.abs(pressTiming(q.age).offset)):pressTiming(q.age).offset,quality=Math.max(0,1-err/TIMING_SPAN),ok=quality>=.35+t.risk;g.timing=offset;g.queued=null;
+   const t=trickById(q.trick),save=b.y>FLOOR-35&&g.run>120,err=save?Math.min(Math.abs(q.age-PERFECT_ETA),.1):Math.abs(q.age-PERFECT_ETA),offset=save?Math.sign(pressTiming(q.age).offset||1)*Math.min(.5,Math.abs(pressTiming(q.age).offset)):pressTiming(q.age).offset,quality=Math.max(0,1-err/TIMING_SPAN),ok=quality>=.35+t.risk;g.timing=Math.max(-1,Math.min(1,(q.age-PERFECT_ETA)/TIMING_SPAN));g.lastTrick=t.id;g.queued=null;
    if(quality<.15){g.feedback='ISOLOU';g.feedbackTime=.9;return;}
    touch(g,0,q.kind,q.target,ok?0:Math.sign(offset||1)*(1-quality)*120);
    g.badPass=!ok;if(ok)scoreTrick(g,t,offset,save);else g.feedback='ERROU O TRICK';

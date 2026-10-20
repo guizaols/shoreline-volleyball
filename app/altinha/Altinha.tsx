@@ -18,8 +18,9 @@ const command=(id:TrickId)=>{const t=tricks.find(t=>t.id===id)!;return t.jump?'E
 const clock=(s:number)=>`${Math.floor(Math.ceil(s)/60)}:${String(Math.ceil(s)%60).padStart(2,'0')}`;
 
 export default function Altinha(){
- const [touches,setTouches]=useState<1|2|3>(3);
- const fresh=useCallback((max=touches)=>createAltinha({maxTouches:max,unlocked:unlockedTricks(readSave().total)}),[touches]);
+ // Touches per turn live in a ref (like the level) so changing them never remounts the scene.
+ const [touches,setTouches]=useState<1|2|3>(3),touchMode=useRef<1|2|3>(3);
+ const fresh=useCallback(()=>createAltinha({maxTouches:touchMode.current,unlocked:unlockedTricks(readSave().total)}),[]);
  const game=useRef<Roda>(createAltinha()),host=useRef<HTMLDivElement>(null),keys=useRef(new Set<string>()),stick=useRef({x:0,z:0}),level=useRef('Club');
  const [view,setView]=useState(()=>createAltinha()),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[tools,setTools]=useState(false);
  const raw=useSyncExternalStore(subscribeSave,savedRaw,()=>null),save=raw===null?null:readAltinha(raw),lesson=save?lessonFor(save):null;
@@ -85,7 +86,7 @@ export default function Altinha(){
      </>:view.status==='ready'&&<>
       <p>Mantenha a bola no ar com os amigos. Cada toque soma para a roda; seus tricks somam para você. Variar os tricks sobe o combo.</p>
       <p>J toca · direção escolhe o trick e o amigo · segure J para tricks difíceis · F passa · K com o estilo cheio solta a ALTINHA DE OURO.</p>
-      <fieldset className="team-pick"><legend>TOQUES POR VEZ</legend><div className="team-grid">{([3,2,1] as const).map(n=><button key={n} aria-pressed={touches===n} onClick={()=>{setTouches(n);game.current=fresh(n);sync();}}>{n} {n===1?'TOQUE':'TOQUES'}<small>{n===3?'clássico':n===2?'rápido':'só passe'}</small></button>)}</div></fieldset>
+      <fieldset className="team-pick"><legend>TOQUES POR VEZ</legend><div className="team-grid">{([3,2,1] as const).map(n=><button key={n} aria-pressed={touches===n} onClick={()=>{touchMode.current=n;setTouches(n);game.current=fresh();sync();}}>{n} {n===1?'TOQUE':'TOQUES'}<small>{n===3?'clássico':n===2?'rápido':'só passe'}</small></button>)}</div></fieldset>
       {save&&<p className="progress-note">Seu total: {save.total} · Recorde da roda: {save.rodaBest} · Tricks: {unlockedTricks(save.total).length} de {tricks.length}</p>}
       {lesson&&<p className="progress-note">NOVO TRICK · {lessonName} — {command(lesson)}</p>}
      </>}
