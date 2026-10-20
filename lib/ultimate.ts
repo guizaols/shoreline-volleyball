@@ -26,7 +26,7 @@ export type Ultimate=ReturnType<typeof createUltimate>;
 const teamOf=(i:number)=>i<5?0:1;
 const say=(g:Ultimate,text:string)=>{g.feedback=text;g.feedbackTime=1.2;};
 function give(g:Ultimate,i:number){
- g.holder=i;g.offense=teamOf(i);g.stall=0;g.flight=null;g.ground=-1;g.cpuWait=0;g.contactSerial++;
+ g.holder=i;g.offense=teamOf(i);g.stall=0;g.flight=null;g.ground=-1;g.cpuWait=0;g.contactSerial++;g.holding=false;g.charge=0;
  const p=g.players[i];p.vx=p.vz=0;Object.assign(g.disc,{x:p.x,z:p.z,y:FLOOR-DISC_HEIGHT});
  g.active=g.offense===0?i:nearest(g,0,g.disc);
 }
@@ -34,7 +34,7 @@ function nearest(g:Ultimate,team:number,at:{x:number;z:number}){
  let best=-1,d=Infinity;g.players.forEach((p,i)=>{const e=Math.hypot(p.x-at.x,p.z-at.z);if(teamOf(i)===team&&e<d){d=e;best=i;}});return best;
 }
 function restart(g:Ultimate,team:number){
- lineup(team).forEach((s,i)=>Object.assign(g.players[i],{x:s.x,z:s.z,vx:0,vz:0}));give(g,team?5:0);
+ lineup(team).forEach((s,i)=>Object.assign(g.players[i],{x:s.x,z:s.z,vx:0,vz:0,dive:0,recover:0,action:'idle'}));give(g,team?5:0);
 }
 export function startUltimate(g:Ultimate){if(g.status!=='ready')return;g.status='playing';restart(g,0);}
 export function pauseUltimate(g:Ultimate){if(g.status==='paused')g.status=g.resumeStatus;else if(g.status==='playing'){g.resumeStatus='playing';g.status='paused';g.holding=false;g.charge=0;}}
@@ -50,14 +50,27 @@ export function throwTarget(g:Ultimate,dir:{x:number;z:number}){
 const human=(g:Ultimate)=>g.status==='playing'&&!g.restartDelay&&!g.autopilot&&g.holder>=0&&g.offense===0&&g.active===g.holder;
 // Disco de Fogo: earned by catches, layouts and blocks; your next throw flies faster and cannot be knocked down.
 export function armUltimateSpecial(g:Ultimate){if(g.status==='playing'&&g.energy>=100)g.specialArmed=!g.specialArmed;}
-export function pressUltimate(g:Ultimate){if(!human(g))return;g.holding=true;g.charge=0;}
+export function pressUltimate(g:Ultimate){if(!human(g)||g.holding)return;g.holding=true;g.charge=0;}
 export function releaseUltimate(g:Ultimate,dir:{x:number;z:number},kind:'pass'|'hammer'){
- const ok=human(g)&&g.holding,huck=g.charge>=.65;g.holding=false;g.charge=0;if(!ok)return;
- const target=throwTarget(g,dir);if(target<0)return;
- // Aiming off the receiver bends the disc that way (up to 60 units at mid-flight), Windjammers style.
+ const ok=human(g)&&g.holding,plan=ok?throwPlan(g,dir,kind,g.charge>=.65):null;g.holding=false;g.charge=0;
+ if(plan)throwDisc(g,g.holder,plan.target,plan.kind,plan.curve);
+}
+// Your throw as it will happen: receiver, kind, bend and landing spot. The scene draws exactly this as the aim.
+export function throwPlan(g:Ultimate,dir:{x:number;z:number},kind:'pass'|'hammer',huck:boolean){
+ const target=g.holder>=0?throwTarget(g,dir):-1;if(target<0)return null;
+ // Aiming well off the receiver (over 30°) bends the disc that way, up to 60 units at mid-flight (Windjammers style);
+ // keyboard aim is only 8 directions, so smaller offsets throw straight.
  const a=g.players[g.holder],b=g.players[target],len=Math.hypot(dir.x,dir.z),tx=b.x-a.x,tz=b.z-a.z,td=Math.hypot(tx,tz)||1;
- const side=len>.2?(tx*dir.z-tz*dir.x)/(td*len):0,curve=Math.abs(side)>.17?Math.max(-1,Math.min(1,side/.6))*60:0;
- throwDisc(g,g.holder,target,kind==='hammer'?'hammer':huck?'huck':'pass',curve);
+ const side=len>.2?(tx*dir.z-tz*dir.x)/(td*len):0,curve=Math.abs(side)>.5?Math.max(-1,Math.min(1,side/.8))*60:0;
+ const throwKind:ThrowKind=kind==='hammer'?'hammer':huck?'huck':'pass';
+ return {target,kind:throwKind,curve,...landing(g,g.holder,target,throwKind,curve,teamOf(g.holder)===0&&g.specialArmed)};
+}
+// Lead the receiver: throw to where they will be when the disc arrives; a huck goes further, along the throw.
+function landing(g:Ultimate,thrower:number,target:number,kind:ThrowKind,curve:number,fire:boolean){
+ const a=g.players[thrower],b=g.players[target],{speed,lead}=THROWS[kind],pace=(curve?1.2:1)*(fire?.75:1);
+ const dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz)||1,T0=Math.max(MIN_FLIGHT,d/speed)*pace;
+ const to=clampField({x:b.x+b.vx*T0+dx/d*lead,z:b.z+b.vz*T0+dz/d*lead});
+ return {to,T:Math.max(MIN_FLIGHT,Math.hypot(to.x-a.x,to.z-a.z)/speed)*pace};
 }
 export function layoutUltimate(g:Ultimate,dir:{x:number;z:number}){
  const p=g.players[g.active];if(g.status!=='playing'||g.restartDelay||!p||g.active===g.holder||p.dive||p.recover)return;
@@ -65,18 +78,15 @@ export function layoutUltimate(g:Ultimate,dir:{x:number;z:number}){
  p.dive=.45;p.vx=x/d*560;p.vz=z/d*560;p.diveX=x/d;p.diveZ=z/d;p.action='dive';
 }
 function throwDisc(g:Ultimate,thrower:number,target:number,kind:ThrowKind='pass',curve=0){
- const a=g.players[thrower],b=g.players[target],{speed,peak,lead}=THROWS[kind],forward=teamOf(thrower)?-1:1,slow=curve?1.2:1;
- let T=Math.max(MIN_FLIGHT,Math.hypot(b.x-a.x,b.z-a.z)/speed)*slow;
- // Lead the receiver: throw to where they will be when the disc arrives (a huck goes further, into space).
- const to=clampField({x:b.x+b.vx*T+forward*lead,z:b.z+b.vz*T});T=Math.max(MIN_FLIGHT,Math.hypot(to.x-a.x,to.z-a.z)/speed)*slow;
- const fire=teamOf(thrower)===0&&g.specialArmed;if(fire){g.specialArmed=false;g.energy=0;T*=.75;say(g,'DISCO DE FOGO');}
+ const a=g.players[thrower],{peak}=THROWS[kind],fire=teamOf(thrower)===0&&g.specialArmed,{to,T}=landing(g,thrower,target,kind,curve,fire);
+ if(fire){g.specialArmed=false;g.energy=0;say(g,'DISCO DE FOGO');}
  g.flight={from:{x:a.x,z:a.z},to,t:0,T,kind,thrower,target,curve,peak,fire};g.holder=-1;g.stall=0;
  if(g.offense===1)g.active=nearest(g,0,to);
  if(g.offense===0)g.active=target;
 }
 const scores=(team:number,x:number)=>team?x<=END_LEFT:x>=END_RIGHT;
 function turnover(g:Ultimate,text:string){
- say(g,text);const team=1-g.offense,at=clampField(g.disc);g.flight=null;g.offense=team;g.ground=nearest(g,team,at);Object.assign(g.disc,{...at,y:FLOOR-4});g.cpuWait=.6;
+ say(g,text);const team=1-g.offense,at=clampField(g.disc);g.flight=null;g.holder=-1;g.holding=false;g.charge=0;g.offense=team;g.ground=nearest(g,team,at);g.active=team===0?g.ground:nearest(g,0,at);Object.assign(g.disc,{...at,y:FLOOR-4});g.cpuWait=.6;
 }
 function catchDisc(g:Ultimate,i:number){
  const team=teamOf(i),intercepted=team!==g.offense,dived=g.players[i].dive>0;give(g,i);
@@ -108,6 +118,7 @@ function stepFlight(g:Ultimate,dt:number){
 const DEFENCE_SPEED:Record<string,number>={Chill:270,Club:290,Pro:305};
 function aiGoal(g:Ultimate,i:number){
  const p=g.players[i],team=teamOf(i),f=g.flight,forward=g.offense?-1:1;
+ if(g.ground===i)return g.disc;
  if(f&&f.target===i)return f.to;
  // The closest defender reads the throw after a 0.35 s reaction.
  if(f&&team!==g.offense&&f.t>.35&&nearest(g,team,f.to)===i)return f.to;
@@ -147,12 +158,18 @@ export function stepUltimate(g:Ultimate,dt:number,input:UltimateInput,level:stri
   if(p.recover){p.recover=Math.max(0,p.recover-dt);if(!p.recover)p.action='idle';return;}
   if(i===g.holder){moveRunner(p,0,0,dt);p.x=g.disc.x;p.z=g.disc.z;return;}
   const speed=(teamOf(i)===g.offense?300:DEFENCE_SPEED[level]??290)*(g.onFire===teamOf(i)?1.15:1);
-  if(control&&!g.autopilot){moveRunner(p,input.x,input.z,dt,speed);return;}
-  const goal=g.ai?aiGoal(g,i):p,dx=goal.x-p.x,dz=goal.z-p.z,d=Math.hypot(dx,dz);
+  // Your receiver runs to the landing ring on its own until you steer; the picker always walks to the disc.
+  const steering=Math.hypot(input.x,input.z)>.2&&!(i===g.ground);
+  if(control&&!g.autopilot&&steering){moveRunner(p,input.x,input.z,dt,speed);return;}
+  if(control&&!g.autopilot&&!(g.flight?.target===i||g.ground===i)){moveRunner(p,0,0,dt,speed);return;}
+  const goal=g.ai||g.flight?.target===i&&teamOf(i)===0?aiGoal(g,i):p,dx=goal.x-p.x,dz=goal.z-p.z,d=Math.hypot(dx,dz);
   moveRunner(p,d>8?dx:0,d>8?dz:0,dt,speed);
  });
  if(g.flight){stepFlight(g,dt);return;}
- if(g.ground>=0){g.cpuWait=Math.max(0,g.cpuWait-dt);if(!g.cpuWait){const p=g.players[g.ground];p.x=g.disc.x;p.z=g.disc.z;give(g,g.ground);}return;}
+ if(g.ground>=0){
+  const p=g.players[g.ground];g.cpuWait=Math.max(0,g.cpuWait-dt);
+  // The picker walks to the disc and plays it from there (scripted tests without AI hand it over after the wait).
+  if(Math.hypot(p.x-g.disc.x,p.z-g.disc.z)<20||!g.ai&&!g.cpuWait){p.x=g.disc.x;p.z=g.disc.z;give(g,g.ground);}return;}
  if(g.holder>=0&&g.ai&&(g.offense===1||g.autopilot)){cpuThrow(g,dt);if(g.flight)return;}
  if(g.holder>=0){g.stall+=dt;if(g.stall>=STALL){Object.assign(g.disc,{y:FLOOR-4});g.offense=teamOf(g.holder);turnover(g,'STALL!');}}
 }

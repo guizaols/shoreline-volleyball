@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 import {project} from './court-projection';
 import {FLOOR} from './game';
-import {stepUltimate,throwTarget,END_LEFT,END_RIGHT,X_MIN,X_MAX,Z_MIN,Z_MAX,type Ultimate,type UltimateInput} from './ultimate';
+import {stepUltimate,throwPlan,END_LEFT,END_RIGHT,X_MIN,X_MAX,Z_MIN,Z_MAX,type Ultimate,type UltimateInput} from './ultimate';
 import {matchAudio} from './match-audio';
 import {bakeAthletes,addCrowd,athletePx,ATHLETE_SIZE,ATHLETE_FEET,ATHLETE_FRAMES} from './athlete-render';
 
@@ -66,7 +66,12 @@ export function mountUltimate(parent:HTMLElement,getGame:()=>Ultimate,input:()=>
    this.discShadow.setPosition(shadow.x,shadow.y).setAlpha(Math.max(.08,.3-(FLOOR-d.y)*.0006));
    const f=g.flight,land=f&&project(f.to.x,f.to.z);this.landing.setVisible(!!land);if(land)this.landing.setPosition(land.x,land.y);
    const mine=live&&g.holder>=0&&g.offense===0&&g.active===g.holder;this.aim.clear();this.aimRing.setVisible(mine);
-   if(mine){const target=throwTarget(g,input());if(target>=0){const a=project(d.x,d.z),b=project(g.players[target].x,g.players[target].z);this.aim.lineStyle(3,g.charge>=.65?0xff795d:0xffdb00,.8).lineBetween(a.x,a.y,b.x,b.y);this.aimRing.setPosition(b.x,b.y);}}
+   // The aim is the real throw (lib/ultimate.ts throwPlan): same landing spot, same bend.
+   const plan=mine?throwPlan(g,input(),'pass',g.charge>=.65):null;this.aimRing.setVisible(!!plan);
+   if(plan){
+    const dx=plan.to.x-d.x,dz=plan.to.z-d.z,len=Math.hypot(dx,dz)||1,points=Array.from({length:13},(_,k)=>{const u=k/12,bend=plan.curve*4*u*(1-u);return project(d.x+dx*u-dz/len*bend,d.z+dz*u+dx/len*bend);});
+    this.aim.lineStyle(3,plan.kind==='huck'?0xff795d:0xffdb00,.8).strokePoints(points,false);const end=project(plan.to.x,plan.to.z);this.aimRing.setPosition(end.x,end.y);
+   }
    // The stall count over the holder, as the marker would shout it.
    const holder=g.players[g.holder],top=holder&&project(holder.x,holder.z,holder.y-120);
    this.stall.setVisible(live&&!!holder&&g.stall>=1).setPosition(top?.x??0,top?.y??0).setText(`STALL ${Math.floor(g.stall)}`).setColor(g.stall>=7?'#ff6d56':'#ffffff');
