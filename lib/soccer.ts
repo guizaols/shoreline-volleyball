@@ -163,8 +163,9 @@ export function stepSoccer(g:Soccer,dt:number,input:BeachInput,level:string){
   if(own&&g.pendingKick){dx*=.25;dz*=.25;}
   if(own)p.preparation=human?g.charge:Math.min(.85,g.cpuWait*.5);else p.preparation=0;
   if(human&&input.jump&&!p.jumpHeld&&p.y===FLOOR&&p.action!=='dive'&&!(own&&trickSoccer(g,i)))p.vy=-390;p.jumpHeld=human&&input.jump;
-  // Rival style: defenders run more, a blocking side has a quicker keeper.
-  const speedLimit=human?295:keeper?(p.team&&g.cpuStyle==='block'?195:155):(level==='Chill'&&p.team?205:270)*(p.team&&g.cpuStyle==='defense'?1.1:1);
+  // Rival style: defenders run more, a blocking side has a quicker keeper. After the 0.22 s read, keepers spring
+  // toward a shot, so long shots get saved while close finishes still score.
+  const speedLimit=human?295:keeper?(g.shotAge>.22&&g.shotAge<.8&&(p.team?g.ball.vx>300:g.ball.vx<-300)?300:p.team&&g.cpuStyle==='block'?195:155):(level==='Chill'&&p.team?205:270)*(p.team&&g.cpuStyle==='defense'?1.1:1);
   if(p.tackleTime>0){dx=p.diveX;dz=p.diveZ;}
   moveRunner(p,dx,dz,dt,p.tackleTime>0?470:p.action==='dive'&&p.actionTime>0?speedLimit*.45:speedLimit);
   const speed=Math.hypot(p.vx,p.vz);if(speed>35){p.facingX=p.vx/speed;p.facingZ=p.vz/speed;}
