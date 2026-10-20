@@ -332,7 +332,7 @@ a.arcade-box:hover,a.arcade-box:focus-visible{box-shadow:6px 6px 0 #db2400;outli
 .sports-intro{font-family:var(--font-arcade-text),monospace;font-size:22px;color:#fff}
 .sport-card{border-radius:0;border:4px solid #fff;box-shadow:8px 8px 0 #1a1028;background:#1a1028;color:#fff}
 .sport-card:hover{transform:translate(-2px,-2px);border-color:#ffdb00;box-shadow:10px 10px 0 #db2400}
-.sport-volley{background:#0b6b5e}.sport-goal{background:#b5421f}.sport-footvolley{background:#2449b6}.sport-tennis{background:#5a3a9c}.sport-soccer{background:#3f6b1f}.sport-altinha{background:#9c4f00}
+.sport-volley{background:#0b6b5e}.sport-goal{background:#b5421f}.sport-footvolley{background:#2449b6}.sport-tennis{background:#5a3a9c}.sport-soccer{background:#3f6b1f}.sport-altinha{background:#9c4f00}.sport-ultimate{background:#0e6f8a}
 .sport-card-top>span{font-family:var(--font-arcade),monospace;font-weight:400;font-size:8px;letter-spacing:0;border:3px solid #fff;border-radius:0;background:#1a1028}
 /* VT323 for sport names: Press Start 2P has no capital Ô. */
 .sport-card h2{font-family:var(--font-arcade-text),monospace;font-weight:400;font-size:clamp(40px,5vw,60px);line-height:.9;letter-spacing:1px;color:#ffdb00;text-shadow:4px 4px 0 #1a1028}
