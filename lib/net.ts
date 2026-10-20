@@ -193,7 +193,8 @@ export function stepNet(g:NetMatch,dt:number,input:BeachInput,level:string){
   // offset (no dice roll), so rallies end instead of running forever (playtest 2026-10-19).
   const attack=human||g.lastTeam<0||g.lastTeam===p.team?0:g.rally===0?.1+(g.lastPerfect?.15:0)+(g.specialShot?.7:0):Math.min(1.4,(g.sport==='tennis'?.4:.25)+g.lastPower*.8+(g.lastPerfect?.5:0)+(g.specialShot?.8:0));
   // Slow balls (lobs, floaty sets) are easy to read whatever the power behind them.
-  const misread=attack*clamp((Math.hypot(g.ball.vx,g.ball.vz)-200)/350,.15,1.2)*(level==='Chill'?90:level==='Pro'?42:65);
+  // Fatigue: the longer the rally, the worse the read, so even two perfect defences cannot rally forever.
+  const misread=attack*clamp((Math.hypot(g.ball.vx,g.ball.vz)-200)/350,.15,1.2)*(level==='Chill'?90:level==='Pro'?42:65)*(1+Math.max(0,g.rally-(g.sport==='tennis'?20:12))/(level==='Pro'?30:12));
   const receiveX=clamp((aerial?airX+(p.team?1:-1)*(g.sport==='tennis'?56:12):guide.x)-g.ball.vx*prediction+Math.sin(g.contactSerial*12.9898+i*78.2)*misread,p.team?550:50,p.team?950:450);
   const receiveZ=clamp((aerial?landingZ(g,guide.height-65):guide.z)-g.ball.vz*prediction+Math.cos(g.contactSerial*4.1+i*3.7)*misread,35,415);
   const down=p.action==='dive'&&p.actionTime>0;
