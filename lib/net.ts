@@ -42,11 +42,16 @@ export function pressNet(g:NetMatch,input?:{x:number;z:number}){
  if(g.status!=='playing'||g.active<0)return;
  g.shotConsumed=false;g.charge=0;releaseNet(g,input);
 }
+// The touch that crosses the net: every beach tennis stroke, the 3rd futevôlei touch.
+export const attackTouch=(g:NetMatch)=>g.sport==='tennis'||g.lastTeam===0&&g.touches===2;
+// Where the direction held right now would send the shot (also drawn live as the aim marker).
+export const aimFor=(g:NetMatch,input:{x:number;z:number})=>({x:input.x>.2?890:input.x<-.2?610:g.aim.x,z:input.z>.2?370:input.z<-.2?80:g.aim.z});
 export function releaseNet(g:NetMatch,input?:{x:number;z:number}){
  if(g.status!=='playing'||g.active<0)return;
  if(g.shotConsumed){g.charge=0;return;}
- g.shotAimed=!!input&&(Math.abs(input.x)>.2||Math.abs(input.z)>.2);
- if(g.shotAimed&&input)setAim(g,input.x>.2?890:input.x<-.2?610:g.aim.x,input.z>.2?370:input.z<-.2?80:g.aim.z);
+ // Passes to the partner ignore the direction, so running to the ball does not move the aim.
+ g.shotAimed=!!input&&attackTouch(g)&&(Math.abs(input.x)>.2||Math.abs(input.z)>.2);
+ if(g.shotAimed&&input){const aim=aimFor(g,input);setAim(g,aim.x,aim.z);}
  g.shotCharge=g.charge;g.shotDrift=aimDrift(g.charge,g.clock);g.shotWindow=.32;g.charge=0;g.pressEta=netGuide(g).time;
 }
 // The human serve: the ball rises and the hit is timed at its peak (about .5 s after the toss).

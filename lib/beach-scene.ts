@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 import {project} from './court-projection';
 import {FLOOR,type Player} from './game';
-import {netGuide,stepNet,type NetMatch,type BeachInput} from './net';
+import {netGuide,stepNet,attackTouch,aimFor,type NetMatch,type BeachInput} from './net';
 import {stepSoccer,type Soccer} from './soccer';
 import {aimDrift,powerRisk} from './arcade';
 import {matchAudio} from './match-audio';
@@ -113,7 +113,7 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
    this.ballShadow.setPosition(shadow.x,shadow.y).setAlpha(Math.max(.08,.3-(FLOOR-b.y)*.0005));
    const power=g.shotWindow>0?g.shotCharge:g.charge,drift=g.shotWindow>0?g.shotDrift:aimDrift(power,g.clock);
    const aimedShot=g.sport==='soccer'&&(g.pendingKick==='shot'&&g.owner>=0&&g.owner<3||g.owner<0&&g.lastHit>=0&&g.lastHit<3&&/^(CHUTE|CANHÃO|COBERTURA)/.test(g.feedback));
-   const aim=project(g.aim.x,aimedShot&&g.sport==='soccer'?g.kickAimZ:g.aim.z+drift);this.aim.setPosition(aim.x,aim.y).setStrokeStyle(2,power>.65?0xff795d:0xffe385).setScale(1+powerRisk(power)*.7);
+   const live=g.sport!=='soccer'&&g.status==='playing'&&attackTouch(g)?aimFor(g,input()):g.aim,aim=project(live.x,aimedShot&&g.sport==='soccer'?g.kickAimZ:live.z+drift);this.aim.setPosition(aim.x,aim.y).setStrokeStyle(2,power>.65?0xff795d:0xffe385).setScale(1+powerRisk(power)*.7);
    const guide=g.sport==='soccer'?{x:g.ball.x,z:g.ball.z,team:0,time:1}:netGuide(g),landing=project(guide.x,guide.z);this.landing.setPosition(landing.x,landing.y).setVisible(g.status==='playing'&&guide.team===0).setStrokeStyle(guide.time<.32?3:2,guide.time<.32?0xffe385:0x7fe5da);
    const impact=project(g.impact.x,g.impact.z,g.impact.y);this.impact.setPosition(impact.x,impact.y).setVisible(g.hitFlash>0&&!reduced).setAlpha(g.hitFlash/.16).setScale(2-g.hitFlash/.16);
    if(g.contactSerial!==this.lastContact){
