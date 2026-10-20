@@ -104,6 +104,8 @@ export function mountBeach(parent:HTMLElement,getGame:()=>NetMatch|Soccer,input:
     if(key){
      const points=g.sport==='soccer'?[project(t.x,t.z-t.r),project(t.x,t.z+t.r),project(t.x,t.z+t.r,360),project(t.x,t.z-t.r,360)]:Array.from({length:32},(_,i)=>project(t.x+Math.cos(i*Math.PI/16)*t.r,t.z+Math.sin(i*Math.PI/16)*t.r));
      this.target.fillStyle(0xffdb00,.22).fillPoints(points,true).lineStyle(3,0xffdb00).strokePoints(points,true,true);
+     // The goal is seen side-on, so the lit corner also gets a patch of sand in front of it.
+     if(g.sport==='soccer'){const sand=[project(t.x-70,t.z-t.r),project(t.x,t.z-t.r),project(t.x,t.z+t.r),project(t.x-70,t.z+t.r)];this.target.fillStyle(0xffdb00,.3).fillPoints(sand,true).strokePoints(sand,true,true);}
     }
    }
    const b=g.ball,old=this.previous.ball,pos=project(lerp(old.x,b.x),lerp(old.z,b.z),lerp(old.y,b.y)),shadow=project(b.x,b.z);

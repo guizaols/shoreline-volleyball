@@ -6,7 +6,7 @@ import {teamNames} from './teams.ts';
 export const BEACH_TRAINING_KEY='shoreline-beach-training';
 export const DRILL_TRIES=5,DRILL_GOAL=3;
 export const beachDrills=(soccer:boolean)=>soccer?[
- {name:'Arrancada',hint:'Faça o gol em até 4 segundos'},
+ {name:'Arrancada',hint:'Faça o gol em até 3,5 segundos'},
  {name:'Alvos no gol',hint:'Chute no canto aceso (direcional ↑/↓)'},
  {name:'Tabela',hint:'Passe com B e finalize de primeira com A'},
  {name:'Paredão',hint:'Você é o goleiro: não deixe a bola entrar'},

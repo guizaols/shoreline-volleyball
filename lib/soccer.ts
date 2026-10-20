@@ -252,7 +252,7 @@ function soccerBoundary(g:Soccer,old:Soccer['ball']){
   const winner=right?0:1,scored=z>=150&&z<=300&&y>=355;
   if(g.drill>=0){
    const t=g.drillTarget;
-   drillTry(g,g.drill===3?!scored:scored&&right&&(g.drill===0?g.drillTime<=4:g.drill===1?Math.abs(z-t.z)<=t.r:g.drill===2?g.timing!==null:true));
+   drillTry(g,g.drill===3?!scored:scored&&right&&(g.drill===0?g.drillTime<=3.5:g.drill===1?Math.abs(z-t.z)<=t.r:g.drill===2?g.timing!==null:true));
    return;
   }
   if(scored){g.energy[winner]=Math.min(100,g.energy[winner]+20);g.combo[1-winner]=0;g.comboTime[1-winner]=0;g.score[winner]++;restart(g,1-winner,winner===0?'GOL! Saída da Praia.':'Gol da Praia. Sua saída.');if(g.score[winner]>=5)g.status='over';}

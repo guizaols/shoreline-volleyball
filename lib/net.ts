@@ -96,7 +96,7 @@ export function serveNet(g:NetMatch,quality?:number){
 // Training targets on the CPU side (lib/beach-training.ts drill order: speed, power, net, spin).
 function netTarget(g:NetMatch){
  const n=g.drillTries;
- g.drillTarget=[{x:775,z:225,r:120},{x:880,z:n%2?80:370,r:75},{x:600,z:n%2?120:330,r:75},{x:n%4<2?880:620,z:n%2?370:80,r:60}][g.drill];
+ g.drillTarget=[{x:775,z:225,r:95},{x:880,z:n%2?80:370,r:60},{x:600,z:n%2?120:330,r:60},{x:n%4<2?880:620,z:n%2?370:80,r:48}][g.drill];
 }
 export function startNetDrill(g:NetMatch,drill:number){g.drill=drill;g.drillTries=0;g.drillHits=0;g.server=1;g.status='ready';netTarget(g);}
 function drillPoint(g:NetMatch,reason:string){
