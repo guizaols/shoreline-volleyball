@@ -3,11 +3,14 @@ import Link from 'next/link';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import TouchControls from '../TouchControls';
 import {createUltimate,startUltimate,pressUltimate,releaseUltimate,pauseUltimate,layoutUltimate,armUltimateSpecial,STALL,type Ultimate as Game} from '../../lib/ultimate';
+import {rivals} from '../../lib/rivals';
 import {BEACH_PROGRESS_KEY,readBeachProgress,recordBeachMatch} from '../../lib/beach-progress';
 
+// The first rival is fixed so server and browser renders match (hydration); each new match draws a random one.
+const fresh=(pick=Math.floor(Math.random()*rivals.length))=>createUltimate({rival:rivals[pick]});
 export default function Ultimate(){
- const game=useRef<Game>(createUltimate()),host=useRef<HTMLDivElement>(null),keys=useRef(new Set<string>()),stick=useRef({x:0,z:0}),level=useRef('Club');
- const [view,setView]=useState(()=>createUltimate()),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[tools,setTools]=useState(false),[notes,setNotes]=useState<string[]>([]);
+ const game=useRef<Game>(fresh(0)),host=useRef<HTMLDivElement>(null),keys=useRef(new Set<string>()),stick=useRef({x:0,z:0}),level=useRef('Club');
+ const [view,setView]=useState(()=>fresh(0)),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[tools,setTools]=useState(false),[notes,setNotes]=useState<string[]>([]);
  const recorded=useRef(new WeakSet<object>());
  const sync=useCallback(()=>{
   const g=game.current;
@@ -20,7 +23,7 @@ export default function Ultimate(){
  },[]);
  const movement=useCallback(()=>({x:stick.current.x+Number(keys.current.has('d')||keys.current.has('arrowright'))-Number(keys.current.has('a')||keys.current.has('arrowleft')),z:stick.current.z+Number(keys.current.has('s')||keys.current.has('arrowdown'))-Number(keys.current.has('w')||keys.current.has('arrowup'))}),[]);
  const clear=useCallback(()=>{keys.current.clear();stick.current={x:0,z:0};game.current.holding=false;game.current.charge=0;},[]);
- const start=useCallback(()=>{clear();setNotes([]);game.current=createUltimate();startUltimate(game.current);sync();},[clear,sync]);
+ const start=useCallback(()=>{clear();setNotes([]);if(game.current.status!=='ready')game.current=fresh();startUltimate(game.current);sync();},[clear,sync]);
  const pause=useCallback(()=>{clear();pauseUltimate(game.current);sync();},[clear,sync]);
  const press=useCallback((key:string)=>{keys.current.add(key);pressUltimate(game.current);sync();},[sync]);
  const release=useCallback((key:string,kind:'pass'|'hammer',cancelled=false)=>{
@@ -52,13 +55,14 @@ export default function Ultimate(){
  return <main className={`arcade-app beach-match mobile-game ${tools?'mobile-tools-open':''} ${live?'match-live':''}`}>
   <section className="game-shell">
    <button className="mobile-tools-toggle" aria-label="Opções da partida" aria-expanded={tools} onClick={()=>setTools(!tools)}>{tools?'Fechar ×':'☰'}</button><Link className="mobile-exit" href="/">Escolher esporte</Link>
-   <div className="game-toolbar"><strong>ULTIMATE · 5 × 5</strong><div className="tools"><Link href="/">Esportes</Link><button onClick={pause} disabled={!['playing','paused'].includes(view.status)}>{view.status==='paused'?'Continuar':'Pausar'}</button><button onClick={()=>{clear();game.current=createUltimate();sync();}}>Reiniciar</button><label>Dificuldade <select defaultValue="Club" onChange={e=>{level.current=e.target.value;}}><option value="Chill">Tranquilo</option><option value="Club">Clube</option><option value="Pro">Profissional</option></select></label></div></div>
+   <div className="game-toolbar"><strong>ULTIMATE · 5 × 5</strong><div className="tools"><Link href="/">Esportes</Link><button onClick={pause} disabled={!['playing','paused'].includes(view.status)}>{view.status==='paused'?'Continuar':'Pausar'}</button><button onClick={()=>{clear();game.current=fresh();sync();}}>Reiniciar</button><label>Dificuldade <select defaultValue="Club" onChange={e=>{level.current=e.target.value;}}><option value="Chill">Tranquilo</option><option value="Club">Clube</option><option value="Pro">Profissional</option></select></label></div></div>
    <div className="court"><figure ref={host} className="phaser-court" aria-label="Campo de ultimate. WASD move e mira, J passa (segure para huck), F hammer, espaço mergulha, K Disco de Fogo, P pausa."/>
-    <div className="scoreboard"><div>VOCÊ <b>{view.score[0]}</b></div><span>:</span><div><b>{view.score[1]}</b> PRAIA</div><small>ATÉ {view.goal} · {holding?`STALL ${Math.floor(view.stall)} DE ${STALL}`:defending?'DEFESA':'ATAQUE'}{view.onFire>=0?` · ${view.onFire?'PRAIA':'VOCÊ'} EM CHAMAS`:''}</small></div>
+    <div className="scoreboard"><div>VOCÊ <b>{view.score[0]}</b></div><span>:</span><div><b>{view.score[1]}</b> {view.rivalName}</div><small>ATÉ {view.goal} · {holding?`STALL ${Math.floor(view.stall)} DE ${STALL}`:defending?'DEFESA':'ATAQUE'}{view.onFire>=0?` · ${view.onFire?view.rivalName:'VOCÊ'} EM CHAMAS`:''}</small></div>
     {(!loaded||error||!live)&&!(view.status==='playing'&&view.restartDelay)&&<div className="overlay"><div className="start-card">
      <span className="mini-label">SHORELINE · ULTIMATE</span>
      <h2>{error||(!loaded?'Preparando o campo…':view.status==='over'?(view.score[0]>view.score[1]?'Seu time venceu!':'Boa partida!'):view.status==='paused'?'Partida pausada':'Um disco. Cinco contra cinco.')}</h2>
      {view.status==='over'?<>{notes.map(n=><p key={n} className="progress-note">{n}</p>)}</>:view.status==='ready'&&<>
+      <p className="progress-note">Contra {view.rivalName}: {view.rivalHint}</p>
       <p>Com o disco você não anda: mire com a direção e lance antes do STALL chegar a {STALL}. Pegue o disco dentro da zona vermelha para marcar.</p>
       <p>J passa · segure J para o huck (longe e alto) · F hammer por cima da defesa · mire um pouco ao lado para curvar · espaço mergulha (layout) · K solta o Disco de Fogo.</p>
      </>}
@@ -74,7 +78,7 @@ export default function Ultimate(){
    </div>
    <TouchControls onMove={(x,z)=>{stick.current={x,z};}} onPress={()=>press('touch')} onRelease={cancelled=>release('touch','pass',cancelled)} onAim={special} onJump={held=>{if(held)layout();}} onAlternate={()=>{press('hammer');release('hammer','hammer');}} alternateLabel="Hammer" label={holding?'Lançar':'Correr'} charge={view.charge} enabled={loaded&&!error&&live} jumpLabel="LAYOUT"/>
    <div className="game-bottom"><span>WASD mover e mirar · J passe (segure = huck) · F hammer · Espaço layout · K Disco de Fogo · P pausa</span></div>
-   <span className="sr-only" aria-live="polite">Você {view.score[0]}, Praia {view.score[1]}.</span>
+   <span className="sr-only" aria-live="polite">Você {view.score[0]}, {view.rivalName} {view.score[1]}.</span>
   </section>
  </main>;
 }

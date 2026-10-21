@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {rivals} from './rivals.ts';
 import {createUltimate,startUltimate,stepUltimate,pressUltimate,releaseUltimate,pauseUltimate,layoutUltimate,armUltimateSpecial,throwTarget,throwPlan,END_LEFT,END_RIGHT,type Ultimate} from './ultimate.ts';
 
 const DT=1/120,still={x:0,z:0,jump:false};
@@ -113,4 +114,9 @@ assert.ok(wins[0]>=1&&wins[1]>=1,`wins ${wins}`);
 {const g=createUltimate({ai:false});startUltimate(g);place(g,{0:[300,225],2:[480,150]});g.players[2].vz=250;g.energy=100;armUltimateSpecial(g);
  const plan=throwPlan(g,toward(g,0,2),'pass',false)!;pass(g,2);assert.deepEqual(g.flight!.to,plan.to);assert.ok(g.flight!.fire);}
 
-console.log('Passed: ultimate core, throws, layouts, Callahan, CPU, streaks, the special and aim fixes.');
+// A rival names the CPU side; a blocking rival stands closer on your thrower than the default mark.
+{const markGap=(style:string)=>{const g=createUltimate({rival:rivals.find(r=>r.style===style)});startUltimate(g);run(g,2);return g.players[5].x-g.players[0].x;};
+ const g=createUltimate({rival:rivals[1]});assert.equal(g.rivalName,'MURALHA');assert.ok(g.rivalHint);assert.equal(createUltimate().rivalName,'PRAIA');
+ assert.ok(markGap('block')<markGap('attack')-5,`block ${markGap('block')} attack ${markGap('attack')}`);}
+
+console.log('Passed: ultimate core, throws, layouts, Callahan, CPU, streaks, the special and aim fixes, rivals.');

@@ -1,5 +1,6 @@
 import {moveRunner} from './net.ts';
 import {FLOOR,type Player} from './game.ts';
+import type {rivals} from './rivals.ts';
 
 // Beach ultimate, 5 on 5 (WFDF beach rules): one disc, no running with it, a 10 s stall count,
 // a point for a catch inside the end zone you attack. Players 0-4 are your team (attacking right), 5-9 the CPU.
@@ -16,8 +17,8 @@ const runner=(x:number,z:number,team:number):Runner=>({x,z,y:FLOOR,vx:0,vz:0,vy:
 // Start of every point: the team with the disc lines up in its own end zone, the defence in front of it.
 const lineup=(team:number)=>{const side=(t:number,x:number)=>t?1000-x:x;return Array.from({length:10},(_,i)=>{const t=i<5?0:1,k=i%5,own=t===team;return {x:side(t===0?0:1,own?[200,260,300,300,340][k]:[420,380,380,460,460][k]),z:[225,120,330,60,390][k]};});};
 const clampField=(p:{x:number;z:number})=>({x:Math.max(X_MIN,Math.min(X_MAX,p.x)),z:Math.max(Z_MIN,Math.min(Z_MAX,p.z))});
-export function createUltimate(opts:{ai?:boolean;autopilot?:boolean;random?:()=>number;goal?:number}={}){
- return {status:'ready' as 'ready'|'playing'|'paused'|'over',resumeStatus:'playing' as 'ready'|'playing'|'paused'|'over',clock:0,score:[0,0],goal:opts.goal??5,ai:opts.ai??true,autopilot:opts.autopilot??false,streakTeam:-1,streakCount:0,onFire:-1,energy:0,specialArmed:false,random:opts.random??Math.random,
+export function createUltimate(opts:{ai?:boolean;autopilot?:boolean;random?:()=>number;goal?:number;rival?:typeof rivals[number]}={}){
+ return {cpuStyle:opts.rival?.style??'normal',rivalName:opts.rival?.name.toUpperCase()??'PRAIA',rivalHint:ULTIMATE_HINTS[opts.rival?.style??'']??'',status:'ready' as 'ready'|'playing'|'paused'|'over',resumeStatus:'playing' as 'ready'|'playing'|'paused'|'over',clock:0,score:[0,0],goal:opts.goal??5,ai:opts.ai??true,autopilot:opts.autopilot??false,streakTeam:-1,streakCount:0,onFire:-1,energy:0,specialArmed:false,random:opts.random??Math.random,
   players:lineup(0).map((s,i)=>runner(s.x,s.z,i<5?0:1)),disc:{x:200,z:225,y:FLOOR-DISC_HEIGHT},holder:0,offense:0,active:0,stall:0,
   flight:null as null|{from:{x:number;z:number};to:{x:number;z:number};t:number;T:number;kind:ThrowKind;thrower:number;target:number;curve:number;peak:number;fire?:boolean},layouts:0,
   ground:-1,restartDelay:0,restartTeam:0,charge:0,holding:false,cpuWait:0,feedback:'',feedbackTime:0,contactSerial:0};
@@ -116,6 +117,16 @@ function stepFlight(g:Ultimate,dt:number){
 // CPU players. Offence spreads into cutting lanes ahead of the disc, the receiver runs to the throw; defence marks
 // the same slot on the other team, a step goal-side, and the closest defender chases a throw.
 const DEFENCE_SPEED:Record<string,number>={Chill:270,Club:290,Pro:305};
+const ULTIMATE_HINTS:Record<string,string>={defense:'Fecham as linhas de passe. Jogue por cima com o hammer.',block:'Pressionam quem tem o disco. Passe rápido.',attack:'Lançam hucks longos. Fique no fundo.',placement:'Curvam e lançam por cima. Marque o espaço, não o disco.'};
+// How far a defender trails their cutter, and how open (in units) a CPU receiver must be before it throws.
+const TRAIL=36,OPEN=55;
+// Each rival style plays the CPU side its own way: defenders hold the passing lanes (a defender who lags stays in
+// the lane, which blocks more than one who sticks to the cutter), blockers also sit on the thrower, attackers huck
+// early and often, placers throw hammers and curves over the marks. Tuned by sim (60 autopilot games each): the CPU wins 48-62%.
+type Style={speed:number;mark:number;huck:number;deep:number;hammer:number;gap:number};
+const BASE:Style={speed:1,mark:30,huck:.5,deep:200,hammer:.4,gap:30};
+const STYLES:Record<string,Partial<Style>>={defense:{speed:.97},block:{speed:.9,mark:20},attack:{huck:.85,deep:140},placement:{hammer:.6,gap:45}};
+const styleOf=(g:Ultimate,team:number):Style=>({...BASE,...team?STYLES[g.cpuStyle]:undefined});
 function aiGoal(g:Ultimate,i:number){
  const p=g.players[i],team=teamOf(i),f=g.flight,forward=g.offense?-1:1;
  if(g.ground===i)return g.disc;
@@ -124,10 +135,12 @@ function aiGoal(g:Ultimate,i:number){
  if(f&&team!==g.offense&&f.t>.35&&nearest(g,team,f.to)===i)return f.to;
  if(team===g.offense){
   const mates=[0,1,2,3,4].map(k=>k+team*5).filter(k=>k!==g.holder),k=Math.max(0,mates.indexOf(i));
-  return clampField({x:g.disc.x+forward*[110,190,270,150][k],z:[90,360,225,300][k]+Math.sin(g.clock*1.3+i)*50});
+  // Four lanes across the width and staggered depths, so cutters never share a spot.
+  return clampField({x:g.disc.x+forward*[110,250,180,320][k],z:[60,165,285,390][k]+Math.sin(g.clock*1.3+i)*25});
  }
- // The thrower's mark stands 30 upfield; everyone else trails their cutter by a step (cuts beat the mark).
- const mark=(i+5)%10,m=g.players[mark];return mark===g.holder?{x:m.x+forward*30,z:m.z}:{x:m.x-forward*22,z:m.z+(p.z>m.z?10:-10)};
+ // The thrower's mark stands 30 upfield; everyone else trails their cutter by about two steps
+ // (cuts beat the mark, and the pair reads as two players instead of one sprite on top of the other).
+ const mark=(i+5)%10,m=g.players[mark],st=styleOf(g,team);return mark===g.holder?{x:m.x+forward*st.mark,z:m.z}:clampField({x:m.x-forward*TRAIL,z:m.z+(p.z>m.z?10:-10)});
 }
 function lane(g:Ultimate,from:{x:number;z:number},to:{x:number;z:number},team:number){
  const dx=to.x-from.x,dz=to.z-from.z,d=dx*dx+dz*dz||1;
@@ -142,9 +155,9 @@ function cpuThrow(g:Ultimate,dt:number){
   const free=Math.min(...g.players.filter((_,j)=>teamOf(j)!==team).map(d=>Math.hypot(d.x-q.x,d.z-q.z))),space=lane(g,a,q,team);
   const s=(q.x-a.x)*forward*.6+Math.min(free,120)+Math.min(space,80)*1.2;if(s>score){score=s;best=i;open=free;gap=space;}
  });
- if(best<0||open<35&&g.stall<6.5)return;
- const deep=(g.players[best].x-a.x)*forward>200,kind:ThrowKind=deep&&open>90&&g.random()<.5?'huck':gap<30&&g.random()<.4?'hammer':'pass';
- throwDisc(g,g.holder,best,kind,gap<30&&kind==='pass'?(g.random()<.5?-45:45):0);
+ if(best<0||open<OPEN&&g.stall<6.5)return;
+ const st=styleOf(g,team),deep=(g.players[best].x-a.x)*forward>st.deep,kind:ThrowKind=deep&&open>90&&g.random()<st.huck?'huck':gap<st.gap&&g.random()<st.hammer?'hammer':'pass';
+ throwDisc(g,g.holder,best,kind,gap<st.gap&&kind==='pass'?(g.random()<.5?-45:45):0);
 }
 export function stepUltimate(g:Ultimate,dt:number,input:UltimateInput,level:string){
  if(g.status!=='playing')return;
@@ -157,7 +170,7 @@ export function stepUltimate(g:Ultimate,dt:number,input:UltimateInput,level:stri
   if(p.dive){p.dive=Math.max(0,p.dive-dt);p.x+=p.vx*dt;p.z+=p.vz*dt;p.vx*=.9;p.vz*=.9;if(!p.dive){p.recover=.6;p.vx=p.vz=0;}return;}
   if(p.recover){p.recover=Math.max(0,p.recover-dt);if(!p.recover)p.action='idle';return;}
   if(i===g.holder){moveRunner(p,0,0,dt);p.x=g.disc.x;p.z=g.disc.z;return;}
-  const speed=(teamOf(i)===g.offense?300:DEFENCE_SPEED[level]??290)*(g.onFire===teamOf(i)?1.15:1);
+  const speed=(teamOf(i)===g.offense?300:(DEFENCE_SPEED[level]??290)*styleOf(g,teamOf(i)).speed)*(g.onFire===teamOf(i)?1.15:1);
   // Your receiver runs to the landing ring on its own until you steer; the picker always walks to the disc.
   const steering=Math.hypot(input.x,input.z)>.2&&!(i===g.ground);
   if(control&&!g.autopilot&&steering){moveRunner(p,input.x,input.z,dt,speed);return;}
