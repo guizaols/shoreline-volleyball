@@ -82,7 +82,7 @@ export function mountUltimate(parent:HTMLElement,getGame:()=>Ultimate,input:()=>
     this.lastFeedback=g.feedback;
    }
    const score=g.score.join(',');if(score!==this.lastScore){if(this.lastScore){sound.play('point');this.cheer=1.6;if(!reduced)this.cameras.main.shake(140,.004);}this.lastScore=score;}
-   this.cheer=Math.max(0,this.cheer-dt);this.crowd(this.cheer>0,g.clock);
+   this.cheer=Math.max(0,this.cheer-dt);this.crowd(this.cheer>0,g.clock);sound.moves(g.players,g.active);
    const view=`${g.status}:${g.restartDelay>0}:${g.score.join(',')}:${g.holder}:${g.active}:${Math.floor(g.stall)}:${g.feedback}:${g.feedbackTime>0}:${Math.floor(g.charge*10)}:${Math.floor(g.energy)}:${g.specialArmed}:${g.onFire}`;
    if(view!==this.lastView){this.lastView=view;changed();}
   }

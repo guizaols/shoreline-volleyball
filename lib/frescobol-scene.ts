@@ -85,7 +85,7 @@ export function mountFrescobol(parent:HTMLElement,getGame:()=>Frescobol,input:()
     if(g.feedback==='CAIU!')sound.play('point');
     this.lastFeedback=g.feedback;
    }
-   this.cheer=Math.max(0,this.cheer-dt);this.crowd(this.cheer>0,g.clock);
+   this.cheer=Math.max(0,this.cheer-dt);this.crowd(this.cheer>0,g.clock);sound.moves(g.players,0);
    const me=g.players[0],above=project(me.x,me.z,FLOOR-130);
    this.meter(above.x,above.y,g.timing!==null&&g.feedbackTime>.4&&g.hitter===0?g.timing:null,this.lastWindow);
    const view=`${g.status}:${Math.ceil(g.timeLeft)}:${g.score}:${g.sequence}:${Math.floor(g.rhythm)}:${g.pancada>0}:${g.feedback}:${g.feedbackTime>0}:${g.receiver}:${Math.floor(g.charge*10)}`;

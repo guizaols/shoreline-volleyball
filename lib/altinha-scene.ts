@@ -101,7 +101,7 @@ export function mountAltinha(parent:HTMLElement,getGame:()=>Altinha,input:()=>Al
     if(g.feedback==='CAIU!')sound.play('point');
     this.lastFeedback=g.feedback;
    }
-   this.cheer=Math.max(0,this.cheer-delta/1000);this.crowd(this.cheer>0,g.clock);
+   this.cheer=Math.max(0,this.cheer-delta/1000);this.crowd(this.cheer>0,g.clock);sound.moves(g.players,0);
    const me=g.players[0],above=project(me.x,me.z,me.y-112);
    this.meter(above.x,above.y,g.timing!==null&&g.feedbackTime>.4&&g.holder===0?g.timing:null,trickWindow(g.lastTrick));
    const view=`${g.status}:${Math.ceil(g.timeLeft)}:${g.rodaScore}:${g.individual.join(',')}:${g.combo[0]}:${Math.floor(g.style)}:${g.gamebreaker>0}:${g.feedback}:${g.feedbackTime>0}:${g.receiver}:${Math.floor(g.charge*10)}`;

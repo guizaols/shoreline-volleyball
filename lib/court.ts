@@ -158,7 +158,7 @@ export function mountCourt(parent: HTMLElement, getGame: () => Game, keys: Set<s
           this.time.delayedCall(520,()=>{this.banner.setVisible(false);this.dim.setVisible(false);});
         }
       }
-      this.cheer=Math.max(0,this.cheer-delta/1000);this.crowd(this.cheer>0,g.clock);
+      this.cheer=Math.max(0,this.cheer-delta/1000);this.crowd(this.cheer>0,g.clock);sound.moves(g.players,g.active);
       const score=g.score.join(',');if(score!==this.lastScore){if(this.lastScore&&score!=='0,0'){sound.play('point');this.cheer=1.4;}this.lastScore=score;}
       const hitter=g.players[g.lastHit],above=hitter&&project(hitter.x,hitter.z,hitter.y-112);
       this.meter(above?.x??0,above?.y??0,g.timing!==null&&g.feedbackTime>1.1&&hitter?.team===0?g.timing:null);
